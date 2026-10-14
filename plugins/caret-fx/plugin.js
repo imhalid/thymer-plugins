@@ -11,10 +11,10 @@
  * They are off until chosen in the "Caret FX: set preset…" dialog: Motion smear is a switch there (with the block
  * cursor); Fresh ink, Bracket tether and Back-man are special presets, like Lightning and the falling petals.
  *
- * Three special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
- * (plus-shaped glints that twinkle on the caret, like a gem), Prism (a holographic shimmer: a glass prism on the caret
- * that fans out the colors of the spectrum as you write) and Health (pluses floating up as you write, as if you were
- * gaining health). Pick them in "Caret FX: set preset…" under Special.
+ * Four special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
+ * (tiny star glints that twinkle on the caret, like a gem), Prism (two crescents of spectrum flanking the caret, light
+ * through a lens), Health (thin pluses and beams of light floating up as you write, as if you were gaining health) and Zephyr (an anime-style wind skill: cel-shaded ribbons of wind swooping round the caret, speed
+ * lines and swept-up leaves). Pick them in "Caret FX: set preset…" under Special.
  *
  * Scope: the Thymer editor only. The plugin follows Thymer's own caret element
  * (div.listview-caret-self) and never touches the command palette, rename fields,
@@ -1509,7 +1509,7 @@ EFFECTS.backman = {
 };
 
 // =====================================================================================
-// SPECIAL PRESETS ORIGINAL TO CARET FX: Holy, Prism, Health
+// SPECIAL PRESETS ORIGINAL TO CARET FX: Holy, Prism, Health, Zephyr
 //
 // Written for this plugin, not ported. They are special presets like Sakura and Lightning: each brings its own colors and
 // is picked in the preset dialog's Special grid (or by "next preset"), one at a time. Like the falling petals they
@@ -1923,6 +1923,190 @@ EFFECTS.health = {
 		if (now < (pv.healthNext || 0)) return;
 		pv.healthNext = now + 1100;
 		healPlus(pv, caret, now, false);
+	},
+};
+
+// ---- Effect: Zephyr ------------------------------------------------------------------------------------------------
+// An anime-style wind skill, the kind a game plays when a character calls the wind. Every letter calls a ribbon of wind
+// that swoops round the caret - drawn cel-shaded, a hard dark rim, a mint body and a white core, fat at its head and
+// drawn out to a point behind - while it chases its own tail away. Thin speed lines streak back from the caret, and pointed
+// leaves caught in the gust are swept round it and off behind, fluttering. A new line or a jump is a full gust: three
+// ribbons, a burst of speed lines and a swirl of leaves.
+// Settings: zephyrSize (1 is normal).
+const ZEPHYR_RIBBON_MS = [700, 1000];   // how long one ribbon lives: the shortest and the longest
+const ZEPHYR_RIBBONS_MAX = 6;           // the most ribbons alive at once
+const ZEPHYR_GAP_MS = 110;              // the least time between two gusts, so a fast typist does not bury the page in them
+const ZEPHYR_LEAVES_MAX = 10;           // the most leaves alive at once
+const ZEPHYR_LEAF_MS = [1500, 2400];    // how long a leaf is in the air
+const ZEPHYR_STREAKS_MAX = 5;           // the most speed lines alive at once
+const ZEPHYR_STREAK_MS = 420;           // how long a speed line lasts
+const ZEPHYR_STEPS = 28;                // the points a ribbon is drawn through
+const ZEPHYR_GLOW_MS = 420;             // how long the soft glow a gust leaves on the caret lasts
+
+const easeInCubic = (t) => t * t * t;
+
+/** Where a ribbon is at `s` (0..1) along its spiral round (cx, cy): out wider than tall, drifting outward as it turns. Pure. */
+function zephyrPoint(q, cx, cy, h, s) {
+	const ang = q.a0 + q.dir * q.sweep * s, rho = lerp(q.r0, q.r1, s) * h;
+	return { x: cx + Math.cos(ang) * rho * 1.35, y: cy + Math.sin(ang) * rho * 0.8 };
+}
+
+/** Fills a ribbon through `pts`, `w` wide at its fattest: round at the head (the end of `pts`), drawn out to a point at the tail. */
+function fillRibbon(ctx, pts, w) {
+	const n = pts.length - 1, left = [], right = [];
+	for (let i = 0; i <= n; i++) {
+		const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)];
+		const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+		const u = i / n, half = w * Math.pow(Math.sin(Math.PI * Math.pow(u, 1.6)), 0.9);   // fattest about two thirds of the way to the head
+		left.push({ x: pts[i].x - (dy / len) * half, y: pts[i].y + (dx / len) * half });
+		right.push({ x: pts[i].x + (dy / len) * half, y: pts[i].y - (dx / len) * half });
+	}
+	ctx.beginPath();
+	ctx.moveTo(left[0].x, left[0].y);
+	for (let i = 1; i <= n; i++) ctx.lineTo(left[i].x, left[i].y);
+	for (let i = n; i >= 0; i--) ctx.lineTo(right[i].x, right[i].y);
+	ctx.closePath();
+	ctx.fill();
+}
+
+/** The outline of a pointed leaf `len` from its middle to each tip and `wid` out to each side. */
+function traceLeaf(ctx, len, wid) {
+	ctx.beginPath();
+	ctx.moveTo(-len, 0);
+	ctx.quadraticCurveTo(-len * 0.15, -wid, len, 0);
+	ctx.quadraticCurveTo(-len * 0.15, wid, -len, 0);
+	ctx.closePath();
+}
+
+/** The item that holds the wind of `host` (the plugin, or the dialog's preview). */
+function zephyrOf(host) {
+	const item = host.ensureItem('zephyr');
+	if (!item.ribbons) { item.ribbons = []; item.leaves = []; item.streaks = []; item.lastAt = 0; item.glowAt = -1e9; item.flip = 1; }
+	return item;
+}
+
+/** Calls the wind at the caret `rect`: a ribbon, a speed line and now and then a leaf; a full gust for `big`. */
+function callZephyr(host, rect, big, now) {
+	const item = zephyrOf(host);
+	item.glowAt = now;
+	if (!big && now - item.lastAt < ZEPHYR_GAP_MS) return;
+	item.lastAt = now;
+	for (let i = 0; i < (big ? 3 : 1) && item.ribbons.length < ZEPHYR_RIBBONS_MAX; i++) {
+		item.flip = -item.flip;   // each ribbon turns the other way from the last
+		item.ribbons.push({
+			a0: Math.PI + (Math.random() - 0.5) * 2.4 + i * 2.1, dir: item.flip, sweep: Math.PI * (0.85 + Math.random() * 0.35),
+			r0: 0.55 + Math.random() * 0.2, r1: 1.05 + Math.random() * 0.45, wid: 0.14 + Math.random() * 0.05,
+			t0: now + i * 90, life: lerp(ZEPHYR_RIBBON_MS[0], ZEPHYR_RIBBON_MS[1], Math.random()),
+		});
+	}
+	for (let i = 0; i < (big ? 3 : 1) && item.streaks.length < ZEPHYR_STREAKS_MAX; i++) {
+		item.streaks.push({ dy: (Math.random() - 0.5) * rect.h * 0.8, len: 9 + Math.random() * 16, t0: now + i * 50, life: ZEPHYR_STREAK_MS });
+	}
+	const leaves = big ? 5 : Math.random() < 0.45 ? 1 : 0;
+	for (let i = 0; i < leaves && item.leaves.length < ZEPHYR_LEAVES_MAX; i++) {
+		item.leaves.push({
+			a0: Math.random() * Math.PI * 2, dir: Math.random() < 0.5 ? -1 : 1, turns: 0.9 + Math.random() * 0.8,
+			r0: 0.4 + Math.random() * 0.3, r1: 0.9 + Math.random() * 0.7, size: 0.2 + Math.random() * 0.14,
+			phase: Math.random() * 6.28, rise: (Math.random() - 0.3) * 0.6, t0: now + i * 40, life: lerp(ZEPHYR_LEAF_MS[0], ZEPHYR_LEAF_MS[1], Math.random()),
+		});
+	}
+}
+
+function drawZephyr(plugin, ctx, item, now, k) {
+	const alive = (q) => now - q.t0 < q.life;
+	item.ribbons = item.ribbons.filter(alive); item.leaves = item.leaves.filter(alive); item.streaks = item.streaks.filter(alive);
+	const glow = (now - item.glowAt) / ZEPHYR_GLOW_MS;
+	if (!item.ribbons.length && !item.leaves.length && !item.streaks.length && glow >= 1) { item.done = true; return; }
+	const rect = plugin.last;
+	if (!rect) return;
+	const dark = plugin.dark, h = Math.max(rect.h, 16), cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
+	const size = (plugin.cfg.zephyrSize ?? 1) * (0.9 + 0.15 * Math.min(k, 1.6)), power = Math.min(1, 0.7 + 0.3 * k);
+	const body = plugin.col(), rim = plugin.acc(), core = dark ? '#ffffff' : lighten(body, 0.75);
+	ctx.save();
+
+	if (glow < 0) { /* a gust still to come */ } else if (glow < 1) {   // a soft glow where the wind is called
+		const r = h * (0.9 + 0.5 * glow), g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+		g.addColorStop(0, rgba(body, 0.3 * power * (1 - glow) * (1 - glow)));
+		g.addColorStop(1, rgba(body, 0));
+		ctx.fillStyle = g;
+		ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+	}
+
+	for (const q of item.streaks) {   // speed lines: thin, straight back from the caret, sliding away as they fade
+		const f = (now - q.t0) / q.life;
+		if (f < 0) continue;
+		const head = cx - 5 - 18 * easeOutCubic(f), tail = head - q.len * (1 - 0.4 * f), y = cy + q.dy;
+		const g = ctx.createLinearGradient(tail, y, head, y);
+		g.addColorStop(0, rgba(core, 0));
+		g.addColorStop(1, rgba(core, 0.85 * power * (1 - f)));
+		ctx.strokeStyle = g;
+		ctx.lineWidth = 1.1;
+		ctx.lineCap = 'round';
+		ctx.beginPath();
+		ctx.moveTo(tail, y);
+		ctx.lineTo(head, y);
+		ctx.stroke();
+	}
+
+	for (const q of item.ribbons) {   // ribbons: head runs ahead, the tail chases it, and it is gone
+		const f = (now - q.t0) / q.life;
+		if (f < 0) continue;
+		const head = easeOutCubic(clamp01(f / 0.55)), tail = easeInCubic(clamp01((f - 0.3) / 0.7)) * head;
+		if (head - tail < 0.03) continue;
+		const pts = [];
+		for (let i = 0; i <= ZEPHYR_STEPS; i++) pts.push(zephyrPoint(q, cx, cy, h, lerp(tail, head, i / ZEPHYR_STEPS)));
+		const w = q.wid * h * size, fade = (f < 0.75 ? 1 : 1 - (f - 0.75) / 0.25) * power;
+		ctx.globalAlpha = fade;
+		ctx.fillStyle = rim; fillRibbon(ctx, pts, w);          // the dark rim: the whole width
+		ctx.fillStyle = body; fillRibbon(ctx, pts, w * 0.68);   // the body
+		ctx.fillStyle = core; fillRibbon(ctx, pts, w * 0.26);   // and the white core
+	}
+
+	for (const q of item.leaves) {   // leaves: round the caret on a widening spiral, swept off behind, turning over as they go
+		const age = now - q.t0, f = age / q.life;
+		if (f < 0) continue;
+		const ang = q.a0 + q.dir * q.turns * Math.PI * 2 * easeOutCubic(f), rho = lerp(q.r0, q.r1, f) * h;
+		const x = cx + Math.cos(ang) * rho * 1.2 - f * h * 2.2, y = cy + Math.sin(ang) * rho * 0.75 - f * q.rise * h * 2;
+		const alpha = Math.min(1, f / 0.1) * (f < 0.65 ? 1 : 1 - (f - 0.65) / 0.35) * power;
+		if (alpha <= 0.01) continue;
+		const len = q.size * h * size, flutter = 0.35 + 0.65 * Math.abs(Math.cos(q.phase + age / 150));
+		ctx.save();
+		ctx.translate(x, y);
+		ctx.rotate(ang + (q.dir > 0 ? Math.PI / 2 : -Math.PI / 2) + Math.sin(q.phase + age / 260) * 0.5);
+		ctx.scale(1, flutter);
+		ctx.globalAlpha = alpha;
+		const g = ctx.createLinearGradient(-len, 0, len, 0);
+		g.addColorStop(0, rim);
+		g.addColorStop(1, body);
+		traceLeaf(ctx, len, len * 0.5);
+		ctx.fillStyle = g;
+		ctx.fill();
+		ctx.strokeStyle = core;   // a light outline and a vein, as a cel-shaded leaf has
+		ctx.lineWidth = 0.7;
+		ctx.stroke();
+		ctx.beginPath();
+		ctx.moveTo(-len * 0.8, 0);
+		ctx.lineTo(len * 0.7, 0);
+		ctx.stroke();
+		ctx.restore();
+	}
+	ctx.restore();
+}
+
+EFFECTS.zephyr = {
+	id: 'zephyr', label: 'Zephyr', mode: 'signature', keepsState: true, blend: 'source-over',
+	preset: { name: 'Zephyr', color: '#9ff5e1', accent: '#13b5a0' },
+	defaults: { zephyrSize: 1 },
+	onMove(plugin, prev, cur, info) {
+		const big = info.typed ? info.dy >= cur.h * 0.8 : info.dist > cur.h * 4;   // a new line, or a jump
+		if (!big && !isWriting(info)) return;
+		callZephyr(plugin, cur, big, info.now);
+	},
+	draw(plugin, ctx, item, p, k, now) { drawZephyr(plugin, ctx, item, now, k); },
+	preview(plugin, pv, caret, now) {
+		if (now < (pv.zephyrNext || 0)) return;
+		pv.zephyrNext = now + 750;
+		callZephyr(pv, caret, false, now);
 	},
 };
 

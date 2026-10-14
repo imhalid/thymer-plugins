@@ -4,7 +4,7 @@ Personal plugins for [Thymer](https://thymer.com).
 
 | Plugin | What it does |
 | --- | --- |
-| [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning, Holy, Prism, Health) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
+| [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning, Holy, Prism, Health, Zephyr) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 
 ## Install a plugin
@@ -86,7 +86,9 @@ Run `Caret FX: set preset…` from the command palette. The dialog has:
   | Prism | light through a lens: two crescents of spectrum (orange-red inside, white-cyan core, deep blue outside, with faint fringes beyond) flank the caret, and every letter sends an echo of them slowly out; a new line or a jump flashes them fully |
   | Health | thin glowing pluses float slowly up out of the caret as you write, with thin beams of light and tiny motes, like a healing spell, a few at a time; in the preset's greens, or a red cross if you pick red colors |
 
-  Holy, Prism and Health answer writing, not deleting.
+  | Zephyr | an anime-style wind skill: cel-shaded ribbons of wind (dark rim, mint body, white core) swoop round the caret with every letter, thin speed lines streak back from it and pointed leaves are swept up and off behind; a new line or a jump is a full gust |
+
+  Holy, Prism, Health and Zephyr answer writing, not deleting.
 
 - **Effects** – two switches: **Block cursor** (a box the width of the letter instead of the line caret) and **Motion smear**
 - **Customize** – pick the caret/glow color or the trail/accent color with a saturation/brightness square, hue slider or hex field
@@ -110,7 +112,7 @@ Settings are saved in the plugin's Configuration JSON under `custom` and can be 
 }
 ```
 
-`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"ink"`, `"tether"`, `"backman"`, `"holy"`, `"prism"` or `"health"`; `style` is `"line"` or `"block"`; choosing a preset in the dialog sets it for you. Holy and Prism have a setting each, `"holySize"` and `"prismStrength"` (1 is normal).
+`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"ink"`, `"tether"`, `"backman"`, `"holy"`, `"prism"`, `"health"` or `"zephyr"`; `style` is `"line"` or `"block"`; choosing a preset in the dialog sets it for you. Holy, Prism and Zephyr have a setting each, `"holySize"`, `"prismStrength"` and `"zephyrSize"` (1 is normal).
 
 ### How it works
 

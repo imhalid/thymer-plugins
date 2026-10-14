@@ -10,6 +10,11 @@
  * (https://github.com/Sadsnake1/cursor-smith, MIT License). See THIRD-PARTY NOTICE below.
  * They are off until switched on ("Caret FX: toggle ...").
  *
+ * Three special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
+ * (plus-shaped glints that twinkle on the caret, like a gem), Prism (a holographic shimmer: a glass prism on the caret
+ * that fans out the colors of the spectrum as you write) and Health (pluses floating up as you write, as if you were
+ * gaining health). Pick them in "Caret FX: set color..." under Special.
+ *
  * Scope: the Thymer editor only. The plugin follows Thymer's own caret element
  * (div.listview-caret-self) and never touches the command palette, rename fields,
  * dropdowns or other plugins' inputs. Effects are clipped to the editor's scroll
@@ -1481,6 +1486,427 @@ EFFECTS.backman = {
 			paintCaretBody(ctx, plugin.col(), fill, ring);
 		}
 		ctx.restore();
+	},
+};
+
+// =====================================================================================
+// SPECIAL PRESETS ORIGINAL TO CARET FX: Holy, Prism, Health
+//
+// Written for this plugin, not ported. They are special presets like Sakura and Lightning: each brings its own colors and
+// is picked in the color dialog's Special grid (or by "next color preset"), one at a time. Like the falling petals they
+// keep everything in their one long-lived item, so the dialog's preview can run them on its own canvas, and they answer
+// writing - the caret moving forward along its line as a key is typed - rather than deleting. (Holy and Prism also catch
+// a new line, or the caret landing somewhere else.)
+// =====================================================================================
+
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/** A color moved toward white by `t` (0..1). */
+const lighten = (hex, t) => { const c = hexToHsv(hex); return hsvToHex({ h: c.h, s: c.s * (1 - t), v: c.v + (1 - c.v) * t }); };
+
+/** A color at `f` (0..1) of its brightness. */
+const shade = (hex, f) => { const c = hexToHsv(hex); return hsvToHex({ h: c.h, s: c.s, v: c.v * f }); };
+
+/** Whether the caret just moved the way writing moves it: with a key, forward along the same line. */
+const isWriting = (info) => info.typed && info.dx > 0.5 && Math.abs(info.dy) < 1;
+
+// ---- Effect: Holy --------------------------------------------------------------------------------------------------
+// Plus-shaped glints that twinkle on and around the caret, in place, like light catching the facets of a gem. Each one
+// swells from nothing to a thin four-pointed cross - a little longer sideways than up - and fades; the caret's color is
+// the gold in it and white its heart. Writing sets a few off, and for a moment after the last key the caret keeps
+// glinting by itself.
+// Settings: holySize (1 is normal).
+const HOLY_LIFE_MS = [650, 1000];   // how long a glint twinkles: the shortest and the longest
+const HOLY_AFTERGLOW_MS = 1100;     // how long the caret keeps glinting by itself after the last key
+const HOLY_MAX = 16;                // the most glints alive at once
+const HOLY_PINCH = 0.085;           // how near the middle the sides of a glint pass: lower is thinner arms
+const HOLY_WIDE = 1.3;              // how much longer a glint is sideways than up
+
+/** A glint's size over its life `p` (0..1): a quick swell to a peak, then a slower fade, nothing at either end. */
+const glintSize = (p) => (p <= 0 || p >= 1 ? 0 : Math.sin(Math.PI * Math.pow(p, 0.7)));
+
+/** The outline of a four-pointed glint with arms `r` long: two thin needles crossed, the sides curving in between. */
+function traceGlint(ctx, r) {
+	const c = r * HOLY_PINCH;
+	ctx.beginPath();
+	ctx.moveTo(0, -r);
+	ctx.quadraticCurveTo(c, -c, r, 0);
+	ctx.quadraticCurveTo(c, c, 0, r);
+	ctx.quadraticCurveTo(-c, c, -r, 0);
+	ctx.quadraticCurveTo(-c, -c, 0, -r);
+	ctx.closePath();
+}
+
+/** The item that holds the glints of `host` (the plugin, or the dialog's preview). */
+function glintsOf(host) {
+	const item = host.ensureItem('holy');
+	if (!item.parts) { item.parts = []; item.until = 0; item.next = 0; }
+	return item;
+}
+
+/** Puts `n` glints round the caret `rect`, each at a place of its own, a little way out from its middle. */
+function addGlints(item, rect, n, now) {
+	const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
+	for (let i = 0; i < n && item.parts.length < HOLY_MAX; i++) {
+		const a = Math.random() * Math.PI * 2, d = rect.h * (0.4 + Math.random() * 0.75);
+		item.parts.push({
+			x: cx + Math.cos(a) * d * 1.35, y: cy + Math.sin(a) * d * 0.8,   // out wider than tall, like the caret's own glow
+			r: rect.h * (0.26 + Math.random() * 0.34), tilt: (Math.random() - 0.5) * 0.2,
+			t0: now, life: lerp(HOLY_LIFE_MS[0], HOLY_LIFE_MS[1], Math.random()),
+		});
+	}
+}
+
+/** Sets `n` glints off round the caret and keeps it glinting for a while after. */
+function igniteGlints(host, rect, n, now) {
+	const item = glintsOf(host);
+	addGlints(item, rect, n, now);
+	item.until = now + HOLY_AFTERGLOW_MS;
+	item.next = Math.max(item.next, now + 240);
+}
+
+EFFECTS.holy = {
+	id: 'holy', label: 'Holy', mode: 'signature', keepsState: true, blend: 'lighter',
+	preset: { name: 'Holy', color: '#fff2c2', accent: '#f0b429' },
+	defaults: { holySize: 1 },
+	onMove(plugin, prev, cur, info) {
+		const jump = info.dist > cur.h * 1.5 && (!info.typed || info.dy > 0);   // landing somewhere else catches the light too (not a Backspace joining two lines)
+		if (!isWriting(info) && !jump) return;
+		const more = Math.random() < 0.35 * Math.min(plugin.cfg.intensity, 1.6);
+		igniteGlints(plugin, cur, jump ? 2 : 1 + (more ? 1 : 0), info.now);
+	},
+	draw(plugin, ctx, item, p, k, now) {
+		const rect = plugin.last;
+		if (rect && now < item.until && now >= item.next) {   // on its own, a glint now and then
+			addGlints(item, rect, 1, now);
+			item.next = now + 200 + Math.random() * 260;
+		}
+		item.parts = item.parts.filter((q) => now - q.t0 < q.life);
+		if (!item.parts.length && now >= item.until) { item.done = true; return; }
+		const dark = plugin.dark, col = plugin.col();
+		const size = (plugin.cfg.holySize || 1) * (0.85 + 0.2 * Math.min(k, 1.6)), power = Math.min(1, 0.55 + 0.45 * k);
+		if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
+		for (const q of item.parts) {
+			const e = glintSize((now - q.t0) / q.life);
+			if (e < 0.02) continue;
+			const R = q.r * size * (0.3 + 0.7 * e), a = e * power;
+			// A soft halo, the colored cross, and the white heart of it.
+			const halo = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, R * 2.2);
+			halo.addColorStop(0, rgba(col, (dark ? 0.34 : 0.15) * a));   // on a light page the same halo reads as a smudge
+			halo.addColorStop(1, rgba(col, 0));
+			ctx.fillStyle = halo;
+			ctx.fillRect(q.x - R * 2.2, q.y - R * 2.2, R * 4.4, R * 4.4);
+			ctx.save();
+			ctx.translate(q.x, q.y);
+			ctx.rotate(q.tilt);
+			// The hairlines first: a long, thin cross that fades out toward its ends.
+			for (const [lx, ly] of [[R * HOLY_WIDE * 2.6, 0], [0, R * 2.2]]) {
+				const hair = ctx.createLinearGradient(-lx, -ly, lx, ly);
+				hair.addColorStop(0, rgba(col, 0));
+				hair.addColorStop(0.5, dark ? `rgba(255,255,255,${0.9 * a})` : rgba(plugin.acc(), 0.8 * a));
+				hair.addColorStop(1, rgba(col, 0));
+				ctx.strokeStyle = hair;
+				ctx.lineWidth = 1.1;
+				ctx.beginPath();
+				ctx.moveTo(-lx, -ly);
+				ctx.lineTo(lx, ly);
+				ctx.stroke();
+			}
+			ctx.scale(HOLY_WIDE, 1);
+			ctx.shadowColor = rgba(col, 0.9 * a);
+			ctx.shadowBlur = R * 0.8;
+			traceGlint(ctx, R);
+			ctx.fillStyle = rgba(col, 0.9 * a);
+			ctx.fill();
+			ctx.shadowBlur = 0;
+			traceGlint(ctx, R * 0.6);
+			ctx.fillStyle = dark ? `rgba(255,255,255,${0.95 * a})` : rgba(plugin.acc(), 0.9 * a);
+			ctx.fill();
+			ctx.restore();
+		}
+	},
+	preview(plugin, pv, caret, now) {
+		if (now < (pv.holyNext || 0)) return;
+		pv.holyNext = now + 520;
+		igniteGlints(pv, caret, 2, now);
+	},
+};
+
+// ---- Effect: Prism -------------------------------------------------------------------------------------------------
+// A holographic shimmer: light going into a glass prism and fanning out in its colors. A small triangle of glass lights up
+// on the caret and, as you write, throws a narrow spectrum - red through violet - out of it, each fan turned a little
+// further round than the last, so the colors spread all around the caret; a ring of iridescent color turns about it.
+// Writing keeps the prism lit, a new line or a jump flashes it fully, and it goes dark within a moment.
+// Settings: prismStrength (1 is normal).
+const PRISM_DECAY_MS = 420;         // how fast the prism's light dies away
+const PRISM_RISE = 0.3;             // what one written letter adds to it
+const PRISM_CAP = 0.85;             // writing alone never takes it past this: only a new line or a jump flashes it fully
+const PRISM_FAN_MS = [700, 1000];   // how long one fan of colors lasts: the shortest and the longest
+const PRISM_FAN_GAP_MS = 55;        // the least time between two fans, so a fast typist does not bury the page in them
+const PRISM_FANS_MAX = 9;           // the most fans alive at once
+const PRISM_BANDS = 7;              // the colors of a fan, red to violet
+const PRISM_BAND_ANGLE = 0.07;      // how wide one color of a fan is, in radians
+const PRISM_TURN = 2.4;             // how far each fan is turned from the last (radians; near the golden angle, so they spread round)
+const PRISM_SIZE = 0.7;             // the prism's circumradius, in caret heights (at full light)
+const PRISM_TURN_MS = 240;          // how long the prism takes to turn a face toward the newest fan
+
+/** One color of a fan, `i` of PRISM_BANDS (red first, violet last), with `alpha`. */
+const prismBand = (i, alpha, light = 62) => `hsla(${Math.round((i / (PRISM_BANDS - 1)) * 270)}, 100%, ${light}%, ${alpha})`;
+
+/** The three corners of the prism: an equilateral triangle of circumradius `r` round (cx, cy), apex up, turned by `turn`. Pure. */
+function prismCorners(cx, cy, r, turn) {
+	return [0, 1, 2].map((i) => {
+		const a = -Math.PI / 2 + turn + (i * Math.PI * 2) / 3;
+		return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r };
+	});
+}
+
+/** A fan `age` ms into its `life`, on a caret `u` tall: how far its colors reach and how bright they are. Pure. */
+function prismFan(age, life, u) {
+	const p = clamp01(age / life);
+	return { reach: u * (1.4 + 4 * easeOutCubic(Math.min(1, p * 1.5))), alpha: Math.pow(1 - p, 1.3) };
+}
+
+/**
+ * How far the prism is turned `now`: easing from where it was toward showing a face to the newest fan - a triangle looks the
+ * same every third of a turn, so it takes the short way round. Pure.
+ */
+function prismTurn(item, now) {
+	if (item.turnTo === undefined) return 0;
+	const third = (Math.PI * 2) / 3;
+	let d = (((item.turnTo - item.turnFrom) % third) + third) % third;
+	if (d > third / 2) d -= third;
+	return item.turnFrom + d * easeOutCubic(clamp01((now - item.turnAt) / PRISM_TURN_MS));
+}
+
+/** The item that holds the prism of `host` (the plugin, or the dialog's preview). */
+function prismOf(host) {
+	const item = host.ensureItem('prism');
+	if (item.e === undefined) { item.e = 0; item.hit = 0; item.fans = []; item.lastFan = 0; item.angle = Math.random() * Math.PI * 2; }
+	return item;
+}
+
+/**
+ * Lights the prism of `host` on the caret `rect`: what is left of its light, added to (a full flash for `flash`), and a fan of
+ * colors - three for a flash - each turned on from the last. A fan stays where it was thrown, out of the face of the prism
+ * (the prism turns to show it one), so writing leaves them along the line, each pointing its own way.
+ */
+function kindlePrism(host, rect, flash, now) {
+	const item = prismOf(host);
+	const left = item.e * Math.exp(-(now - item.hit) / PRISM_DECAY_MS);
+	item.e = Math.max(left, Math.min(flash ? 1 : PRISM_CAP, left + (flash ? 1 : PRISM_RISE)));
+	item.hit = now;
+	if (now - item.lastFan < PRISM_FAN_GAP_MS) return;
+	item.lastFan = now;
+	const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, u = Math.max(rect.h, 16);
+	for (let i = 0; i < (flash ? 3 : 1) && item.fans.length < PRISM_FANS_MAX; i++) {
+		item.angle += PRISM_TURN;
+		const face = u * PRISM_SIZE / 2;   // a face of the triangle lies this far from its middle
+		item.fans.push({ angle: item.angle, x: cx + Math.cos(item.angle) * face, y: cy + Math.sin(item.angle) * face, t0: now, life: lerp(PRISM_FAN_MS[0], PRISM_FAN_MS[1], Math.random()) });
+	}
+	item.turnFrom = prismTurn(item, now);
+	item.turnTo = item.angle + Math.PI / 6;   // the apex-up triangle shows a face to this direction when turned by it
+	item.turnAt = now;
+}
+
+function drawPrism(plugin, ctx, item, now, k) {
+	const age = now - item.hit, e = item.e * Math.exp(-age / PRISM_DECAY_MS);
+	item.fans = item.fans.filter((f) => now - f.t0 < f.life);
+	if (e < 0.012 && !item.fans.length) { item.done = true; return; }   // before anything else: with no caret to draw at, it must still die away
+	const rect = plugin.last;
+	if (!rect) return;
+	const dark = plugin.dark;
+	const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, u = Math.max(rect.h, 16);
+	const power = (plugin.cfg.prismStrength ?? 1) * Math.min(k, 1.5) * (dark ? 1 : 0.6);
+	if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
+	const light = dark ? 62 : 42;
+	const turn = prismTurn(item, now);
+	const r = u * PRISM_SIZE * (0.75 + 0.25 * Math.min(1, e * 1.5));
+	const open = easeOutCubic(clamp01(age / 520));
+	ctx.save();
+
+	// The fans: each color a thin wedge widening from the prism, fading as it goes, shimmering a little. Where they overlap
+	// they add up toward white.
+	for (const f of item.fans) {
+		const { reach, alpha } = prismFan(now - f.t0, f.life, u);
+		const ox = f.x, oy = f.y;
+		for (let i = 0; i < PRISM_BANDS; i++) {
+			const a0 = f.angle + (i - PRISM_BANDS / 2) * PRISM_BAND_ANGLE, a1 = a0 + PRISM_BAND_ANGLE;
+			const shimmer = 0.78 + 0.22 * Math.sin(now * 0.012 + i * 1.3 + f.angle);
+			const a = alpha * power * shimmer;
+			const g = ctx.createLinearGradient(ox, oy, ox + Math.cos(f.angle) * reach, oy + Math.sin(f.angle) * reach);
+			g.addColorStop(0, dark ? `rgba(255,255,255,${0.55 * a})` : prismBand(i, 0.6 * a, light));
+			g.addColorStop(0.2, prismBand(i, 0.9 * a, light));
+			g.addColorStop(1, prismBand(i, 0, light));
+			ctx.fillStyle = g;
+			ctx.beginPath();
+			ctx.moveTo(ox, oy);
+			ctx.lineTo(ox + Math.cos(a0) * reach, oy + Math.sin(a0) * reach);
+			ctx.lineTo(ox + Math.cos(a1) * reach, oy + Math.sin(a1) * reach);
+			ctx.closePath();
+			ctx.fill();
+		}
+	}
+
+	if (e >= 0.012) {
+		const a = e * power;
+		// The iridescent ring: a band of every color round the caret, turning, with a soft glow.
+		const ringR = u * (0.95 + 0.7 * open);
+		ctx.lineWidth = u * 0.24;
+		if (ctx.createConicGradient) {
+			const cg = ctx.createConicGradient(now * 0.0011 + item.angle, cx, cy);
+			for (let s = 0; s <= 6; s++) cg.addColorStop(s / 6, `hsla(${s * 60}, 100%, ${light + 6}%, ${0.45 * a})`);
+			ctx.strokeStyle = cg;
+		} else ctx.strokeStyle = rgba(plugin.acc(), 0.3 * a);
+		ctx.shadowColor = rgba(plugin.col(), 0.5 * a);
+		ctx.shadowBlur = u * 0.5;
+		ctx.beginPath();
+		ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.shadowBlur = 0;
+
+		// The prism: a triangle of glass, tinted with the spectrum, edged in light.
+		const [p0, p1, p2] = prismCorners(cx, cy, r, turn);
+		const glass = ctx.createLinearGradient(p0.x, p0.y, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
+		for (let i = 0; i < PRISM_BANDS; i++) glass.addColorStop(i / (PRISM_BANDS - 1), prismBand(i, 0.2 * a, light));
+		ctx.fillStyle = glass;
+		ctx.strokeStyle = dark ? `rgba(255,255,255,${0.85 * a})` : prismBand(5, 0.85 * a, light);
+		ctx.lineWidth = 1.2;
+		ctx.lineJoin = 'round';
+		ctx.shadowColor = prismBand(Math.floor(((now * 0.004) % PRISM_BANDS + PRISM_BANDS) % PRISM_BANDS), 0.8 * a, light);
+		ctx.shadowBlur = u * 0.4;
+		ctx.beginPath();
+		ctx.moveTo(p0.x, p0.y);
+		ctx.lineTo(p1.x, p1.y);
+		ctx.lineTo(p2.x, p2.y);
+		ctx.closePath();
+		ctx.fill();
+		ctx.stroke();
+		ctx.shadowBlur = 0;
+		// A white heart where the light goes in.
+		const heart = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.7);
+		heart.addColorStop(0, dark ? `rgba(255,255,255,${0.8 * a})` : rgba(plugin.col(), 0.6 * a));
+		heart.addColorStop(1, rgba(plugin.col(), 0));
+		ctx.fillStyle = heart;
+		ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+	}
+	ctx.restore();
+}
+
+EFFECTS.prism = {
+	id: 'prism', label: 'Prism', mode: 'signature', keepsState: true, blend: 'lighter',
+	preset: { name: 'Prism', color: '#c8f4ff', accent: '#b983ff' },
+	defaults: { prismStrength: 1 },
+	onMove(plugin, prev, cur, info) {
+		const flash = info.typed ? info.dy >= cur.h * 0.8 : info.dist > cur.h * 4;   // a new line, or a jump
+		if (!flash && !isWriting(info)) return;
+		kindlePrism(plugin, cur, flash, info.now);
+	},
+	draw(plugin, ctx, item, p, k, now) { drawPrism(plugin, ctx, item, now, k); },
+	preview(plugin, pv, caret, now) {
+		if (now < (pv.prismNext || 0)) return;
+		pv.prismNext = now + 700;
+		kindlePrism(pv, caret, false, now);
+	},
+};
+
+// ---- Effect: Health ------------------------------------------------------------------------------------------------
+// Writing heals: a small plus pops out of the caret and floats up, fading, and the caret gives a soft pulse - the way a
+// game shows health coming back. The pluses and the pulse are in the preset's colors, green; with other colors they are
+// whatever you like (a red cross, say).
+const HEALTH_LIFE_MS = [900, 1300];   // how long a plus floats: the shortest and the longest
+const HEALTH_MAX = 28;                // the most pluses alive at once
+const HEALTH_GAP_MS = 80;             // the least time between two pluses, so a fast typist is not buried in them
+const HEALTH_PULSE_MS = 380;          // how long the caret's pulse lasts
+
+/** The colors of a plus, from the caret's: its top, its body (the glow's too) and its edge. */
+function healthPalette(plugin) {
+	const body = plugin.acc();
+	return { top: lighten(plugin.col(), 0.35), mid: body, edge: shade(body, 0.65) };
+}
+
+/** The outline of a plus with arms `l` long from the middle and `t` thick (half-widths), the ends rounded. */
+function tracePlus(ctx, l, t) {
+	ctx.beginPath();
+	if (ctx.roundRect) { ctx.roundRect(-l, -t, 2 * l, 2 * t, t * 0.9); ctx.roundRect(-t, -l, 2 * t, 2 * l, t * 0.9); }
+	else { ctx.rect(-l, -t, 2 * l, 2 * t); ctx.rect(-t, -l, 2 * t, 2 * l); }
+}
+
+/** The item that holds the pluses of `host` (the plugin, or the dialog's preview). */
+function pluses(host) {
+	const item = host.ensureItem('health');
+	if (!item.parts) { item.parts = []; item.lastAt = 0; item.pulseAt = -1e9; }
+	return item;
+}
+
+/** A plus out of the caret `rect` (two, with `twin`), floating up from a little off its middle; and the caret's pulse. */
+function healPlus(host, rect, now, twin) {
+	const item = pluses(host);
+	item.pulseAt = now;
+	if (now - item.lastAt < HEALTH_GAP_MS) return;
+	item.lastAt = now;
+	for (let i = 0; i < (twin ? 2 : 1) && item.parts.length < HEALTH_MAX; i++) {
+		item.parts.push({
+			x: rect.x + rect.w / 2 + (Math.random() - 0.5) * rect.h * 1.5, y: rect.y + rect.h * 0.15,
+			rise: rect.h * (1.3 + Math.random() * 1.1),                 // how far it floats in all
+			drift: (Math.random() - 0.5) * rect.h * 0.7,                // and how far it wanders sideways
+			sway: rect.h * (0.05 + Math.random() * 0.07), phase: Math.random() * 6.28,
+			l: rect.h * (0.24 + Math.random() * 0.16),                  // an arm's length
+			t0: now, life: lerp(HEALTH_LIFE_MS[0], HEALTH_LIFE_MS[1], Math.random()),
+		});
+	}
+}
+
+EFFECTS.health = {
+	id: 'health', label: 'Health', mode: 'signature', keepsState: true, blend: 'source-over',
+	preset: { name: 'Health', color: '#7dff9b', accent: '#12b04a' },
+	defaults: {},
+	onMove(plugin, prev, cur, info) {
+		if (!isWriting(info)) return;
+		healPlus(plugin, cur, info.now, Math.random() < 0.2 * Math.min(plugin.cfg.intensity, 1.6));
+	},
+	draw(plugin, ctx, item, p, k, now) {
+		item.parts = item.parts.filter((q) => now - q.t0 < q.life);
+		const pulse = (now - item.pulseAt) / HEALTH_PULSE_MS;
+		if (!item.parts.length && pulse >= 1) { item.done = true; return; }
+		const pal = healthPalette(plugin), rect = plugin.last, power = Math.min(1, 0.6 + 0.4 * k);
+		if (rect && pulse < 1) {   // the caret's pulse: a soft glow that swells and goes
+			const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, r = rect.h * (1.1 + 0.9 * pulse);
+			const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+			g.addColorStop(0, rgba(pal.mid, 0.34 * power * (1 - pulse) * (1 - pulse)));
+			g.addColorStop(1, rgba(pal.mid, 0));
+			ctx.fillStyle = g;
+			ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+		}
+		for (const q of item.parts) {
+			const age = now - q.t0, f = age / q.life;
+			const pop = easeOutBack(clamp01(age / 150)) * (1 - 0.25 * f);   // pops out a little too big, then shrinks as it goes
+			const alpha = (f < 0.6 ? 1 : 1 - (f - 0.6) / 0.4) * power;
+			if (alpha <= 0.01) continue;
+			const l = q.l * pop * (0.9 + 0.15 * Math.min(k, 1.6)), t = l * 0.31;
+			ctx.save();
+			ctx.translate(q.x + q.drift * f + Math.sin(q.phase + age / 240) * q.sway, q.y - q.rise * easeOutCubic(f));
+			ctx.globalAlpha = alpha;
+			ctx.shadowColor = rgba(pal.mid, 0.75);
+			ctx.shadowBlur = l * 0.7;
+			tracePlus(ctx, l, t);
+			const g = ctx.createLinearGradient(0, -l, 0, l);
+			g.addColorStop(0, pal.top);
+			g.addColorStop(0.5, pal.mid);
+			g.addColorStop(1, pal.edge);
+			ctx.fillStyle = g;
+			ctx.fill();
+			ctx.shadowBlur = 0;
+			tracePlus(ctx, l * 0.5, t * 0.45);   // a lighter plus inside: the shine
+			ctx.fillStyle = rgba(pal.top, 0.55);
+			ctx.fill();
+			ctx.restore();
+		}
+	},
+	preview(plugin, pv, caret, now) {
+		if (now < (pv.healthNext || 0)) return;
+		pv.healthNext = now + 650;
+		healPlus(pv, caret, now, true);
 	},
 };
 

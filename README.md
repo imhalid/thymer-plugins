@@ -4,7 +4,7 @@ Personal plugins for [Thymer](https://thymer.com).
 
 | Plugin | What it does |
 | --- | --- |
-| [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
+| [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning, Holy, Prism, Health) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 
 ## Install a plugin
@@ -82,13 +82,18 @@ Run `Caret FX: set color…` from the command palette. The dialog has:
   | Sakura | pink petals drift off the caret |
   | Autumn | orange and red leaves fall |
   | Paper | green leaves fall |
+  | Holy | plus-shaped golden glints twinkle on and around the caret, in place, like light catching a gem, and the caret keeps glinting for a moment after you stop |
+  | Prism | a holographic shimmer: a small glass prism lights up on the caret and fans the colors of the spectrum out of its faces as you write, each fan turned further round than the last, with an iridescent ring turning about it; a new line or a jump flashes it fully |
+  | Health | small pluses pop out of the caret and float up as you write, with a soft pulse, as if you were gaining health; in the preset's greens, or a red cross if you pick red colors |
+
+  Holy, Prism and Health answer writing, not deleting.
 
 - **Customize** – pick the caret/glow color or the trail/accent color with a saturation/brightness square, hue slider or hex field
 
 Other commands:
 
 - `Caret FX: next color preset` – cycles through every preset
-- `Caret FX: set intensity…` – slider from 0.3× (subtle) to 2× (intense); it also scales petals, leaves and crackles
+- `Caret FX: set intensity…` – slider from 0.3× (subtle) to 2× (intense); it also scales petals, leaves, crackles, glints, prism fans and pluses
 - `Caret FX: toggle bounce`, `Caret FX: toggle trail`
 
 Settings are saved in the plugin's Configuration JSON under `custom` and can be edited there:
@@ -104,7 +109,7 @@ Settings are saved in the plugin's Configuration JSON under `custom` and can be 
 }
 ```
 
-`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"` or `"paper"`; choosing a preset in the dialog sets it for you.
+`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"holy"`, `"prism"` or `"health"`; choosing a preset in the dialog sets it for you. Holy and Prism have a setting each, `"holySize"` and `"prismStrength"` (1 is normal).
 
 ### How it works
 

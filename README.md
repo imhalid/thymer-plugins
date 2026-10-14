@@ -4,7 +4,7 @@ Personal plugins for [Thymer](https://thymer.com).
 
 | Plugin | What it does |
 | --- | --- |
-| [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning) with their own effects |
+| [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 
 ## Install a plugin
@@ -40,6 +40,34 @@ The caret itself takes your chosen color, even when you are not typing, and reac
 - **Glow** – soft pulse around the caret on each keystroke
 - **Bounce** – caret hops with a damped spring
 - **Trail** – every typed character leaves a short blaze-style streak; long jumps leave a full one
+
+### Effects from Cursor-Smith
+
+Four more effects are ported from [Cursor-Smith](https://github.com/Sadsnake1/cursor-smith) by Sadsnake1, an Obsidian plugin (MIT). They are off until you switch them on from the command palette:
+
+- **Motion smear** (`Caret FX: toggle motion smear`) – the caret stretches as it moves and snaps back when it arrives, on a spring. While you type, only its tail trails.
+- **Fresh ink** (`Caret FX: toggle fresh ink`) – the letters you just typed stay wet in the caret color and dry into the text over a second or two.
+- **Bracket tether** (`Caret FX: toggle bracket tether`) – a line under the span between the matching brackets or quotes around the caret; it follows a span that wraps onto more lines.
+- **Back-man** (`Caret FX: toggle back-man`) – while Backspace or Delete eats text, the caret becomes a little creature that takes one bite per letter and gulps it down. A word or a selection is one big bite.
+
+Their settings go under `custom` in the Configuration JSON, all optional:
+
+```json
+{
+  "smear": false,
+  "ink": false,
+  "tether": false,
+  "backman": false,
+  "smearStiffness": 0.6,
+  "smearTrailingStiffness": 0.4,
+  "smearDamping": 0.8,
+  "inkMs": 1500,
+  "inkStrength": 0.8,
+  "tetherStrength": 0.35
+}
+```
+
+The plugin SDK has no caret, selection or text-layout API, so Fresh ink, Bracket tether and Back-man read the caret's line from the DOM: what was typed or deleted is worked out by comparing the line before and after each key.
 
 ### Color and special presets
 
@@ -85,3 +113,5 @@ Thymer draws its caret as the left border of `div.listview-caret-self`, colored 
 ### Credits
 
 The trail and lightning are Canvas 2D re-implementations of the Ghostty cursor shaders `cursor_blaze` (based on [this gist](https://gist.github.com/chardskarth/95874c54e29da6b5a36ab7b50ae2d088)) and `cursor_lightning`. Finding Thymer's caret element and variables, and measuring carets in inputs, follows the approach in [akaready/thymer-cursor-tweaks](https://github.com/akaready/thymer-cursor-tweaks).
+
+Motion smear, Fresh ink, Bracket tether and Back-man are ported from [Sadsnake1/cursor-smith](https://github.com/Sadsnake1/cursor-smith) (MIT, version 1.8.1) and adapted to Thymer's editor. Cursor-Smith's copyright and license notice are kept at the top of `plugin.js`, and each effect names the files it follows.

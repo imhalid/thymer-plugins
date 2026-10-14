@@ -1743,10 +1743,13 @@ function kindlePrism(host, rect, flash, now) {
 	const left = item.e * Math.exp(-(now - item.hit) / PRISM_DECAY_MS);
 	item.e = Math.max(left, Math.min(flash ? 1 : PRISM_CAP, left + (flash ? 1 : PRISM_RISE)));
 	item.hit = now;
+	const step = item.lastX === undefined ? 0 : clamp(rect.x - item.lastX, -1, 1);   // which way the caret is going
+	if (step) item.dir = step;
+	item.lastX = rect.x;
 	if (now - item.lastEcho < PRISM_ECHO_GAP_MS) return;
 	item.lastEcho = now;
 	for (let i = 0; i < (flash ? 2 : 1) && item.echoes.length < PRISM_ECHOES_MAX; i++) {
-		item.echoes.push({ t0: now + i * 180, life: lerp(PRISM_ECHO_MS[0], PRISM_ECHO_MS[1], Math.random()), from: flash ? 0.6 : 0.8, to: flash ? 1.7 : 1.4 });
+		item.echoes.push({ dir: item.dir || 0, t0: now + i * 180, life: lerp(PRISM_ECHO_MS[0], PRISM_ECHO_MS[1], Math.random()), from: flash ? 0.6 : 0.8, to: flash ? 1.7 : 1.4 });
 	}
 }
 
@@ -1764,18 +1767,34 @@ function drawPrism(plugin, ctx, item, now, k) {
 	ctx.save();
 	ctx.imageSmoothingEnabled = true;
 	ctx.imageSmoothingQuality = 'high';
-	const paint = (scale, alpha) => {
+	const paint = (scale, alpha, dx = 0, tilt = 0) => {
 		if (alpha < 0.01) return;
 		const r = R * scale;
 		ctx.globalAlpha = Math.min(1, alpha);
-		ctx.drawImage(sprite, cx - r, cy - r, r * 2, r * 2);
+		ctx.save();
+		ctx.translate(cx + dx, cy);
+		ctx.rotate(tilt);
+		ctx.drawImage(sprite, -r, -r, r * 2, r * 2);
+		ctx.restore();
 	};
 	for (const q of item.echoes) {   // an echo: the pair opening out from the caret as it fades
 		const f = (now - q.t0) / q.life;
 		if (f < 0) continue;
-		paint(lerp(q.from, q.to, easeOutCubic(f)), 0.6 * power * Math.pow(1 - f, 1.4) * Math.min(1, f / 0.1));
+		const out = easeOutCubic(f);   // an echo is left behind: it drifts back against the way the caret went, and turns a little
+		paint(lerp(q.from, q.to, out), 0.6 * power * Math.pow(1 - f, 1.4) * Math.min(1, f / 0.1), -q.dir * R * 0.35 * out, q.dir * 0.25 * out);
 	}
-	if (e >= 0.012) paint(0.9 + 0.1 * Math.min(1, e * 1.5) + 0.02 * Math.sin(now * 0.004), e * power);   // the pair itself, breathing a little
+	if (e >= 0.012) {
+		// The anamorphic streak: a thin line of spectrum through the caret, as a lens throws across a bright point.
+		const L = R * (0.9 + 0.8 * e), g = ctx.createLinearGradient(cx - L, cy, cx + L, cy);
+		for (let i = 0; i <= 6; i++) g.addColorStop(0.1 + (i / 6) * 0.8, `hsla(${i * 45}, 100%, 62%, ${0.5 * Math.sin(Math.PI * (0.15 + 0.7 * i / 6))})`);
+		g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+		ctx.globalAlpha = Math.min(1, e * power);
+		ctx.fillStyle = g;
+		ctx.fillRect(cx - L, cy - 0.6, L * 2, 1.2);
+		// The pair itself: it leans into the move, and shimmers - its light and its angle never quite still.
+		const lean = (item.dir || 0) * 0.12 * e, shimmer = 0.9 + 0.1 * Math.sin(now * 0.006);
+		paint(0.9 + 0.1 * Math.min(1, e * 1.5) + 0.02 * Math.sin(now * 0.004), e * power * shimmer, (item.dir || 0) * R * 0.08 * e, lean + 0.04 * Math.sin(now * 0.003));
+	}
 	ctx.restore();
 }
 
@@ -2665,6 +2684,8 @@ class Plugin extends AppPlugin {
 			const now = performance.now();
 			for (const e of this.activeEffects()) e.preview?.(this, pv, caret, now);
 			pv.ctx.clearRect(0, 0, W, H);
+			const live = new Set(this.activeEffects().map((e) => e.id));
+			pv.items = pv.items.filter((it) => live.has(it.effect));   // what was switched off must not linger in the preview
 			pv.renderItems(now);
 			requestAnimationFrame(tick);
 		};

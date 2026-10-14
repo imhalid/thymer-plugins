@@ -2,5 +2,8 @@
   "ver": 1,
   "name": "Digital Garden",
   "icon": "ti-plant",
-  "description": "A sidebar plant that grows with the words you write, plus a collection of 12 unlockable flowers"
+  "description": "A sidebar plant that grows with the words you write, plus a collection of 12 unlockable flowers",
+  "custom": {
+    "showSidebar": true
+  }
 }

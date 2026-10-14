@@ -29,6 +29,8 @@ Click the word counter in the status bar (or run `Daily Garden: open flower coll
 
 Click an unlocked flower to plant it in the sidebar garden. Progress is stored in the app's local storage, so it is per device. Thresholds live in the `FLOWERS` list at the top of `plugin.js`.
 
+The sidebar plant can be hidden: run `Daily Garden: toggle sidebar plant`, or set `"showSidebar": false` under `custom` in the plugin's Configuration JSON (default `true`). Word counting, the status bar counter and the collection keep working.
+
 Other commands: `Daily Garden: set daily word goal`, `Daily Garden: reset today's plant` (does not touch the collection).
 
 ## Caret FX

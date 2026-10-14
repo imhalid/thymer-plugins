@@ -191,11 +191,9 @@ class Plugin extends AppPlugin {
 			onClick: () => this.openCollection(),
 		});
 
-		this.widget = this.ui.addSidebarWidget((container) => {
-			this.container = container;
-			this.render();
-			return () => { this.container = null; };
-		});
+		this.applySidebar();
+		this.events.on('global-plugin.updated', () => this.applySidebar());
+		this.ui.addCommandPaletteCommand({ label: 'Daily Garden: toggle sidebar plant', icon: 'layout-sidebar', onSelected: () => this.setShowSidebar(!this.showSidebar()) });
 
 		this.ui.addCommandPaletteCommand({
 			label: 'Daily Garden: set daily word goal',
@@ -280,6 +278,36 @@ class Plugin extends AppPlugin {
 			this.refresh();
 			this.scheduleMidnight();
 		}, next.getTime() - now.getTime());
+	}
+
+	// ---- sidebar plant (option: "showSidebar" in this plugin's configuration "custom", default true) ----
+
+	showSidebar() {
+		try { return this.getConfiguration()?.custom?.showSidebar !== false; } catch (e) { return true; }
+	}
+
+	setShowSidebar(on) {
+		try {
+			const conf = this.getConfiguration();
+			conf.custom = { ...(conf.custom || {}), showSidebar: on };
+			this.saveConfiguration(conf);
+		} catch (e) { /* applied below anyway */ }
+		this.applySidebar(on);
+	}
+
+	applySidebar(force) {
+		const on = force ?? this.showSidebar();
+		if (on && !this.widget) {
+			this.widget = this.ui.addSidebarWidget((container) => {
+				this.container = container;
+				this.render();
+				return () => { this.container = null; };
+			});
+		} else if (!on && this.widget) {
+			this.widget.remove();
+			this.widget = null;
+			this.container = null;
+		}
 	}
 
 	// ---- flower collection ---------------------------------------------------------------

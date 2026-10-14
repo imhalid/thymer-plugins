@@ -5,12 +5,31 @@ Personal plugins for [Thymer](https://thymer.com).
 | Plugin | What it does |
 | --- | --- |
 | [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop, blaze trail and lightning on long jumps |
+| [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 
 ## Install a plugin
 
 1. In Thymer, create a new **global plugin** (Plugins → New → Global plugin).
 2. Open **Edit Code** and paste the contents of the plugin's `plugin.js` into the code tab.
 3. Paste the plugin's `plugin.json` into the **Configuration** tab and save.
+
+## Digital Garden
+
+A sidebar plant grows with every word you write today and blooms with every task you finish. Hit the daily goal to keep a streak.
+
+Click the word counter in the status bar (or run `Daily Garden: open flower collection`) to open the collection. Flowers unlock by **lifetime words written**:
+
+| Rarity | Flowers (words) |
+| --- | --- |
+| Common | Daisy (100), Dandelion (300), White Clover (600) |
+| Uncommon | Tulip (1,200), Hibiscus (1,800), Sunflower (2,500) |
+| Rare | Lavender (5,000), Poppy (8,000) |
+| Epic | Orchid (15,000), Lotus (25,000) |
+| Legendary | Celestial Rose (50,000), Moonflower (100,000) |
+
+Click an unlocked flower to plant it in the sidebar garden. Progress is stored in the app's local storage, so it is per device. Thresholds live in the `FLOWERS` list at the top of `plugin.js`.
+
+Other commands: `Daily Garden: set daily word goal`, `Daily Garden: reset today's plant` (does not touch the collection).
 
 ## Caret FX
 

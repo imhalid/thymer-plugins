@@ -4,7 +4,7 @@ Personal plugins for [Thymer](https://thymer.com).
 
 | Plugin | What it does |
 | --- | --- |
-| [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop, blaze trail and lightning on long jumps |
+| [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning) with their own effects |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 
 ## Install a plugin
@@ -35,40 +35,53 @@ Other commands: `Daily Garden: set daily word goal`, `Daily Garden: reset today'
 
 ## Caret FX
 
-Effects follow the caret in the editor and in modal inputs:
+The caret itself takes your chosen color, even when you are not typing, and reacts while you type:
 
 - **Glow** – soft pulse around the caret on each keystroke
-- **Bounce** – caret hops with a damped spring while typing
-- **Trail** – blaze-style smear when the caret moves more than ~1.5 caret heights
-- **Lightning** – forked bolt when the caret jumps 3+ lines
+- **Bounce** – caret hops with a damped spring
+- **Trail** – every typed character leaves a short blaze-style streak; long jumps leave a full one
 
-### Changing the color
+### Color and special presets
 
-Command palette:
+Run `Caret FX: set color…` from the command palette. The dialog has:
 
-- `Caret FX: set color…` – enter a hex color, optionally followed by an accent color (`#ffb929 #ff3b1f`)
-- `Caret FX: next color preset` – cycles Amber, Ice, Violet, Mint, Rose, Lightning
-- `Caret FX: set intensity…` – 0.3 (subtle) to 2 (strong)
-- `Caret FX: toggle glow | bounce | trail | lightning`
+- **Colors** – plain presets: Amber, Sunset, Rose, Violet, Ice, Ocean, Mint, Lime, Mono
+- **Special** – presets that bring their own effect, previewed live in the dialog:
 
-Or edit `custom` in the plugin's Configuration JSON (applies immediately):
+  | Preset | Effect |
+  | --- | --- |
+  | Lightning | blue crackles jump off the caret now and then while typing, and a bolt strikes when the caret changes line |
+  | Sakura | pink petals drift off the caret |
+  | Autumn | orange and red leaves fall |
+  | Paper | green leaves fall |
+
+- **Customize** – pick the caret/glow color or the trail/accent color with a saturation/brightness square, hue slider or hex field
+
+Other commands:
+
+- `Caret FX: next color preset` – cycles through every preset
+- `Caret FX: set intensity…` – slider from 0.3× (subtle) to 2× (intense); it also scales petals, leaves and crackles
+- `Caret FX: toggle bounce`, `Caret FX: toggle trail`
+
+Settings are saved in the plugin's Configuration JSON under `custom` and can be edited there:
 
 ```json
 {
   "color": "#ffb929",
   "accent": "#ff3b1f",
-  "glow": true,
+  "fx": null,
   "bounce": true,
   "trail": true,
-  "lightning": true,
   "intensity": 1
 }
 ```
 
-`color` is the caret/glow color, `accent` is the trail edge and lightning glow.
+`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"` or `"paper"`; choosing a preset in the dialog sets it for you.
 
-Troubleshooting: `Caret FX: test effects` draws every effect in the middle of the screen, and `Caret FX: debug info` shows which events and caret source the plugin sees.
+### How it works
+
+Thymer draws its caret as the left border of `div.listview-caret-self`, colored by the `--ed-caret-self-fg` CSS variable, so the plugin only overrides that variable and `caret-color` (inputs and modals). Effects are drawn on a transparent canvas above the app, and nothing in the editor's DOM is modified.
 
 ### Credits
 
-The trail and lightning effects are Canvas 2D re-implementations of the Ghostty cursor shaders `cursor_blaze` (based on [this gist](https://gist.github.com/chardskarth/95874c54e29da6b5a36ab7b50ae2d088)) and `cursor_lightning`. Finding Thymer's custom caret element and measuring carets in inputs follows the approach in [akaready/thymer-cursor-tweaks](https://github.com/akaready/thymer-cursor-tweaks).
+The trail and lightning are Canvas 2D re-implementations of the Ghostty cursor shaders `cursor_blaze` (based on [this gist](https://gist.github.com/chardskarth/95874c54e29da6b5a36ab7b50ae2d088)) and `cursor_lightning`. Finding Thymer's caret element and variables, and measuring carets in inputs, follows the approach in [akaready/thymer-cursor-tweaks](https://github.com/akaready/thymer-cursor-tweaks).

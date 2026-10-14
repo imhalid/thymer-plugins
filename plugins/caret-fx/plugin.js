@@ -15,20 +15,34 @@ const DEFAULTS = {
 	glow: true,
 	bounce: true,
 	trail: true,
-	lightning: true,
+	fx: null,               // signature effect set by the preset: lightning | sakura | autumn | paper
 	intensity: 1,           // 0.3 (subtle) .. 2 (strong)
 	trailMinWidths: 1.5,    // trail appears when caret moves farther than this many caret-heights
-	lightningMinLines: 3,   // lightning appears when caret jumps at least this many lines
+	lightningMinLines: 0.8, // Lightning preset: a bolt is drawn when the caret changes line (jump of this many caret-heights)
 };
 
+// [name, caret/glow color, accent color, signature effect]. Presets with an effect also change what happens while you type.
 const PRESETS = [
-	['Amber', '#ffb929', '#ff3b1f'],
-	['Ice', '#9be7ff', '#2b7bff'],
-	['Violet', '#d6a6ff', '#7a2bff'],
-	['Mint', '#9dffcf', '#08b36b'],
-	['Rose', '#ffb3c7', '#ff2d6f'],
-	['Lightning', '#ffd1b8', '#bd0000'],
+	['Amber', '#ffb929', '#ff3b1f', null],
+	['Sunset', '#ff9a56', '#ff3d77', null],
+	['Rose', '#ffb3c7', '#ff2d6f', null],
+	['Violet', '#d6a6ff', '#7a2bff', null],
+	['Ice', '#9be7ff', '#2b7bff', null],
+	['Ocean', '#5ef2e0', '#0a7ea4', null],
+	['Mint', '#9dffcf', '#08b36b', null],
+	['Lime', '#e4ff6a', '#4bb800', null],
+	['Mono', '#ffffff', '#8a8f98', null],
+	['Lightning', '#d6ecff', '#2f7bff', 'lightning'],
+	['Sakura', '#ffc2d4', '#ff7aa2', 'sakura'],
+	['Autumn', '#ff9a3c', '#c2410c', 'autumn'],
+	['Paper', '#e8dcc0', '#5f9e4c', 'paper'],
 ];
+// Falling particles for the leaf-type effects: shape, size range (px), colors, how fast they fall and sway.
+const PARTICLES = {
+	sakura: { shape: 'petal', size: [4.5, 9], tones: [['#ffd9e3', '#ffa8c0'], ['#ffc4d4', '#ff8fb0'], ['#fff0f4', '#ffb7cb'], ['#ffb3c8', '#ff7aa2']], fall: 0.055, sway: 1 },
+	autumn: { shape: 'leaf', size: [6, 11], tones: [['#ffb347', '#e8590c'], ['#ff8c1a', '#c2410c'], ['#f2c14e', '#d9822b'], ['#e0562b', '#a32d0e']], fall: 0.075, sway: 1.6 },
+	paper: { shape: 'leaf', size: [6, 11], tones: [['#8fd18f', '#2e7d32'], ['#b5e2a8', '#43a047'], ['#6fbf73', '#1b5e20'], ['#a5d6a7', '#388e3c']], fall: 0.06, sway: 1.2 },
+};
 
 const hash = (p) => { p = (p * 0.1031) % 1; p *= p + 33.33; p *= p + p; return p - Math.floor(p); };
 
@@ -40,11 +54,78 @@ const rgba = (hex, a) => {
 	return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 };
 
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+const hexToHsv = (hex) => {
+	const n = parseInt(String(hex).replace('#', '').padStart(6, '0').slice(0, 6), 16);
+	const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+	const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+	let h = 0;
+	if (d) h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+	return { h: h * 60, s: mx ? d / mx : 0, v: mx };
+};
+const hsvToHex = ({ h, s, v }) => {
+	const f = (n) => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); };
+	return '#' + [f(5), f(3), f(1)].map((x) => Math.round(x * 255).toString(16).padStart(2, '0')).join('');
+};
+const isHex = (v) => /^#?[0-9a-f]{6}$/i.test(String(v).trim());
+
+const UI_CSS = `
+.cfx-ov { position: fixed; inset: 0; z-index: 2147483100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); backdrop-filter: blur(3px); animation: cfx-in .14s ease-out; }
+@keyframes cfx-in { from { opacity: 0; } to { opacity: 1; } }
+.cfx-box { width: 340px; max-width: 92vw; padding: 18px; border-radius: 18px; border: 1px solid rgba(127,127,127,.28); box-shadow: 0 28px 80px rgba(0,0,0,.5); font: 13px/1.4 system-ui, sans-serif; animation: cfx-pop .18s cubic-bezier(.2,1.2,.4,1); }
+@keyframes cfx-pop { from { transform: translateY(8px) scale(.97); } to { transform: none; } }
+.cfx-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.cfx-title { font-size: 15px; font-weight: 650; }
+.cfx-x { all: unset; cursor: pointer; opacity: .55; padding: 2px 6px; border-radius: 6px; }
+.cfx-x:hover { opacity: 1; background: rgba(127,127,127,.18); }
+.cfx-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .55; margin: 14px 0 7px; }
+.cfx-preview { position: relative; height: 84px; border-radius: 12px; overflow: hidden; background: rgba(127,127,127,.12); border: 1px solid rgba(127,127,127,.2); display: flex; align-items: center; padding: 0 16px; font-size: 15px; letter-spacing: .02em; }
+.cfx-preview .cfx-trail { position: absolute; left: 118px; top: 31px; width: 70px; height: 22px; background: linear-gradient(90deg, transparent, var(--a)); opacity: .55; filter: blur(2px); }
+.cfx-preview .cfx-caret { position: absolute; left: 186px; top: 28px; width: 2.5px; height: 28px; border-radius: 2px; background: var(--c); box-shadow: 0 0 10px var(--c), 0 0 22px var(--a); animation: cfx-blink 1.1s steps(1) infinite; }
+@keyframes cfx-blink { 50% { opacity: .35; } }
+.cfx-preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cfx-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 8px 4px; }
+.cfx-pre { all: unset; box-sizing: border-box; cursor: pointer; text-align: center; }
+.cfx-dot { width: 34px; height: 34px; margin: 0 auto 3px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(127,127,127,.35); transition: transform .12s; }
+.cfx-pre:hover .cfx-dot { transform: scale(1.1); }
+.cfx-pre.on .cfx-dot { box-shadow: 0 0 0 2px var(--c); }
+.cfx-pre span { font-size: 9px; opacity: .6; white-space: nowrap; }
+.cfx-tabs { display: flex; gap: 6px; padding: 3px; border-radius: 10px; background: rgba(127,127,127,.14); }
+.cfx-tab { all: unset; box-sizing: border-box; flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 6px 4px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+.cfx-tab.on { background: rgba(127,127,127,.3); font-weight: 600; }
+.cfx-tab i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 1px rgba(127,127,127,.5); }
+.cfx-sv { position: relative; width: 100%; height: 130px; border-radius: 10px; margin-top: 10px; cursor: crosshair; touch-action: none; }
+.cfx-sv canvas { width: 100%; height: 100%; display: block; border-radius: 10px; }
+.cfx-knob { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.4); pointer-events: none; }
+.cfx-hue { position: relative; height: 14px; border-radius: 7px; margin-top: 12px; cursor: pointer; touch-action: none; background: linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00); }
+.cfx-hue .cfx-knob { top: 50%; }
+.cfx-hexrow { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.cfx-hex { flex: 1; padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(127,127,127,.35); background: rgba(127,127,127,.1); color: inherit; font: 12.5px ui-monospace, monospace; text-transform: uppercase; outline: none; }
+.cfx-hex:focus { border-color: var(--c); }
+.cfx-hex.bad { border-color: #e5484d; }
+.cfx-sl { position: relative; height: 34px; cursor: pointer; touch-action: none; outline: none; }
+.cfx-sl-track { position: absolute; left: 0; right: 0; top: 14px; height: 6px; border-radius: 3px; background: rgba(127,127,127,.28); }
+.cfx-sl-fill { position: absolute; left: 0; top: 14px; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--a), var(--c)); box-shadow: 0 0 10px var(--c); }
+.cfx-sl-thumb { position: absolute; top: 7px; width: 20px; height: 20px; margin-left: -10px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px var(--c), 0 3px 10px rgba(0,0,0,.45); transition: transform .1s; }
+.cfx-sl:hover .cfx-sl-thumb, .cfx-sl:focus .cfx-sl-thumb { transform: scale(1.12); }
+.cfx-ticks { display: flex; justify-content: space-between; font-size: 10.5px; opacity: .55; margin-top: 2px; }
+.cfx-readout { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+.cfx-big { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.cfx-mode { font-size: 12px; opacity: .65; }
+.cfx-orb { height: 90px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: rgba(127,127,127,.12); border: 1px solid rgba(127,127,127,.2); overflow: hidden; }
+.cfx-orb i { display: block; width: 3px; height: 30px; border-radius: 2px; background: var(--c); transition: box-shadow .12s; }
+.cfx-foot { display: flex; justify-content: space-between; margin-top: 16px; }
+.cfx-btn { all: unset; cursor: pointer; padding: 6px 14px; border-radius: 9px; border: 1px solid rgba(127,127,127,.4); font-size: 12.5px; }
+.cfx-btn:hover { background: rgba(127,127,127,.16); }
+.cfx-btn.primary { background: var(--c); color: #111; border-color: transparent; font-weight: 600; }
+`;
+
 class Plugin extends AppPlugin {
 	cfg = { ...DEFAULTS };
 	canvas = null;
 	ctx = null;
 	fx = [];            // active effects
+	parts = [];         // falling petals / leaves
 	last = null;        // last caret rect {x,y,w,h}
 	raf = 0;
 	preset = 0;
@@ -53,13 +134,14 @@ class Plugin extends AppPlugin {
 	onLoad() {
 		this.readConfig();
 		this.mountCanvas();
+		this.applyCaretStyle();
 
 		this.n = { input: 0, key: 0, sel: 0, sample: 0 };
 		this.why = '-';
 		const onInput = () => { this.n.input++; requestAnimationFrame(() => this.sample(true)); };
 		const onKey = (e) => {
 			this.n.key++;
-			this.lastKey = performance.now();
+			if ((e.key.length === 1 && !e.ctrlKey && !e.metaKey) || e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Enter') this.lastTypeKey = performance.now();
 			if (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Enter') setTimeout(() => this.sample(true), 0);
 		};
 		const onSel = () => { this.n.sel++; this.sample(false); };
@@ -71,6 +153,9 @@ class Plugin extends AppPlugin {
 		document.addEventListener('click', onNav, true);
 		document.addEventListener('selectionchange', onSel);
 		window.addEventListener('resize', onResize);
+		const onScroll = () => requestAnimationFrame(() => this.sample(false));
+		document.addEventListener('scroll', onScroll, true);
+		this.cleanup.push(() => document.removeEventListener('scroll', onScroll, true));
 		this.cleanup.push(
 			() => document.removeEventListener('input', onInput, true),
 			() => document.removeEventListener('keydown', onKey, true),
@@ -87,34 +172,17 @@ class Plugin extends AppPlugin {
 			// Ignore our own hidden measuring element, otherwise measuring would retrigger itself.
 			if (this.mirror && recs.every((r) => r.target === this.mirror || this.mirror.contains(r.target))) return;
 			pending = true;
-			requestAnimationFrame(() => { pending = false; this.sample(performance.now() - (this.lastKey || 0) < 160); });
+			requestAnimationFrame(() => { pending = false; this.sample(false); });
 		});
 		mo.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['style', 'class'], childList: true, characterData: true });
 		this.cleanup.push(() => mo.disconnect());
 
-		this.ui.addCommandPaletteCommand({
-			label: 'Caret FX: test effects', icon: 'ti-bolt',
-			onSelected: () => {
-				const w = window.innerWidth, h = window.innerHeight;
-				const a = { x: w * 0.3, y: h * 0.3, w: 2, h: 20 }, b = { x: w * 0.6, y: h * 0.6, w: 2, h: 20 };
-				const t = performance.now();
-				this.fx.push({ kind: 'glow', t0: t, dur: 600, rect: b }, { kind: 'hop', t0: t, dur: 400, rect: b },
-					{ kind: 'trail', t0: t, dur: 600, from: a, to: b }, { kind: 'bolt', t0: t, dur: 400, from: a, to: b, seed: 1.7 });
-				this.kick();
-			},
-		});
-		this.ui.addCommandPaletteCommand({
-			label: 'Caret FX: debug info', icon: 'ti-bug',
-			onSelected: () => this.ui.addToaster({ title: 'Caret FX debug', message: `events ${JSON.stringify(this.n)} · caret: ${this.why} · canvas ${this.canvas?.isConnected ? 'mounted' : 'MISSING'} ${window.innerWidth}x${window.innerHeight}`, dismissible: true, autoDestroyTime: 12000 }),
-		});
-		this.ui.addCommandPaletteCommand({ label: 'Caret FX: set color…', icon: 'ti-palette', onSelected: () => this.askColor() });
+		this.ui.addCommandPaletteCommand({ label: 'Caret FX: set color…', icon: 'ti-palette', onSelected: () => this.colorDialog() });
 		this.ui.addCommandPaletteCommand({ label: 'Caret FX: next color preset', icon: 'ti-color-swatch', onSelected: () => this.nextPreset() });
-		this.ui.addCommandPaletteCommand({ label: 'Caret FX: set intensity…', icon: 'ti-adjustments', onSelected: () => this.askIntensity() });
-		for (const [key, label] of [['glow', 'glow'], ['bounce', 'bounce'], ['trail', 'trail'], ['lightning', 'lightning']]) {
+		this.ui.addCommandPaletteCommand({ label: 'Caret FX: set intensity…', icon: 'ti-adjustments', onSelected: () => this.intensityDialog() });
+		for (const [key, label] of [['bounce', 'bounce'], ['trail', 'trail']]) {
 			this.ui.addCommandPaletteCommand({ label: `Caret FX: toggle ${label}`, icon: 'ti-toggle-right', onSelected: () => this.update({ [key]: !this.cfg[key] }) });
 		}
-
-		this.ui.addToaster({ title: 'Caret FX loaded', message: 'Run "Caret FX: test effects" from the command palette', dismissible: true, autoDestroyTime: 5000 });
 
 		// Picks up edits made in the plugin's configuration JSON.
 		this.events.on('global-plugin.updated', () => this.readConfig());
@@ -124,7 +192,25 @@ class Plugin extends AppPlugin {
 		cancelAnimationFrame(this.raf);
 		this.cleanup.forEach((f) => f());
 		this.canvas?.remove();
+		this.closeDialog();
+		this.uiStyle?.remove();
 		this.mirror?.remove();
+		this.caretStyle?.remove();
+	}
+
+	// ---- always-on caret color ---------------------------------------------------------
+
+	// Thymer draws its caret as the left border of div.listview-caret-self, colored by --ed-caret-self-fg
+	// (its theme CSS: border-color and color both read it). Only that variable is overridden: the
+	// background/blink variables paint a filled block next to the caret instead.
+	applyCaretStyle() {
+		if (!this.caretStyle) {
+			this.caretStyle = document.createElement('style');
+			document.head.appendChild(this.caretStyle);
+		}
+		const col = this.cfg.color;
+		this.caretStyle.textContent = `body, div.listview-caret-self { --ed-caret-self-fg: ${col} !important; }
+* { caret-color: ${col} !important; }`;
 	}
 
 	// ---- settings ----------------------------------------------------------------------
@@ -134,10 +220,14 @@ class Plugin extends AppPlugin {
 			const custom = this.getConfiguration()?.custom || {};
 			this.cfg = { ...DEFAULTS, ...custom };
 		} catch (e) { this.cfg = { ...DEFAULTS }; }
+		// These no longer have a command, so a value saved by an old toggle must not keep them off.
+		this.cfg.glow = true;
+		if (this.canvas) this.applyCaretStyle();
 	}
 
 	update(patch) {
 		this.cfg = { ...this.cfg, ...patch };
+		this.applyCaretStyle();
 		try {
 			const conf = this.getConfiguration();
 			conf.custom = { ...(conf.custom || {}), ...patch };
@@ -147,26 +237,217 @@ class Plugin extends AppPlugin {
 		if (this.last) this.addPulse(this.last);
 	}
 
-	askColor() {
-		const v = window.prompt('Caret color (hex, e.g. #ff66aa). Accent color follows if you add a second one: "#ffb929 #ff3b1f"', `${this.cfg.color} ${this.cfg.accent}`);
-		if (!v) return;
-		const [c, a] = v.trim().split(/[\s,]+/);
-		const ok = (s) => /^#?[0-9a-f]{3}([0-9a-f]{3})?$/i.test(s || '');
-		const fix = (s) => (s.startsWith('#') ? s : '#' + s);
-		if (!ok(c)) return this.ui.addToaster({ title: 'Caret FX', message: 'Invalid color. Use hex like #ff66aa', dismissible: true, autoDestroyTime: 3000 });
-		this.update({ color: fix(c), ...(ok(a) ? { accent: fix(a) } : {}) });
+	// ---- themed dialogs ----------------------------------------------------------------
+
+	dialog(title, build) {
+		this.closeDialog();
+		if (!this.uiStyle) { this.uiStyle = document.createElement('style'); this.uiStyle.textContent = UI_CSS; document.head.appendChild(this.uiStyle); }
+		const cs = getComputedStyle(document.body);
+		const ov = document.createElement('div');
+		ov.className = 'cfx-ov';
+		const box = document.createElement('div');
+		box.className = 'cfx-box';
+		box.style.color = cs.color;
+		box.style.background = cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : 'Canvas';
+		box.style.setProperty('--c', this.cfg.color);
+		box.style.setProperty('--a', this.cfg.accent);
+		box.innerHTML = `<div class="cfx-head"><div class="cfx-title"></div><button class="cfx-x" aria-label="Close">✕</button></div>`;
+		box.querySelector('.cfx-title').textContent = title;
+		box.querySelector('.cfx-x').onclick = () => this.closeDialog();
+		ov.appendChild(box);
+		ov.addEventListener('mousedown', (e) => { if (e.target === ov) this.closeDialog(); });
+		this.dlgKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.closeDialog(); } };
+		document.addEventListener('keydown', this.dlgKey, true);
+		document.body.appendChild(ov);
+		this.dlg = ov;
+		this.dlgBox = box;
+		build(box);
+	}
+
+	closeDialog() {
+		if (this.dlgKey) document.removeEventListener('keydown', this.dlgKey, true);
+		this.dlg?.remove();
+		this.dlg = this.dlgBox = this.dlgKey = null;
+	}
+
+	// Apply right away, write the configuration once editing pauses.
+	live(patch) {
+		this.cfg = { ...this.cfg, ...patch };
+		this.pendingSave = { ...(this.pendingSave || {}), ...patch };
+		this.applyCaretStyle();
+		this.dlgBox?.style.setProperty('--c', this.cfg.color);
+		this.dlgBox?.style.setProperty('--a', this.cfg.accent);
+		clearTimeout(this.saveT);
+		this.saveT = setTimeout(() => {
+			try {
+				const conf = this.getConfiguration();
+				conf.custom = { ...(conf.custom || {}), ...this.pendingSave };
+				this.saveConfiguration(conf);
+			} catch (e) { /* keep in-memory value */ }
+			this.pendingSave = null;
+		}, 400);
+	}
+
+	// Pointer-drag helper: calls fn(x, y) in 0..1 coordinates of el while dragging.
+	drag(el, fn) {
+		const move = (e) => { const r = el.getBoundingClientRect(); fn(clamp01((e.clientX - r.left) / r.width), clamp01((e.clientY - r.top) / r.height)); };
+		el.addEventListener('pointerdown', (e) => {
+			e.preventDefault();
+			el.setPointerCapture(e.pointerId);
+			move(e);
+			const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+			el.addEventListener('pointermove', move);
+			el.addEventListener('pointerup', up);
+		});
+	}
+
+	// Plays the selected preset's signature effect inside the dialog preview, on its own mini canvas.
+	startPreview(host) {
+		const cv = document.createElement('canvas');
+		host.appendChild(cv);
+		const dpr = window.devicePixelRatio || 1, W = host.offsetWidth, H = host.offsetHeight;
+		cv.width = W * dpr; cv.height = H * dpr;
+		const pv = Object.create(this);              // shares cfg (colors, effect) with the plugin, owns its drawing state
+		pv.ctx = cv.getContext('2d');
+		pv.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		pv.parts = []; pv.fx = []; pv.partT = 0;
+		const caret = { x: 186, y: 28, w: 2.5, h: 28 };
+		let next = 0;
+		const tick = () => {
+			if (!this.dlg || !cv.isConnected) return;
+			const now = performance.now(), fx = this.cfg.fx;
+			if (now > next) {
+				if (PARTICLES[fx]) { pv.spawnParticles(caret, true); next = now + 750; }
+				else if (fx === 'lightning') { pv.spawnZaps(caret, true); next = now + 600; }
+				else next = now + 300;
+			}
+			const ctx = pv.ctx;
+			ctx.clearRect(0, 0, W, H);
+			pv.fx = pv.fx.filter((f) => now - f.t0 < f.dur);
+			ctx.globalCompositeOperation = 'lighter';
+			for (const f of pv.fx) pv.drawBolt(f, (now - f.t0) / f.dur, this.cfg.intensity);
+			ctx.globalCompositeOperation = 'source-over';
+			if (pv.parts.length) pv.drawParticles(now); else pv.partT = 0;
+			requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	}
+
+	colorDialog() {
+		this.dialog('Caret color', (box) => {
+			const html = (h) => { const t = document.createElement('div'); t.innerHTML = h; return t.firstElementChild; };
+			const preview = html('<div class="cfx-preview"><span>Typing something…</span><div class="cfx-trail"></div><div class="cfx-caret"></div></div>');
+			box.appendChild(preview);
+			this.startPreview(preview);
+
+			box.appendChild(html('<div class="cfx-label">Colors</div>'));
+			const grid = html('<div class="cfx-presets"></div>');
+			box.appendChild(grid);
+			box.appendChild(html('<div class="cfx-label">Special · falling petals and leaves, lightning</div>'));
+			const special = html('<div class="cfx-presets"></div>');
+			box.appendChild(special);
+
+			box.appendChild(html('<div class="cfx-label">Customize</div>'));
+			const tabs = html('<div class="cfx-tabs"></div>');
+			box.appendChild(tabs);
+			const sv = html('<div class="cfx-sv"><canvas width="320" height="130"></canvas><div class="cfx-knob"></div></div>');
+			const hue = html('<div class="cfx-hue"><div class="cfx-knob"></div></div>');
+			const hexRow = html('<div class="cfx-hexrow"><input class="cfx-hex" maxlength="7" spellcheck="false"><button class="cfx-btn">Reset</button></div>');
+			box.append(sv, hue, hexRow);
+			const hexIn = hexRow.querySelector('input');
+
+			let target = 'color';
+			let hsv = hexToHsv(this.cfg.color);
+			const canvas = sv.querySelector('canvas'), cx = canvas.getContext('2d');
+			const paintSV = () => {
+				cx.fillStyle = hsvToHex({ h: hsv.h, s: 1, v: 1 });
+				cx.fillRect(0, 0, canvas.width, canvas.height);
+				let g = cx.createLinearGradient(0, 0, canvas.width, 0);
+				g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)');
+				cx.fillStyle = g; cx.fillRect(0, 0, canvas.width, canvas.height);
+				g = cx.createLinearGradient(0, 0, 0, canvas.height);
+				g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, '#000');
+				cx.fillStyle = g; cx.fillRect(0, 0, canvas.width, canvas.height);
+			};
+			const place = () => {
+				const k = sv.querySelector('.cfx-knob'), hk = hue.querySelector('.cfx-knob');
+				k.style.left = hsv.s * 100 + '%'; k.style.top = (1 - hsv.v) * 100 + '%';
+				k.style.background = hsvToHex(hsv);
+				hk.style.left = (hsv.h / 360) * 100 + '%';
+				hk.style.background = hsvToHex({ h: hsv.h, s: 1, v: 1 });
+			};
+			const refreshPresets = () => box.querySelectorAll('.cfx-pre').forEach((b) => { const p = PRESETS[b.dataset.i]; b.classList.toggle('on', p[1] === this.cfg.color && p[2] === this.cfg.accent && (p[3] || null) === (this.cfg.fx || null)); });
+			const refreshTabs = () => {
+				tabs.querySelectorAll('.cfx-tab').forEach((t) => { t.classList.toggle('on', t.dataset.k === target); t.querySelector('i').style.background = this.cfg[t.dataset.k]; });
+			};
+			const apply = (fromHex) => {
+				const hex = hsvToHex(hsv);
+				this.live({ [target]: hex });
+				if (!fromHex) hexIn.value = hex;
+				paintSV(); place(); refreshTabs(); refreshPresets();
+			};
+			const load = () => { hsv = hexToHsv(this.cfg[target]); hexIn.value = this.cfg[target]; hexIn.classList.remove('bad'); paintSV(); place(); refreshTabs(); };
+
+			PRESETS.forEach(([name, color, accent, fx], i) => {
+				const b = html(`<button class="cfx-pre" data-i="${i}" title="${name}"><div class="cfx-dot" style="background:linear-gradient(135deg, ${color} 0%, ${color} 38%, ${accent} 100%)"></div><span>${name}</span></button>`);
+				b.onclick = () => { this.live({ color, accent, fx }); load(); refreshPresets(); };
+				(fx ? special : grid).appendChild(b);
+			});
+			[['color', 'Caret & glow'], ['accent', 'Trail & accent']].forEach(([k, label]) => {
+				const t = html(`<button class="cfx-tab" data-k="${k}"><i></i>${label}</button>`);
+				t.onclick = () => { target = k; load(); };
+				tabs.appendChild(t);
+			});
+			this.drag(sv, (x, y) => { hsv = { ...hsv, s: x, v: 1 - y }; apply(); });
+			this.drag(hue, (x) => { hsv = { ...hsv, h: x * 359.9 }; apply(); });
+			hexIn.oninput = () => {
+				const v = hexIn.value.trim();
+				const ok = isHex(v);
+			hexIn.classList.toggle('bad', !ok);
+				if (ok) { hsv = hexToHsv(v.startsWith('#') ? v : '#' + v); apply(true); }
+			};
+			hexRow.querySelector('button').onclick = () => { this.live({ [target]: DEFAULTS[target] }); load(); refreshPresets(); };
+			load(); refreshPresets();
+		});
+	}
+
+	intensityDialog() {
+		this.dialog('Effect intensity', (box) => {
+			const MIN = 0.3, MAX = 2;
+			const name = (v) => (v < 0.7 ? 'Subtle' : v < 1.25 ? 'Normal' : v < 1.7 ? 'Strong' : 'Intense');
+			box.insertAdjacentHTML('beforeend', `
+				<div class="cfx-orb"><i></i></div>
+				<div class="cfx-label">Strength</div>
+				<div class="cfx-readout"><span class="cfx-big"></span><span class="cfx-mode"></span></div>
+				<div class="cfx-sl" tabindex="0"><div class="cfx-sl-track"></div><div class="cfx-sl-fill"></div><div class="cfx-sl-thumb"></div></div>
+				<div class="cfx-ticks"><span>Subtle</span><span>Normal</span><span>Intense</span></div>
+				<div class="cfx-foot"><button class="cfx-btn" data-r>Reset</button><button class="cfx-btn primary" data-d>Done</button></div>`);
+			const sl = box.querySelector('.cfx-sl'), fill = box.querySelector('.cfx-sl-fill'), thumb = box.querySelector('.cfx-sl-thumb');
+			const big = box.querySelector('.cfx-big'), mode = box.querySelector('.cfx-mode'), orb = box.querySelector('.cfx-orb i');
+			const show = (v) => {
+				const f = (v - MIN) / (MAX - MIN);
+				fill.style.width = f * 100 + '%'; thumb.style.left = f * 100 + '%';
+				big.textContent = v.toFixed(1) + '×'; mode.textContent = name(v);
+				orb.style.boxShadow = `0 0 ${6 + v * 14}px ${v * 3}px ${rgba(this.cfg.color, Math.min(0.9, 0.25 + v * 0.3))}, 0 0 ${10 + v * 34}px ${v * 6}px ${rgba(this.cfg.accent, 0.35)}`;
+			};
+			const set = (v) => { v = Math.round(Math.min(MAX, Math.max(MIN, v)) * 10) / 10; this.live({ intensity: v }); show(v); };
+			this.drag(sl, (x) => set(MIN + x * (MAX - MIN)));
+			sl.addEventListener('keydown', (e) => {
+				if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); set(this.cfg.intensity + 0.1); }
+				if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); set(this.cfg.intensity - 0.1); }
+			});
+			box.querySelector('[data-r]').onclick = () => set(1);
+			box.querySelector('[data-d]').onclick = () => this.closeDialog();
+			show(this.cfg.intensity);
+			sl.focus();
+		});
 	}
 
 	nextPreset() {
 		this.preset = (this.preset + 1) % PRESETS.length;
-		const [name, color, accent] = PRESETS[this.preset];
-		this.update({ color, accent });
+		const [name, color, accent, fx] = PRESETS[this.preset];
+		this.update({ color, accent, fx });
 		this.ui.addToaster({ title: 'Caret FX', message: `Color: ${name}`, dismissible: true, autoDestroyTime: 1500 });
-	}
-
-	askIntensity() {
-		const n = parseFloat(window.prompt('Intensity (0.3 subtle – 2 strong)', String(this.cfg.intensity)) || '');
-		if (n > 0) this.update({ intensity: Math.min(3, n) });
 	}
 
 	// ---- caret tracking ----------------------------------------------------------------
@@ -209,20 +490,21 @@ class Plugin extends AppPlugin {
 	}
 
 	caretRect() {
+		this.caretKind = '';
 		const active = document.activeElement;
 		if (active && (active.tagName === 'TEXTAREA' || (active.tagName === 'INPUT' && /^(text|search|url|tel|password|email|number|)$/i.test(active.type)))) {
 			try { this.why = 'ok form ' + active.tagName; return this.formCaretRect(active); } catch (e) { this.why = 'form error ' + e.message; return null; }
 		}
 		// The Thymer editor does not use the native caret: it draws its own element.
 		const panel = document.querySelector('.panel.focused-panel, .panel.has-focus');
-		let best = null, bestScore = 0;
+		let best = null, bestEl = null, bestScore = 0;
 		for (const n of document.querySelectorAll('div.listview-caret-self')) {
 			const b = n.getBoundingClientRect();
 			if (!(b.height > 0.5)) continue;
 			const score = panel && panel.contains(n) ? 2 : 1;
-			if (score > bestScore) { best = b; bestScore = score; }
+			if (score > bestScore) { best = b; bestEl = n; bestScore = score; }
 		}
-		if (best) { this.why = 'ok thymer caret'; return { x: best.left, y: best.top, w: 2, h: best.height }; }
+		if (best) { this.caretKind = 'editor';  this.why = 'ok thymer caret'; return { x: best.left, y: best.top, w: 2, h: best.height }; }
 		const sel = window.getSelection();
 		if (!sel || !sel.rangeCount) { this.why = 'no selection / no .listview-caret-self'; return null; }
 		if (!sel.isCollapsed) { this.why = 'selection not collapsed'; return null; }
@@ -254,6 +536,8 @@ class Plugin extends AppPlugin {
 
 	sample(typed) {
 		this.n.sample++;
+		// Whichever event notices the caret move first (input, selection, DOM change) may not know it was typing.
+		typed = typed || performance.now() - (this.lastTypeKey || 0) < 220;
 		const cur = this.caretRect();
 		if (!cur) return;
 		const prev = this.last;
@@ -270,14 +554,37 @@ class Plugin extends AppPlugin {
 			this.fx = this.fx.filter((f) => f.kind !== 'glow' && f.kind !== 'hop');
 			if (c.glow) this.fx.push({ kind: 'glow', t0: now, dur: 420 });
 			if (c.bounce) this.fx.push({ kind: 'hop', t0: now, dur: 260 });
+			if (PARTICLES[c.fx]) this.spawnParticles(cur);
+			if (c.fx === 'lightning') this.spawnZaps(cur);
 		}
-		if (dist > cur.h * c.trailMinWidths && c.trail) {
-			this.fx.push({ kind: 'trail', t0: performance.now(), dur: 500, from: prev, to: cur });
+		const far = dist > cur.h * c.trailMinWidths;
+		if ((far || typed) && c.trail) {
+			// Every typed character leaves its own short streak; long jumps get the full blaze.
+			this.fx.push({ kind: 'trail', t0: performance.now(), dur: far ? 500 : 420, from: prev, to: cur });
 		}
-		if (Math.abs(dy) >= cur.h * c.lightningMinLines && c.lightning) {
+		if (Math.abs(dy) >= cur.h * c.lightningMinLines && c.fx === 'lightning') {
 			this.fx.push({ kind: 'bolt', t0: performance.now(), dur: 260, from: prev, to: cur, seed: Math.floor(performance.now()) * 0.013 });
 		}
 		this.kick();
+	}
+
+	// Lightning preset: an occasional short crackle jumps off the caret while typing.
+	spawnZaps(r, force) {
+		const now = performance.now(), cx = r.x + r.w / 2, cy = r.y + r.h / 2, k = Math.min(this.cfg.intensity, 1.6);
+		// Rare while typing so it stays a spark, not a storm.
+		if (!force && now - (this.lastZap || 0) < 220) return;
+		if (!force && Math.random() > 0.3) return;
+		this.lastZap = now;
+		const n = force ? 2 : 1;
+		for (let i = 0; i < n; i++) {
+			const a = Math.random() * Math.PI * 2, len = (r.h * 0.8 + Math.random() * r.h * 1.3) * k;
+			this.fx.push({
+				kind: 'bolt', t0: now, dur: 150 + Math.random() * 90,
+				from: { x: cx, y: cy + (Math.random() - 0.5) * r.h * 0.6, w: 0, h: 0 },
+				to: { x: cx + Math.cos(a) * len, y: cy + Math.sin(a) * len, w: 0, h: 0 },
+				seed: Math.floor(now + i * 97) * 0.013, small: true,
+			});
+		}
 	}
 
 	addPulse(rect) {
@@ -320,7 +627,67 @@ class Plugin extends AppPlugin {
 			else if (f.kind === 'bolt') this.drawBolt(f, p, k);
 		}
 		ctx.globalCompositeOperation = 'source-over';
-		if (this.fx.length) this.kick();
+		if (this.parts.length) this.drawParticles(now);
+		else this.partT = 0;
+		if (this.fx.length || this.parts.length) this.kick();
+	}
+
+	// ---- falling petals / leaves (Sakura, Autumn, Palm) ------------------------------------
+
+	spawnParticles(r, force) {
+		const def = PARTICLES[this.cfg.fx], k = Math.min(this.cfg.intensity, 1.6), now = performance.now();
+		// Roughly one in three keystrokes drops a single petal or leaf.
+		const n = force || Math.random() < 0.18 + 0.12 * k ? 1 : 0;
+		for (let i = 0; i < n && this.parts.length < 40; i++) {
+			this.parts.push({
+				def, tone: def.tones[Math.floor(Math.random() * def.tones.length)],
+				x: r.x + (Math.random() - 0.5) * 6, y: r.y + r.h * (0.15 + Math.random() * 0.5),
+				vx: (Math.random() - 0.25) * 0.09, vy: -0.05 - Math.random() * 0.1,   // px/ms, pops up a little first
+				size: (def.size[0] + Math.random() * (def.size[1] - def.size[0])) * (0.8 + 0.25 * k),
+				rot: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 0.006,
+				flip: Math.random() * 6, flipSpd: 0.004 + Math.random() * 0.005,       // flutter: turns edge-on
+				phase: Math.random() * 6.28, sway: (0.00022 + Math.random() * 0.00022) * def.sway,
+				t0: now, life: 1700 + Math.random() * 1500,
+			});
+		}
+	}
+
+	drawParticles(now) {
+		const ctx = this.ctx, dt = Math.min(48, this.partT ? now - this.partT : 16);
+		this.partT = now;
+		this.parts = this.parts.filter((p) => now - p.t0 < p.life && p.y < window.innerHeight + 20);
+		for (const p of this.parts) {
+			const age = (now - p.t0) / p.life, s = p.size, [a, b] = p.tone;
+			p.vy = Math.min(p.vy + 0.00016 * dt, p.def.fall);   // gravity, capped so they float down
+			p.vx += Math.sin(now * p.sway + p.phase) * 0.00005 * dt * p.def.sway;
+			p.vx *= 0.995;
+			p.x += p.vx * dt; p.y += p.vy * dt;
+			p.rot += p.spin * dt; p.flip += p.flipSpd * dt;
+			ctx.save();
+			ctx.translate(p.x, p.y);
+			ctx.rotate(p.rot);
+			ctx.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(p.flip)));
+			ctx.globalAlpha = (age < 0.7 ? 1 : 1 - (age - 0.7) / 0.3) * 0.95;
+			const g = ctx.createLinearGradient(0, s, 0, -s);
+			g.addColorStop(0, b); g.addColorStop(1, a);
+			ctx.fillStyle = g; ctx.strokeStyle = b;
+			ctx.beginPath();
+			if (p.def.shape === 'petal') {                     // heart-shaped sakura petal, notch at the tip
+				ctx.moveTo(0, -s * 0.65);
+				ctx.bezierCurveTo(s * 0.55, -s * 1.35, s * 1.15, -s * 0.1, 0, s);
+				ctx.bezierCurveTo(-s * 1.15, -s * 0.1, -s * 0.55, -s * 1.35, 0, -s * 0.65);
+				ctx.fill();
+			} else if (p.def.shape === 'leaf') {              // pointed leaf with a vein
+				ctx.moveTo(0, -s * 1.15);
+				ctx.quadraticCurveTo(s * 1.0, -s * 0.15, 0, s * 1.15);
+				ctx.quadraticCurveTo(-s * 1.0, -s * 0.15, 0, -s * 1.15);
+				ctx.fill();
+				ctx.beginPath(); ctx.moveTo(0, -s * 1.05); ctx.lineTo(0, s * 1.3);
+				ctx.strokeStyle = 'rgba(60,20,0,.35)'; ctx.lineWidth = 0.9; ctx.stroke();
+			}
+			ctx.restore();
+		}
+		ctx.globalAlpha = 1;
 	}
 
 	drawGlow(f, p, k) {
@@ -380,12 +747,12 @@ class Plugin extends AppPlugin {
 	}
 
 	// Lightning: jagged polyline with forks, flashes hard then fades to a glow.
-	drawBolt({ from, to, seed }, p, k) {
+	drawBolt({ from, to, seed, small }, p, k) {
 		const ctx = this.ctx;
 		const a = { x: from.x + from.w / 2, y: from.y + from.h / 2 };
 		const b = { x: to.x + to.w / 2, y: to.y + to.h / 2 };
 		const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
-		const nx = -dy / len, ny = dx / len, SEG = 12, JAG = 0.085;
+		const nx = -dy / len, ny = dx / len, SEG = small ? 7 : 12, JAG = small ? 0.2 : 0.085;
 		const pt = (t, s) => {
 			const node = Math.floor(t * SEG + 0.5);
 			const off = (hash(node * 17.17 + s) * 2 - 1) * len * JAG * Math.sin(Math.PI * t);

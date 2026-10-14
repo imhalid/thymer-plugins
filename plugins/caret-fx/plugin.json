@@ -2,13 +2,32 @@
   "ver": 1,
   "name": "Caret FX",
   "icon": "ti-cursor-text",
-  "description": "Animated typing caret: glow, hop and trail, plus themed presets with falling petals/leaves or lightning",
+  "off": false,
+  "item_name": "Note",
+  "description": "Glow, hop, blaze trail and lightning effects on the typing caret",
+  "show_sidebar_items": true,
+  "show_cmdpal_items": true,
+  "views": [],
+  "fields": [],
+  "page_field_ids": [],
+  "sidebar_record_sort_field_id": "updated_at",
+  "sidebar_record_sort_dir": "desc",
+  "managed": {
+    "fields": false,
+    "views": false,
+    "sidebar": false
+  },
   "custom": {
-    "color": "#ffb929",
-    "accent": "#ff3b1f",
-    "fx": null,
-    "bounce": true,
+    "color": "#9ff5e1",
+    "accent": "#13b5a0",
+    "bounce": false,
     "trail": true,
-    "intensity": 1
-  }
+    "intensity": 0.9,
+    "fx": "zephyr",
+    "colorLight": null,
+    "accentLight": null,
+    "style": "block",
+    "smear": true
+  },
+  "home": false
 }

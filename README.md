@@ -83,8 +83,8 @@ Run `Caret FX: set preset…` from the command palette. The dialog has:
   | Bracket tether | a line under the matching brackets or quotes around the caret (see above) |
   | Back-man | the caret eats what Backspace and Delete take (see above) |
   | Holy | tiny golden star glints (a couple of pixels) twinkle slowly on and around the caret, in place, like light catching a gem, and the caret keeps glinting for a moment after you stop |
-  | Prism | a holographic shimmer: a small glass prism lights up on the caret and fans the colors of the spectrum out of its faces as you write, each fan turned further round than the last, with an iridescent ring turning about it; a new line or a jump flashes it fully |
-  | Health | thin glowing pluses float slowly up out of the caret as you write, with thin beams of light, tiny motes and a ring opening under the caret, like a healing spell; in the preset's greens, or a red cross if you pick red colors |
+  | Prism | light through a lens: two crescents of spectrum (orange-red inside, white-cyan core, deep blue outside, with faint fringes beyond) flank the caret, and every letter sends an echo of them slowly out; a new line or a jump flashes them fully |
+  | Health | thin glowing pluses float slowly up out of the caret as you write, with thin beams of light and tiny motes, like a healing spell, a few at a time; in the preset's greens, or a red cross if you pick red colors |
 
   Holy, Prism and Health answer writing, not deleting.
 

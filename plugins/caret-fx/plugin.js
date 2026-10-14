@@ -2339,6 +2339,116 @@ EFFECTS.slime = {
 	},
 };
 
+// ---- Effect: Atom --------------------------------------------------------------------------------------------------
+// The caret is the nucleus: two thin glowing orbits cross round it, tilted against each other like the symbol of an atom,
+// and a blue electron runs round each - a bright head with a fading trail, a little larger as it comes round the near
+// side - glowing as it goes. Writing makes them run faster and brighter for a moment. Enter sends out a small shock wave
+// from the caret: an expanding ring split into red, green and blue (chromatic aberration) that thins out as it goes.
+// Settings: atomSize (1 is normal).
+const ATOM_ORBITS = [{ rot: 0.62, spin: 2.1 }, { rot: -0.62, spin: -2.7 }];   // each orbit's tilt (radians) and its electron's speed (rad/s)
+const ATOM_TRAIL = 16;                // the points of an electron's trail
+const ATOM_WAVE_MS = 560;             // how long a shock wave lasts
+const ATOM_BOOST_MS = 700;            // how long writing keeps the electrons quickened
+
+/** The place on an orbit (an ellipse `rx` by `ry`, tilted by `rot`, round (cx, cy)) at angle `ph`. Pure. */
+function atomPoint(cx, cy, rx, ry, rot, ph) {
+	const ex = Math.cos(ph) * rx, ey = Math.sin(ph) * ry;
+	return { x: cx + Math.cos(rot) * ex - Math.sin(rot) * ey, y: cy + Math.sin(rot) * ex + Math.cos(rot) * ey };
+}
+
+/** The item that holds the atom of `host` (the plugin, or the dialog's preview). */
+function atomOf(host) {
+	const item = host.ensureItem('atom');
+	if (!item.ph) { item.ph = [0, 2.2]; item.waves = []; item.boostAt = -1e9; }
+	return item;
+}
+
+/** Sends a shock wave out of the caret `rect`. */
+function atomWave(host, rect, now) {
+	atomOf(host).waves.push({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2, h: Math.max(rect.h, 16), t0: now, life: ATOM_WAVE_MS });
+}
+
+function drawAtom(plugin, ctx, item, now, k, dt) {
+	const alive = (q) => now - q.t0 < q.life;
+	item.waves = item.waves.filter(alive);
+	const rect = plugin.last;
+	if (!rect && !item.waves.length) { item.done = true; return; }
+	const dark = plugin.dark, power = Math.min(1, 0.7 + 0.3 * k);
+	if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
+	const ring = plugin.acc(), glow = plugin.col();
+	ctx.save();
+
+	if (rect) {
+		const h = Math.max(rect.h, 16), cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
+		const size = (plugin.cfg.atomSize ?? 1) * (0.9 + 0.15 * Math.min(k, 1.6)), rx = h * 1.05 * size, ry = h * 0.4 * size;
+		const boost = Math.max(0, 1 - (now - item.boostAt) / ATOM_BOOST_MS), s = Math.min((dt || 16) / 1000, 0.05);
+		ATOM_ORBITS.forEach((o, i) => {
+			item.ph[i] += o.spin * (1 + 1.6 * boost) * s;
+			// the orbit: a thin line of light
+			ctx.save();
+			ctx.translate(cx, cy);
+			ctx.rotate(o.rot);
+			ctx.shadowColor = rgba(ring, 0.7);
+			ctx.shadowBlur = 5;
+			ctx.strokeStyle = rgba(ring, (0.38 + 0.25 * boost) * power);
+			ctx.lineWidth = 0.9;
+			ctx.beginPath();
+			ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+			ctx.stroke();
+			ctx.restore();
+			// the electron: a trail, then a glowing head, larger on the near side of the orbit
+			const dir = Math.sign(o.spin);
+			for (let j = ATOM_TRAIL; j >= 1; j--) {
+				const p = atomPoint(cx, cy, rx, ry, o.rot, item.ph[i] - dir * j * 0.075), f = 1 - j / ATOM_TRAIL;
+				ctx.fillStyle = rgba(ring, 0.55 * f * f * power);
+				ctx.beginPath();
+				ctx.arc(p.x, p.y, 0.7 + 1.5 * f, 0, Math.PI * 2);
+				ctx.fill();
+			}
+			const head = atomPoint(cx, cy, rx, ry, o.rot, item.ph[i]), near = 0.5 + 0.5 * Math.sin(item.ph[i]), r = (2.6 + 1.6 * near) * (0.9 + 0.2 * boost);
+			const g = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, r * 3.6);
+			g.addColorStop(0, rgba(glow, 0.9 * power));
+			g.addColorStop(0.3, rgba(ring, 0.6 * power));
+			g.addColorStop(1, rgba(ring, 0));
+			ctx.fillStyle = g;
+			ctx.fillRect(head.x - r * 3.6, head.y - r * 3.6, r * 7.2, r * 7.2);
+			ctx.fillStyle = dark ? '#ffffff' : lighten(glow, 0.8);
+			ctx.beginPath();
+			ctx.arc(head.x, head.y, r * 0.55, 0, Math.PI * 2);
+			ctx.fill();
+		});
+	}
+
+	for (const q of item.waves) {   // shock waves: three rings, red outermost and blue innermost, pulled apart as they widen
+		const f = (now - q.t0) / q.life, e = easeOutCubic(f), a = Math.pow(1 - f, 1.5) * power * (dark ? 0.85 : 0.6), r = q.h * (0.3 + 2.2 * e), split = 1 + 0.05 * e + 0.015;
+		ctx.lineWidth = 0.6 + 2.2 * (1 - f);
+		for (const [rr, gg, bb, m] of [[255, 70, 70, split], [70, 255, 130, 1], [80, 130, 255, 2 - split]]) {
+			ctx.strokeStyle = `rgba(${rr},${gg},${bb},${a})`;
+			ctx.beginPath();
+			ctx.arc(q.x, q.y, r * m, 0, Math.PI * 2);
+			ctx.stroke();
+		}
+	}
+	ctx.restore();
+	plugin.kick();   // the electrons never rest
+}
+
+EFFECTS.atom = {
+	id: 'atom', label: 'Atom', mode: 'signature', keepsState: true, blend: 'lighter',
+	preset: { name: 'Atom', color: '#bfe0ff', accent: '#2f8bff' },
+	defaults: { atomSize: 1 },
+	onSample(plugin, cur) { if (cur) atomOf(plugin); },   // alive whenever there is a caret
+	onMove(plugin, prev, cur, info) { if (info.typed) atomOf(plugin).boostAt = info.now; },
+	onKey(plugin, e, now) { if (e.key === 'Enter' && plugin.last) atomWave(plugin, plugin.last, now); },
+	draw(plugin, ctx, item, p, k, now, dt) { drawAtom(plugin, ctx, item, now, k, dt); },
+	preview(plugin, pv, caret, now) {
+		atomOf(pv);
+		if (now < (pv.atomNext || 0)) return;
+		pv.atomNext = now + 2400;
+		atomWave(pv, caret, now);
+	},
+};
+
 // ---- Defaults: core keys + every effect's keys (toggle key per 'always' effect, plus its own defaults) ----
 const DEFAULTS = {
 	color: '#ffb929',       // main caret / glow color (dark theme)

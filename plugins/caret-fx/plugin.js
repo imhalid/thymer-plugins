@@ -361,6 +361,7 @@ const UI_CSS = `
 .cfx-preview .cfx-caret { position: absolute; left: 186px; top: 28px; width: 2.5px; height: 28px; border-radius: 2px; background: var(--c); box-shadow: 0 0 10px var(--c), 0 0 22px var(--a); animation: cfx-blink 1.1s steps(1) infinite; }
 @keyframes cfx-blink { 50% { opacity: .35; } }
 .cfx-preview.block .cfx-caret { width: 14px; border-radius: 2px; background: color-mix(in srgb, var(--c) 42%, transparent); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 8px color-mix(in srgb, var(--c) 45%, transparent); }
+.cfx-preview.cfx-nocaret .cfx-caret, .cfx-preview.cfx-nocaret .cfx-trail { opacity: 0; animation: none; }
 .cfx-preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .cfx-opts { display: grid; gap: 1px; margin: 0 -8px; }
 .cfx-opt { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 8px; border-radius: 9px; cursor: pointer; }
@@ -2301,6 +2302,7 @@ function drawSlime(plugin, ctx, item, now, dt) {
 		S.vx += (-ws * ws * (S.sx - 1) - 2 * zs * ws * S.vx) * s; S.sx += S.vx * s;
 		S.vy += (-ws * ws * (S.sy - breathe) - 2 * zs * ws * S.vy) * s; S.sy += S.vy * s;
 	}
+	item.hidesCaret = true;
 	if (!plugin.isPreview) plugin.hideCaret('slime', true);   // only the jelly is seen, never the line caret under it
 	const hw = (w * S.sx) / 2, hh = h * S.sy;
 	const bulge = clamp((1 - S.sy) * w * 0.9, -w * 0.5, w * 0.6);
@@ -2420,6 +2422,7 @@ function drawCombo(plugin, ctx, item, now, k, dt) {
 	if (rect && item.n && item.acc >= 1) { const nn = Math.floor(item.acc); item.acc -= nn; comboSparks(item, rect.x + rect.w / 2, rect.y + rect.h * (item.morph > 0.5 ? 0 : 0.3), Math.max(rect.h, 16), tier, nn, now); }
 	if (!item.n) item.acc = 0;
 	const shown = item.n && rect && tier >= 1;
+	item.hidesCaret = !!shown;
 	if (!plugin.isPreview) plugin.hideCaret('combo', !!shown);   // the line caret is replaced by the hot one
 	if (!item.n && item.morph < 0.01 && !item.fallen.length && !item.sparks.length && (now - item.flashAt) > 400) { item.done = true; if (!plugin.isPreview) plugin.hideCaret('combo', false); return; }
 	const dark = plugin.dark, power = Math.min(1, 0.75 + 0.25 * k), L = dark ? 0 : -22;
@@ -2873,7 +2876,8 @@ class Plugin extends AppPlugin {
 			for (const e of this.activeEffects()) e.preview?.(this, pv, caret, now);
 			pv.ctx.clearRect(0, 0, W, H);
 			const live = new Set(this.activeEffects().map((e) => e.id));
-			pv.items = pv.items.filter((it) => live.has(it.effect));   // what was switched off must not linger in the preview
+			pv.items = pv.items.filter((it) => live.has(it.effect));
+			host.classList.toggle('cfx-nocaret', pv.items.some((it) => it.hidesCaret));   // an effect that draws the caret itself: the preview's own is hidden too   // what was switched off must not linger in the preview
 			pv.renderItems(now);
 			requestAnimationFrame(tick);
 		};

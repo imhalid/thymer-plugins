@@ -87,6 +87,8 @@ Run `Caret FX: set preset…` from the command palette. The dialog has:
   | Health | thin glowing pluses float slowly up out of the caret as you write, with thin beams of light and tiny motes, like a healing spell, a few at a time; in the preset's greens, or a red cross if you pick red colors |
   | Zephyr | an anime-style wind skill: pointed, cel-shaded leaves are swept up round the caret and off behind it, fluttering, while thin speed lines streak back from the caret; a new line or a jump is a full gust |
   | Tide | a stylized water skill: every letter flicks a small spray of teardrops (round head, tapering tail, white glint) out of the caret to arc up and fall back, and now and then a bubble drifts up and pops; a new line or a jump is a big splash |
+  | Combo | typing as a game: every letter in a run adds one to a counter above the caret that pops with each hit and runs down if you pause; white, then yellow (10), orange (25), pink (50) and rainbow (100), each mark announced (NICE, GREAT, SUPER, ULTRA) with a burst of rays; a broken run of ten or more drops away |
+  | Electro | an anime thunder skill in violet: every letter cracks a thick, re-jittering bolt (violet glow, body and white core) along the caret's step and throws arcs out of it, the caret wrapped in short flickering arcs while you write; a new line or a jump is a long forked bolt with a flash |
 
   Holy, Prism, Health, Zephyr and Tide answer writing, not deleting.
 
@@ -112,7 +114,7 @@ What you choose in the dialogs and commands (preset, switches, intensity) is rem
 }
 ```
 
-`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"ink"`, `"tether"`, `"backman"`, `"holy"`, `"prism"`, `"health"`, `"zephyr"` or `"tide"`; `style` is `"line"` or `"block"`; choosing a preset in the dialog sets it for you. Holy, Prism, Zephyr and Tide have a setting each, `"holySize"`, `"prismStrength"`, `"zephyrSize"` and `"tideSize"` (1 is normal).
+`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"ink"`, `"tether"`, `"backman"`, `"holy"`, `"prism"`, `"health"`, `"zephyr"`, `"tide"`, `"combo"` or `"electro"`; `style` is `"line"` or `"block"`; choosing a preset in the dialog sets it for you. Holy, Prism, Zephyr and Tide have a setting each, `"holySize"`, `"prismStrength"`, `"zephyrSize"` and `"tideSize"` (1 is normal).
 
 ### How it works
 

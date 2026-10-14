@@ -2339,6 +2339,241 @@ EFFECTS.slime = {
 	},
 };
 
+// ---- Effect: Combo -------------------------------------------------------------------------------------------------
+// Typing as a game: every letter in a run adds one to a counter that floats above the caret and pops with each hit. The
+// run lives while the next letter comes within a moment; stop and it breaks. The higher the count, the hotter the look:
+// white, then yellow (10), orange (25), pink (50), and past 100 it cycles through every color. Each of those marks is
+// announced (NICE, GREAT, SUPER, ULTRA) with a burst of rays, the caret glows with the tier, a thin bar under the counter
+// shows how long the run has left, and a broken run of ten or more drops away as its number falls.
+// Settings: comboWindowMs (how long a run waits for the next letter; 1400 is normal).
+const COMBO_TIERS = [{ at: 0, hue: null, word: '' }, { at: 10, hue: 52, word: 'NICE' }, { at: 25, hue: 30, word: 'GREAT' }, { at: 50, hue: 340, word: 'SUPER' }, { at: 100, hue: -1, word: 'ULTRA' }];   // hue -1: cycling
+
+/** The tier a count has reached: an index into COMBO_TIERS. Pure. */
+const comboTier = (n) => COMBO_TIERS.reduce((t, c, i) => (n >= c.at ? i : t), 0);
+
+/** The color of a tier at time `now`, as [h, s, l]. Pure. */
+function comboHue(tier, now) {
+	const h = COMBO_TIERS[tier].hue;
+	return h === null ? [0, 0, 96] : h === -1 ? [(now * 0.12) % 360, 100, 64] : [h, 100, 62];
+}
+
+/** The item that holds the run of `host` (the plugin, or the dialog's preview). */
+function comboOf(host) {
+	const item = host.ensureItem('combo');
+	if (item.n === undefined) { item.n = 0; item.lastAt = 0; item.popAt = -1e9; item.wordAt = -1e9; item.word = ''; item.bursts = []; item.fallen = []; }
+	return item;
+}
+
+/** One more letter for the run at the caret `rect` - or a new run, if the last one has run out. */
+function comboHit(host, rect, now) {
+	const item = comboOf(host), win = host.cfg.comboWindowMs || 1400;
+	if (item.n && now - item.lastAt > win) comboBreak(item, rect, now);
+	const before = comboTier(item.n);
+	item.n++;
+	item.lastAt = now; item.popAt = now;
+	const tier = comboTier(item.n);
+	if (tier > before) {   // a mark reached: the word, and a burst of rays
+		item.word = COMBO_TIERS[tier].word; item.wordAt = now;
+		item.bursts.push({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2, h: Math.max(rect.h, 16), tier, t0: now, life: 650 });
+	}
+}
+
+/** The run ends: a count of ten or more falls away. */
+function comboBreak(item, rect, now) {
+	if (item.n >= 10) item.fallen.push({ n: item.n, x: rect.x + rect.w / 2, y: rect.y - 6, tier: comboTier(item.n), t0: now, life: 800 });
+	item.n = 0;
+}
+
+function drawCombo(plugin, ctx, item, now, k) {
+	const alive = (q) => now - q.t0 < q.life;
+	item.bursts = item.bursts.filter(alive); item.fallen = item.fallen.filter(alive);
+	const rect = plugin.last, win = plugin.cfg.comboWindowMs || 1400;
+	if (rect && item.n && now - item.lastAt > win) comboBreak(item, rect, now);
+	if (!item.n && !item.bursts.length && !item.fallen.length) { item.done = true; return; }
+	const dark = plugin.dark, power = Math.min(1, 0.75 + 0.25 * k), L = dark ? 0 : -22;
+	const hsl = (c, a = 1, dl = 0) => `hsla(${c[0]}, ${c[1]}%, ${c[2] + L + dl}%, ${a})`;
+	ctx.save();
+	ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+
+	for (const q of item.bursts) {   // rays out of the caret at a mark
+		const f = (now - q.t0) / q.life, e = easeOutCubic(f), c = comboHue(q.tier, now);
+		ctx.strokeStyle = hsl(c, (1 - f) * power); ctx.lineCap = 'round'; ctx.lineWidth = 2 * (1 - f) + 0.6;
+		ctx.shadowColor = hsl(c, 0.9, 0); ctx.shadowBlur = 8;
+		for (let i = 0; i < 14; i++) {
+			const a = (i / 14) * Math.PI * 2 + 0.2, r0 = q.h * (0.5 + 0.8 * e), r1 = q.h * (0.8 + 1.8 * e);
+			ctx.beginPath(); ctx.moveTo(q.x + Math.cos(a) * r0, q.y + Math.sin(a) * r0); ctx.lineTo(q.x + Math.cos(a) * r1, q.y + Math.sin(a) * r1); ctx.stroke();
+		}
+		ctx.shadowBlur = 0;
+	}
+
+	for (const q of item.fallen) {   // a broken run: the number drops and fades
+		const f = (now - q.t0) / q.life, c = comboHue(q.tier, now), t = f * f;
+		ctx.globalAlpha = (1 - f) * 0.8 * power;
+		ctx.font = `700 ${Math.round(16)}px system-ui, sans-serif`;
+		ctx.fillStyle = hsl([c[0], 20, 60], 1);
+		ctx.fillText(`×${q.n}`, q.x, q.y + t * 46);
+	}
+	ctx.globalAlpha = 1;
+
+	if (rect && item.n) {
+		const h = Math.max(rect.h, 16), u = h / 24, cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, tier = comboTier(item.n), c = comboHue(tier, now);
+		const left = clamp01(1 - (now - item.lastAt) / win);
+		const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, h * (0.9 + 0.25 * tier));   // the caret glows with the tier
+		glow.addColorStop(0, hsl(c, (0.12 + 0.1 * tier) * power));
+		glow.addColorStop(1, hsl(c, 0));
+		ctx.fillStyle = glow;
+		ctx.fillRect(cx - h * 2, cy - h * 2, h * 4, h * 4);
+		const pop = 1 + 0.55 * Math.max(0, 1 - (now - item.popAt) / 220) * Math.sin(Math.min(1, (now - item.popAt) / 220) * Math.PI * 0.5 + 1.2);
+		const size = (15 + 3 * tier) * u * (0.9 + 0.1 * Math.min(k, 1.5)) * pop, y = rect.y - 6 * u;
+		ctx.font = `800 ${size}px system-ui, sans-serif`;
+		ctx.shadowColor = hsl(c, 0.9, 0); ctx.shadowBlur = 6 + 4 * tier;
+		ctx.lineJoin = 'round'; ctx.lineWidth = size * 0.16; ctx.strokeStyle = dark ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.7)';
+		ctx.globalAlpha = power;
+		ctx.strokeText(`×${item.n}`, cx, y);
+		ctx.fillStyle = hsl(c);
+		ctx.fillText(`×${item.n}`, cx, y);
+		ctx.shadowBlur = 0;
+		const bw = 26 * u, by = y + 3 * u;   // the bar: how long the run has left
+		ctx.fillStyle = dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)';
+		ctx.fillRect(cx - bw / 2, by, bw, 2 * u);
+		ctx.fillStyle = hsl(c, 0.95);
+		ctx.fillRect(cx - bw / 2, by, bw * left, 2 * u);
+		const wf = (now - item.wordAt) / 1000;   // the word of the mark, for a second
+		if (item.word && wf < 1) {
+			const wp = easeOutBack(clamp01(wf / 0.2));
+			ctx.globalAlpha = (wf < 0.7 ? 1 : 1 - (wf - 0.7) / 0.3) * power;
+			ctx.font = `900 ${11 * u * wp}px system-ui, sans-serif`;
+			ctx.fillStyle = hsl(c, 1, 8);
+			ctx.fillText(item.word, cx, y - size - 2 * u - wf * 6 * u);
+		}
+	}
+	ctx.restore();
+	plugin.kick();   // the bar runs down on its own
+}
+
+EFFECTS.combo = {
+	id: 'combo', label: 'Combo', mode: 'signature', keepsState: true, blend: 'source-over',
+	preset: { name: 'Combo', color: '#ffe14d', accent: '#ff7a1a' },
+	defaults: { comboWindowMs: 1400 },
+	onMove(plugin, prev, cur, info) { if (isWriting(info)) comboHit(plugin, cur, info.now); },
+	draw(plugin, ctx, item, p, k, now) { drawCombo(plugin, ctx, item, now, k); },
+	preview(plugin, pv, caret, now) {
+		if (now < (pv.comboNext || 0)) return;
+		pv.comboNext = now + 130;
+		const item = comboOf(pv);
+		if (item.n >= 34) { item.lastAt = 0; }   // the preview runs up through the tiers, lets go, and starts again
+		comboHit(pv, caret, now);
+	},
+};
+
+// ---- Effect: Electro -----------------------------------------------------------------------------------------------
+// An anime thunder skill in violet: every letter cracks a thick bolt along the step the caret took and throws a couple of
+// arcs out from it to the space around, each bolt in three layers (a wide violet glow, a violet body, a white core) that
+// re-jitters many times a second so it crackles; while you write the caret is wrapped in short flickering arcs, for a
+// moment after you stop. A new line or a jump is a long bolt with forks and a flash.
+// Settings: electroSize (1 is normal).
+const ELECTRO_JITTER_MS = 45;        // how often a bolt re-jitters
+const ELECTRO_AURA_MS = 900;         // how long the arcs round the caret last after the last letter
+const ELECTRO_BOLTS_MAX = 24;        // the most bolts alive at once
+
+/** The item that holds the thunder of `host` (the plugin, or the dialog's preview). */
+function electroOf(host) {
+	const item = host.ensureItem('electro');
+	if (!item.bolts) { item.bolts = []; item.auraUntil = 0; item.nextArc = 0; item.flashAt = -1e9; }
+	return item;
+}
+
+/** Adds a bolt from (x0, y0) to (x1, y1): `kind` is 'main', 'arc' or 'big'. */
+function electroBolt(item, x0, y0, x1, y1, kind, now) {
+	if (item.bolts.length >= ELECTRO_BOLTS_MAX) return;
+	item.bolts.push({ x0, y0, x1, y1, kind, seed: Math.random() * 1000, t0: now, life: kind === 'arc' ? 110 + Math.random() * 90 : kind === 'big' ? 420 : 200 });
+}
+
+/** The letter at the caret: a bolt along the step from `prev` to `cur`, and arcs out of `cur`. */
+function electroStrike(host, prev, cur, big, now) {
+	const item = electroOf(host), h = Math.max(cur.h, 16), cx = cur.x + cur.w / 2, cy = cur.y + cur.h / 2, px = prev.x + prev.w / 2, py = prev.y + prev.h / 2;
+	item.auraUntil = now + ELECTRO_AURA_MS;
+	if (big) { electroBolt(item, px, py, cx, cy, 'big', now); item.flashAt = now; }
+	else electroBolt(item, px, py - h * 0.3, cx, cy + h * 0.3, 'main', now);
+	for (let i = 0; i < (big ? 3 : 1 + (Math.random() < 0.5 ? 1 : 0)); i++) {
+		const a = Math.random() * Math.PI * 2, d = h * (0.8 + Math.random() * 1.1);
+		electroBolt(item, cx, cy, cx + Math.cos(a) * d * 1.3, cy + Math.sin(a) * d * 0.8, 'arc', now);
+	}
+}
+
+/** A polyline for a bolt from (x0, y0) to (x1, y1), jittered by `seed`. */
+function boltPoints(b, seed, thin) {
+	const dx = b.x1 - b.x0, dy = b.y1 - b.y0, len = Math.hypot(dx, dy) || 1, n = Math.max(4, Math.round(len / (thin ? 5 : 7)));
+	const nx = -dy / len, ny = dx / len, amp = Math.min(thin ? 5 : 9, len * 0.16), pts = [];
+	for (let i = 0; i <= n; i++) {
+		const t = i / n, off = i === 0 || i === n ? 0 : (hash(i * 13.37 + seed) * 2 - 1) * amp * Math.sin(Math.PI * t) * 1.4;
+		pts.push({ x: b.x0 + dx * t + nx * off, y: b.y0 + dy * t + ny * off });
+	}
+	return pts;
+}
+
+function drawElectro(plugin, ctx, item, now, k) {
+	item.bolts = item.bolts.filter((b) => now - b.t0 < b.life);
+	const rect = plugin.last;
+	if (rect && now < item.auraUntil && now >= item.nextArc) {   // the arcs round the caret
+		const h = Math.max(rect.h, 16), cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, a = Math.random() * Math.PI * 2, d = h * (0.5 + Math.random() * 0.7);
+		electroBolt(item, cx + Math.cos(a) * h * 0.25, cy + Math.sin(a) * h * 0.25, cx + Math.cos(a) * d * 1.3, cy + Math.sin(a) * d * 0.9, 'arc', now);
+		item.nextArc = now + 60 + Math.random() * 70;
+	}
+	const flash = (now - item.flashAt) / 300;
+	if (!item.bolts.length && now >= item.auraUntil && flash >= 1) { item.done = true; return; }
+	const dark = plugin.dark, power = Math.min(1, 0.75 + 0.25 * k) * (plugin.cfg.electroSize ?? 1), body = plugin.col(), glow = plugin.acc(), core = dark ? '#ffffff' : lighten(body, 0.8);
+	if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
+	ctx.save();
+	if (rect && flash >= 0 && flash < 1) {   // the flash of a big strike
+		const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, r = rect.h * 3, g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+		g.addColorStop(0, rgba(body, 0.45 * (1 - flash) * (1 - flash)));
+		g.addColorStop(1, rgba(glow, 0));
+		ctx.fillStyle = g;
+		ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+	}
+	ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+	for (const b of item.bolts) {
+		const p = (now - b.t0) / b.life, thin = b.kind === 'arc', seed = b.seed + Math.floor(now / ELECTRO_JITTER_MS) * 7.77;
+		const a = (1 - p) * (0.75 + 0.25 * hash(seed)) * Math.min(1, power), w = (b.kind === 'arc' ? 0.6 : b.kind === 'big' ? 1.5 : 1) * power;
+		const pts = boltPoints(b, seed, thin), trace = () => { ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); };
+		ctx.shadowColor = rgba(glow, a); ctx.shadowBlur = 14 * w;
+		trace(); ctx.strokeStyle = rgba(glow, 0.32 * a); ctx.lineWidth = 6.5 * w; ctx.stroke();
+		ctx.shadowBlur = 0;
+		trace(); ctx.strokeStyle = rgba(body, 0.9 * a); ctx.lineWidth = 2.6 * w; ctx.stroke();
+		trace(); ctx.strokeStyle = rgba(core, a); ctx.lineWidth = Math.max(0.8, 1.1 * w); ctx.stroke();
+		if (b.kind === 'big') {   // forks off the long bolt
+			for (let i = 0; i < 3; i++) {
+				const q = pts[Math.floor(pts.length * (0.25 + i * 0.25))], side = hash(b.seed + i * 5) < 0.5 ? -1 : 1, ang = Math.atan2(b.y1 - b.y0, b.x1 - b.x0) + side * (0.6 + hash(b.seed + i) * 0.5), len = Math.hypot(b.x1 - b.x0, b.y1 - b.y0) * 0.22;
+				const fk = { x0: q.x, y0: q.y, x1: q.x + Math.cos(ang) * len, y1: q.y + Math.sin(ang) * len };
+				const fp = boltPoints(fk, seed + i * 3, true);
+				ctx.beginPath(); fp.forEach((r, j) => (j ? ctx.lineTo(r.x, r.y) : ctx.moveTo(r.x, r.y)));
+				ctx.strokeStyle = rgba(body, 0.8 * a); ctx.lineWidth = 1.6 * w; ctx.stroke();
+				ctx.strokeStyle = rgba(core, 0.9 * a); ctx.lineWidth = 0.7; ctx.stroke();
+			}
+		}
+	}
+	ctx.restore();
+	plugin.kick();   // the bolts re-jitter between frames
+}
+
+EFFECTS.electro = {
+	id: 'electro', label: 'Electro', mode: 'signature', keepsState: true, blend: 'lighter',
+	preset: { name: 'Electro', color: '#e3c2ff', accent: '#8a3ffc' },
+	defaults: { electroSize: 1 },
+	onMove(plugin, prev, cur, info) {
+		const big = info.typed ? info.dy >= cur.h * 0.8 : info.dist > cur.h * 4;   // a new line, or a jump
+		if (!big && !isWriting(info)) return;
+		electroStrike(plugin, prev, cur, big, info.now);
+	},
+	draw(plugin, ctx, item, p, k, now) { drawElectro(plugin, ctx, item, now, k); },
+	preview(plugin, pv, caret, now) {
+		if (now < (pv.electroNext || 0)) return;
+		pv.electroNext = now + 520;
+		electroStrike(pv, { x: caret.x - 22, y: caret.y, w: caret.w, h: caret.h }, caret, false, now);
+	},
+};
+
 // ---- Defaults: core keys + every effect's keys (toggle key per 'always' effect, plus its own defaults) ----
 const DEFAULTS = {
 	color: '#ffb929',       // main caret / glow color (dark theme)

@@ -2342,12 +2342,12 @@ EFFECTS.slime = {
 // ---- Effect: Atom --------------------------------------------------------------------------------------------------
 // The caret is the nucleus: two thin glowing orbits cross round it, tilted against each other like the symbol of an atom,
 // and a blue electron runs round each - a bright head with a fading trail, a little larger as it comes round the near
-// side - glowing as it goes. Writing makes them run faster and brighter for a moment. Enter sends out a small shock wave
-// from the caret: an expanding ring split into red, green and blue (chromatic aberration) that thins out as it goes.
+// side - glowing as it goes. Writing makes them run faster and brighter for a moment. Enter sends out a shock wave
+// from the caret: a bright front racing out with a soft body of pressure behind it, a weaker second front following.
 // Settings: atomSize (1 is normal).
 const ATOM_ORBITS = [{ rot: 0.62, spin: 2.1 }, { rot: -0.62, spin: -2.7 }];   // each orbit's tilt (radians) and its electron's speed (rad/s)
 const ATOM_TRAIL = 16;                // the points of an electron's trail
-const ATOM_WAVE_MS = 560;             // how long a shock wave lasts
+const ATOM_WAVE_MS = 750;             // how long a shock wave lasts
 const ATOM_BOOST_MS = 700;            // how long writing keeps the electrons quickened
 
 /** The place on an orbit (an ellipse `rx` by `ry`, tilted by `rot`, round (cx, cy)) at angle `ph`. Pure. */
@@ -2419,15 +2419,38 @@ function drawAtom(plugin, ctx, item, now, k, dt) {
 		});
 	}
 
-	for (const q of item.waves) {   // shock waves: three rings, red outermost and blue innermost, pulled apart as they widen
-		const f = (now - q.t0) / q.life, e = easeOutCubic(f), a = Math.pow(1 - f, 1.5) * power * (dark ? 0.85 : 0.6), r = q.h * (0.3 + 2.2 * e), split = 1 + 0.05 * e + 0.015;
-		ctx.lineWidth = 0.6 + 2.2 * (1 - f);
-		for (const [rr, gg, bb, m] of [[255, 70, 70, split], [70, 255, 130, 1], [80, 130, 255, 2 - split]]) {
-			ctx.strokeStyle = `rgba(${rr},${gg},${bb},${a})`;
+	for (const q of item.waves) {   // shock waves: a front that races out, thick and bright, with a soft body of pressure behind it
+		const f = (now - q.t0) / q.life, a = Math.pow(1 - f, 1.3) * power * (dark ? 1 : 0.7);
+		const front = (e, lag) => {   // one ring of the wave: its radius, and how far along it is
+			const ff = clamp01(f - lag), r = q.h * (0.4 + 4.6 * (1 - Math.pow(1 - ff, 4))), body = r * (0.35 + 0.25 * ff), fade = Math.pow(1 - ff, 1.3) * e;
+			if (ff <= 0 || fade < 0.01) return;
+			const g = ctx.createRadialGradient(q.x, q.y, Math.max(0, r - body), q.x, q.y, r + 2);
+			g.addColorStop(0, rgba(ring, 0));
+			g.addColorStop(0.75, rgba(ring, 0.28 * fade * power));
+			g.addColorStop(0.96, rgba(glow, 0.7 * fade * power));
+			g.addColorStop(1, rgba(glow, 0));
+			ctx.fillStyle = g;
 			ctx.beginPath();
-			ctx.arc(q.x, q.y, r * m, 0, Math.PI * 2);
+			ctx.arc(q.x, q.y, r + 2, 0, Math.PI * 2);
+			ctx.fill();
+			ctx.shadowColor = rgba(ring, 0.9);
+			ctx.shadowBlur = 8;
+			ctx.strokeStyle = dark ? `rgba(255,255,255,${0.9 * fade * power})` : rgba(ring, 0.9 * fade * power);
+			ctx.lineWidth = 0.8 + 2.4 * (1 - ff);
+			ctx.beginPath();
+			ctx.arc(q.x, q.y, r, 0, Math.PI * 2);
 			ctx.stroke();
+			ctx.shadowBlur = 0;
+		};
+		if (f < 0.25) {   // the blast itself, for an instant
+			const fl = 1 - f / 0.25, r = q.h * 1.3, g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, r);
+			g.addColorStop(0, rgba(glow, 0.8 * fl * power));
+			g.addColorStop(1, rgba(ring, 0));
+			ctx.fillStyle = g;
+			ctx.fillRect(q.x - r, q.y - r, r * 2, r * 2);
 		}
+		front(1, 0);
+		front(0.45, 0.12);   // a weaker second front behind the first
 	}
 	ctx.restore();
 	plugin.kick();   // the electrons never rest

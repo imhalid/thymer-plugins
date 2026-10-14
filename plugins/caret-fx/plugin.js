@@ -2345,16 +2345,17 @@ EFFECTS.slime = {
 // Typing as a game: every letter in a run adds one to a counter that floats above the caret and pops with each hit. The
 // run lives while the next letter comes within a moment; stop and it breaks. The higher the count, the hotter the caret:
 //   0-9    the caret as it is, white counter
-//   10     it turns red-hot and sparks fly off it
-//   25     it morphs into a flame - the line widens and draws up into a tongue that flickers
-//   50     the flame turns blue
-//   100    a white-hot blue flame, violet at its edges, throwing sparks all over
-// Each mark is announced (NICE, GREAT, SUPER, ULTRA) with a flash; a thin bar under the counter shows how long the run has
+//   10     the caret turns red and sparks fly off it
+//   25     orange, more sparks
+//   50     blue, with blue sparks
+//   100    white-hot blue, sparks all over
+// Each mark is announced (NICE, GREAT, SUPER, ULTRA) with a flash and a glow that stays; a thin bar under the counter shows how long the run has
 // left, and a broken run of ten or more drops away as its number falls.
 // Settings: comboWindowMs (how long a run waits for the next letter; 1400 is normal).
 const COMBO_TIERS = [{ at: 0, hue: null, word: '' }, { at: 10, hue: 8, word: 'NICE' }, { at: 25, hue: 30, word: 'GREAT' }, { at: 50, hue: 215, word: 'SUPER' }, { at: 100, hue: -1, word: 'ULTRA' }];   // hue -1: white-hot blue, shifting toward violet
 const COMBO_SPARKS_PER_S = [0, 7, 14, 22, 40];   // sparks a second, by tier, on top of those a letter throws
 const COMBO_SPARKS_MAX = 60;
+const COMBO_TINTS = [null, '#ff4d3a', '#ff9a2e', '#4da3ff', '#bfe3ff'];   // the caret's color by tier (null: its own)
 
 /** The tier a count has reached: an index into COMBO_TIERS. Pure. */
 const comboTier = (n) => COMBO_TIERS.reduce((t, c, i) => (n >= c.at ? i : t), 0);
@@ -2368,7 +2369,7 @@ function comboHue(tier, now) {
 /** The item that holds the run of `host` (the plugin, or the dialog's preview). */
 function comboOf(host) {
 	const item = host.ensureItem('combo');
-	if (item.n === undefined) { item.n = 0; item.lastAt = 0; item.popAt = -1e9; item.wordAt = -1e9; item.word = ''; item.flashAt = -1e9; item.flashTier = 0; item.fallen = []; item.sparks = []; item.morph = 0; item.blue = 0; item.acc = 0; }
+	if (item.n === undefined) { item.n = 0; item.lastAt = 0; item.popAt = -1e9; item.wordAt = -1e9; item.word = ''; item.flashAt = -1e9; item.flashTier = 0; item.fallen = []; item.sparks = []; item.acc = 0; }
 	return item;
 }
 
@@ -2376,7 +2377,7 @@ function comboOf(host) {
 function comboSparks(item, x, y, h, tier, n, now) {
 	for (let i = 0; i < n && item.sparks.length < COMBO_SPARKS_MAX; i++) {
 		const a = -Math.PI / 2 + (Math.random() - 0.5) * (tier >= 3 ? 2.4 : 1.7), v = (35 + Math.random() * 70) * (h / 24) * (tier >= 4 ? 1.4 : 1);
-		item.sparks.push({ x: x + (Math.random() - 0.5) * h * 0.25, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: (0.6 + Math.random() * 1.1) * (h / 24), t0: now, life: 500 + Math.random() * 600, ph: Math.random() * 6.28 });
+		item.sparks.push({ x: x + (Math.random() - 0.5) * h * 0.25, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: (0.6 + Math.random() * 1.1) * (h / 24), cool: tier >= 3, t0: now, life: 500 + Math.random() * 600, ph: Math.random() * 6.28 });
 	}
 }
 
@@ -2388,7 +2389,6 @@ function comboHit(host, rect, now) {
 	item.n++;
 	item.lastAt = now; item.popAt = now;
 	const tier = comboTier(item.n);
-	if (tier >= 1 && !host.isPreview) host.hideCaret('combo', true);   // at once, in the same breath as the letter: the real caret never gets a frame of its own
 	if (tier > before) { item.word = COMBO_TIERS[tier].word; item.wordAt = now; item.flashAt = now; item.flashTier = tier; }
 	if (tier >= 1) comboSparks(item, rect.x + rect.w / 2, rect.y + rect.h * 0.3, Math.max(rect.h, 16), tier, 2 + tier, now);
 }
@@ -2399,33 +2399,19 @@ function comboBreak(item, rect, now) {
 	item.n = 0;
 }
 
-/** The outline of the caret `m` (0..1) of the way from a line to a flame: base on (cx, base), `h` tall, `hw0` the line's half-width, `wf` the flame's. Returns the two edges, base to tip. */
-function flameEdges(cx, base, h, hw0, wf, m, now, seed) {
-	const N = 14, left = [], right = [], hh = h * (1 + 0.7 * m * (0.88 + 0.12 * Math.sin(now * 0.017 + seed)));
-	for (let i = 0; i <= N; i++) {
-		const t = i / N, flame = wf * Math.pow(1 - t, 0.85) * (0.55 + 0.45 * Math.sin(Math.min(1, t * 4) * Math.PI / 2));
-		const hw = lerp(hw0, flame, m), sway = m * wf * 0.55 * Math.pow(t, 1.6) * (Math.sin(now * 0.011 + t * 3.2 + seed) * 0.7 + Math.sin(now * 0.023 + t * 5 + seed * 2) * 0.3), y = base - hh * t;
-		left.push({ x: cx - hw + sway, y }); right.push({ x: cx + hw + sway, y });
-	}
-	return { left, right };
-}
-
 function drawCombo(plugin, ctx, item, now, k, dt) {
 	const alive = (q) => now - q.t0 < q.life;
 	item.fallen = item.fallen.filter(alive); item.sparks = item.sparks.filter(alive);
 	const rect = plugin.last, win = plugin.cfg.comboWindowMs || 1400, s = Math.min((dt || 16) / 1000, 0.05);
 	if (rect && item.n && now - item.lastAt > win) comboBreak(item, rect, now);
 	const tier = comboTier(item.n);
-	// the caret's look eases toward the tier's: the morph into a flame, and the flame going blue
-	item.morph += ((tier >= 2 ? 1 : 0) - item.morph) * Math.min(1, s * 7);
-	item.blue += ((tier >= 3 ? 1 : 0) - item.blue) * Math.min(1, s * 6);
+	// the caret itself takes the tier's color (the line or the block, whichever is in use)
+	const tint = COMBO_TINTS[item.n ? tier : 0];
+	if (!plugin.isPreview && plugin.tint !== tint) { plugin.tint = tint; plugin.applyCaretStyle(); }
 	item.acc += s * COMBO_SPARKS_PER_S[tier];
-	if (rect && item.n && item.acc >= 1) { const nn = Math.floor(item.acc); item.acc -= nn; comboSparks(item, rect.x + rect.w / 2, rect.y + rect.h * (item.morph > 0.5 ? 0 : 0.3), Math.max(rect.h, 16), tier, nn, now); }
+	if (rect && item.n && item.acc >= 1) { const nn = Math.floor(item.acc); item.acc -= nn; comboSparks(item, rect.x + rect.w / 2, rect.y + rect.h * 0.3, Math.max(rect.h, 16), tier, nn, now); }
 	if (!item.n) item.acc = 0;
-	const shown = item.n && rect && tier >= 1;
-	item.hidesCaret = !!shown;
-	if (!plugin.isPreview) plugin.hideCaret('combo', !!shown);   // the line caret is replaced by the hot one
-	if (!item.n && item.morph < 0.01 && !item.fallen.length && !item.sparks.length && (now - item.flashAt) > 400) { item.done = true; if (!plugin.isPreview) plugin.hideCaret('combo', false); return; }
+	if (!item.n && !item.fallen.length && !item.sparks.length && (now - item.flashAt) > 400) { item.done = true; return; }
 	const dark = plugin.dark, power = Math.min(1, 0.75 + 0.25 * k), L = dark ? 0 : -22;
 	const hsl = (c, a = 1, dl = 0) => `hsla(${c[0]}, ${c[1]}%, ${c[2] + L + dl}%, ${a})`;
 	if (!dark) ctx.globalCompositeOperation = 'source-over';
@@ -2437,7 +2423,7 @@ function drawCombo(plugin, ctx, item, now, k, dt) {
 		const x = q.x + (q.vx * (1 - drag)) / 1.8, y = q.y + (q.vy * (1 - drag)) / 1.8 - 10 * t * t;
 		const a = Math.sin(Math.PI * Math.min(1, f * 1.15)) * (0.6 + 0.4 * Math.sin(q.ph + t * 22)) * power;
 		if (a < 0.03) continue;
-		const c = item.blue > 0.5 ? [200 + 40 * Math.random() * 0, 100, 74] : [f < 0.4 ? 44 : 14, 100, f < 0.4 ? 66 : 56];
+		const c = q.cool ? [205, 100, f < 0.4 ? 82 : 68] : [f < 0.4 ? 44 : 14, 100, f < 0.4 ? 66 : 56];   // blue sparks from 50, hot ones before
 		ctx.globalAlpha = Math.min(1, a);
 		ctx.shadowColor = hsl(c, 0.9); ctx.shadowBlur = 5;
 		ctx.fillStyle = hsl(c);
@@ -2462,32 +2448,13 @@ function drawCombo(plugin, ctx, item, now, k, dt) {
 			g.addColorStop(0, hsl(fc, 0.5 * (1 - fl) * power)); g.addColorStop(1, hsl(fc, 0));
 			ctx.fillStyle = g; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
 		}
-		if (tier >= 1) {   // the hot caret: a red-hot line that draws up into a flame
-			const hw0 = Math.max(rect.lw || 2, 2) / 2 * (plugin.cfg.style === 'block' ? Math.max(1, (rect.cw || 9) / 2) : 1), wf = Math.max(h * 0.34, (rect.cw || 9) * 0.7) * (tier >= 4 ? 1.25 : 1);
-			const outerHue = lerp(14, -142, item.blue) + (tier >= 4 ? 40 + 20 * Math.sin(now * 0.003) : 0), coreHue = lerp(48, -170, item.blue);   // orange to blue the short way round the wheel through magenta, not through green
-			const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, h * (1 + 0.6 * item.morph));
-			glow.addColorStop(0, `hsla(${outerHue}, 100%, ${dark ? 55 : 45}%, ${(0.25 + 0.15 * item.morph) * power})`); glow.addColorStop(1, `hsla(${outerHue}, 100%, 55%, 0)`);
-			ctx.fillStyle = glow; ctx.fillRect(cx - h * 2, cy - h * 2, h * 4, h * 4);
-			const draw = (scaleW, scaleH, sat, hue, light, alpha, seed) => {
-				const e = flameEdges(cx, base, h * scaleH, hw0 * scaleW, wf * scaleW, item.morph, now, seed);
-				ctx.beginPath(); ctx.moveTo(e.left[0].x, e.left[0].y);
-				for (let i = 1; i < e.left.length; i++) ctx.lineTo(e.left[i].x, e.left[i].y);
-				for (let i = e.right.length - 1; i >= 0; i--) ctx.lineTo(e.right[i].x, e.right[i].y);
-				ctx.closePath();
-				const top = e.left[e.left.length - 1].y, g = ctx.createLinearGradient(0, base, 0, top);
-				g.addColorStop(0, `hsla(${hue}, ${sat}%, ${light + 14}%, ${alpha})`); g.addColorStop(0.55, `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`); g.addColorStop(1, `hsla(${hue - 14 * (1 - item.blue)}, ${sat}%, ${light - 10}%, ${alpha * 0.7})`);
-				ctx.fillStyle = g; ctx.fill();
-			};
-			ctx.globalAlpha = power;
-			ctx.shadowColor = `hsla(${outerHue}, 100%, 55%, 0.9)`; ctx.shadowBlur = 8 + 8 * item.morph;
-			draw(1, 1, 100, outerHue, dark ? 52 : 42, 0.95, 1.3);   // the outer flame
-			ctx.shadowBlur = 0;
-			draw(0.62, 0.78, 100, coreHue, dark ? 66 : 56, 0.95, 4.1);   // the bright core
-			if (tier >= 4 || item.blue > 0.6) draw(0.3, 0.55, 40, 200, 92, 0.9, 7.7);   // and a white-hot heart
-			ctx.globalAlpha = 1;
+		if (tier >= 1) {   // a glow round the caret, hotter with the tier
+			const gr = h * (1 + 0.25 * tier), glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, gr);
+			glow.addColorStop(0, hsl(c, (0.16 + 0.07 * tier) * power)); glow.addColorStop(1, hsl(c, 0));
+			ctx.fillStyle = glow; ctx.fillRect(cx - gr, cy - gr, gr * 2, gr * 2);
 		}
 		const pop = 1 + 0.55 * Math.max(0, 1 - (now - item.popAt) / 220) * Math.sin(Math.min(1, (now - item.popAt) / 220) * Math.PI * 0.5 + 1.2);
-		const size = (15 + 3 * tier) * u * (0.9 + 0.1 * Math.min(k, 1.5)) * pop, y = rect.y - (6 + 8 * item.morph) * u;
+		const size = (15 + 3 * tier) * u * (0.9 + 0.1 * Math.min(k, 1.5)) * pop, y = rect.y - 6 * u;
 		ctx.font = `800 ${size}px system-ui, sans-serif`;
 		ctx.shadowColor = hsl(c, 0.9, 0); ctx.shadowBlur = 6 + 4 * tier;
 		ctx.lineJoin = 'round'; ctx.lineWidth = size * 0.16; ctx.strokeStyle = dark ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.7)';
@@ -2511,7 +2478,7 @@ function drawCombo(plugin, ctx, item, now, k, dt) {
 		}
 	}
 	ctx.restore();
-	plugin.kick();   // the bar runs down and the flame flickers on their own
+	plugin.kick();   // the bar runs down and the sparks fly on their own
 }
 
 EFFECTS.combo = {
@@ -2679,7 +2646,7 @@ class Plugin extends AppPlugin {
 
 	// ---- colors ------------------------------------------------------------------------
 
-	col() { return this.dark ? this.cfg.color : lightVariant(this.cfg.color); }
+	col() { const c = this.tint || this.cfg.color; return this.dark ? c : lightVariant(c); }
 	acc() { return this.dark ? this.cfg.accent : lightVariant(this.cfg.accent); }
 
 	// ---- effect registry access ---------------------------------------------------------
@@ -2725,6 +2692,7 @@ class Plugin extends AppPlugin {
 
 	// What an effect that keeps state leaves behind when it stops: its items, its state, its hold on the caret.
 	dropEffect(id) {
+		if (id === 'combo' && this.tint) { this.tint = null; this.applyCaretStyle(); }
 		this.items = this.items.filter((it) => it.effect !== id);
 		delete this.fxState[id];
 		this.hideCaret(id, false);
@@ -2775,7 +2743,7 @@ class Plugin extends AppPlugin {
 		if (!this.block) return;
 		const clip = this.clipRect();
 		const visible = rect && (!clip || (rect.y + rect.h > clip.y && rect.y < clip.y + clip.h && rect.x + rect.w > clip.x && rect.x < clip.x + clip.w));
-		if (!visible || this.caretHolders.size) { this.block.style.display = 'none'; return; }   // an effect that draws the caret itself holds it: not even a frame of the block cursor
+		if (!visible) { this.block.style.display = 'none'; return; }
 		Object.assign(this.block.style, { display: 'block', left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.w}px`, height: `${rect.h}px` });
 		if (moved) { this.block.style.animation = 'none'; void this.block.offsetWidth; this.block.style.animation = ''; } // solid while moving, blinks when idle
 	}

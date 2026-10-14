@@ -87,7 +87,7 @@ Run `Caret FX: set preset…` from the command palette. The dialog has:
   | Health | thin glowing pluses float slowly up out of the caret as you write, with thin beams of light and tiny motes, like a healing spell, a few at a time; in the preset's greens, or a red cross if you pick red colors |
   | Zephyr | an anime-style wind skill: pointed, cel-shaded leaves are swept up round the caret and off behind it, fluttering, while thin speed lines streak back from the caret; a new line or a jump is a full gust |
   | Tide | a stylized water skill: every letter flicks a small spray of teardrops (round head, tapering tail, white glint) out of the caret to arc up and fall back, and now and then a bubble drifts up and pops; a new line or a jump is a big splash |
-  | Combo | typing as a game: every letter in a run adds one to a counter above the caret that pops with each hit and runs down if you pause (NICE, GREAT, SUPER, ULTRA at 10, 25, 50, 100); from 10 the caret turns red-hot and throws sparks, from 25 it morphs into a flickering flame, from 50 the flame turns blue, from 100 it is white-hot with violet edges; a broken run of ten or more drops away |
+  | Combo | typing as a game: every letter in a run adds one to a counter above the caret that pops with each hit and runs down if you pause (NICE, GREAT, SUPER, ULTRA at 10, 25, 50, 100); the caret itself changes color with the count - red from 10, orange from 25, blue from 50, white-hot blue from 100 - and throws sparks, more of them the higher you go; a broken run of ten or more drops away |
 
   Holy, Prism, Health, Zephyr and Tide answer writing, not deleting.
 

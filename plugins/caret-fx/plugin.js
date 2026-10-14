@@ -1670,147 +1670,149 @@ EFFECTS.holy = {
 };
 
 // ---- Effect: Prism -------------------------------------------------------------------------------------------------
-// Light through a lens: two crescents of spectrum, one on either side of the caret with the dark between them. Each is
-// a hot orange-red on its inner edge and goes through a white-cyan core to a deep blue on its outer edge, with fainter,
-// dimmer echoes of itself beyond, like diffraction fringes. The pair is painted once into a sprite (pixel by pixel, from
-// its distance and angle) and drawn scaled. Writing lights it; each letter sends an echo of the pair breathing out from
-// the caret, slowly. A new line or a jump flashes it fully, and it fades within a moment.
+// A burst of light through glass: each letter sets off a flash on the caret with a thin anamorphic lens streak through it
+// (cold blue-white) and a small violet lens-orb on the streak, and flings a few chunky glowing stars out - gold and orange
+// mostly, now and then cyan with a tail - that slow down, spin and fade, with embers drifting among them. A new line or a
+// jump is a big burst. Everything is additive light.
 // Settings: prismStrength (1 is normal).
-const PRISM_DECAY_MS = 900;         // how fast the pair's light dies away
-const PRISM_RISE = 0.3;             // what one written letter adds to it
-const PRISM_CAP = 0.85;             // writing alone never takes it past this: only a new line or a jump flashes it fully
-const PRISM_REACH = 1.9;            // the sprite's radius (where its farthest echo ends), in caret heights
-const PRISM_ECHO_MS = [1100, 1600]; // how long one echo breathes out: the shortest and the longest
-const PRISM_ECHO_GAP_MS = 140;      // the least time between two echoes, so a fast typist does not bury the page in them
-const PRISM_ECHOES_MAX = 6;         // the most echoes alive at once
-const PRISM_SPRITE = 160;           // the sprite's size in px
-// The spectrum across a crescent, by distance from the middle (0..1 of the sprite's radius): [d, r, g, b].
-const PRISM_RAMP = [
-	[0.15, 90, 10, 0], [0.2, 255, 70, 20], [0.25, 255, 160, 60], [0.295, 235, 245, 255], [0.34, 90, 220, 255],
-	[0.4, 30, 120, 255], [0.46, 20, 60, 200], [0.52, 40, 150, 120], [0.58, 200, 120, 40], [0.65, 40, 120, 200],
-	[0.74, 120, 60, 200], [1, 60, 30, 120],
-];
+const PRISM_GAP_MS = 80;                 // the least time between two bursts, so a fast typist does not bury the page in them
+const PRISM_STARS_MAX = 18;              // the most stars alive at once
+const PRISM_EMBERS_MAX = 26;             // the most embers alive at once
+const PRISM_STAR_MS = [750, 1150];       // how long a star flies
+const PRISM_FLASH_MS = 380;              // how long the flash and its streak last
+const PRISM_HUES = [[44, 100, 62], [44, 100, 62], [30, 100, 58], [30, 100, 58], [190, 100, 66], [270, 100, 72]];   // gold, orange, cyan, violet: [h, s, l]
 
-/** The spectrum's color at distance `d` from the middle of the sprite, as [r, g, b]. Pure. */
-function prismRamp(d) {
-	if (d <= PRISM_RAMP[0][0]) return PRISM_RAMP[0].slice(1);
-	for (let i = 1; i < PRISM_RAMP.length; i++) {
-		const a = PRISM_RAMP[i - 1], b = PRISM_RAMP[i];
-		if (d <= b[0]) { const t = (d - a[0]) / (b[0] - a[0]); return [lerp(a[1], b[1], t), lerp(a[2], b[2], t), lerp(a[3], b[3], t)]; }
+/** The outline of a five-pointed star of outer radius `r`, turned by `rot`. */
+function traceStar(ctx, r, rot) {
+	ctx.beginPath();
+	for (let i = 0; i < 10; i++) {
+		const a = rot - Math.PI / 2 + (i * Math.PI) / 5, d = i % 2 ? r * 0.46 : r;
+		if (i) ctx.lineTo(Math.cos(a) * d, Math.sin(a) * d); else ctx.moveTo(Math.cos(a) * d, Math.sin(a) * d);
 	}
-	return PRISM_RAMP[PRISM_RAMP.length - 1].slice(1);
+	ctx.closePath();
 }
 
-/** How bright the crescents are at distance `d` and angle `phi` off the horizontal (0..pi/2): a bright band, fringes beyond, nothing inside. Pure. */
-function prismLight(d, phi) {
-	const band = (c, w) => Math.exp(-Math.pow((d - c) / w, 2));
-	const radial = 0.95 * band(0.31, 0.115) + 0.38 * band(0.5, 0.09) * (0.75 + 0.25 * Math.cos(d * 55)) + 0.2 * band(0.65, 0.08) + 0.1 * band(0.79, 0.07);
-	const inner = clamp01((d - 0.14) / 0.07), outer = clamp01((1 - d) / 0.08);   // dark in the middle, gone at the rim
-	const sides = Math.pow(Math.max(0, 1 - Math.pow(phi / 1.05, 2)), 1.2);       // a crescent: strongest level with the caret, tapering to its tips
-	return clamp01(radial * inner * outer * sides);
-}
-
-let prismSpriteMade = null;
-/** The pair of crescents, painted once: transparent, the spectrum in the pixels' colors and the light in their alpha. */
-function prismSprite() {
-	if (prismSpriteMade) return prismSpriteMade;
-	const S = PRISM_SPRITE, cv = document.createElement('canvas');
-	cv.width = cv.height = S;
-	const c = cv.getContext('2d'), img = c.createImageData(S, S), half = S / 2;
-	for (let y = 0; y < S; y++) {
-		for (let x = 0; x < S; x++) {
-			const dx = (x + 0.5 - half) / half, dy = (y + 0.5 - half) / half, d = Math.hypot(dx, dy);
-			const a = prismLight(d, Math.atan2(Math.abs(dy), Math.abs(dx)));
-			if (a <= 0.002) continue;
-			const [r, g, b] = prismRamp(d), i = (y * S + x) * 4;
-			img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = Math.round(a * 255);
-		}
-	}
-	c.putImageData(img, 0, 0);
-	return (prismSpriteMade = cv);
-}
-
-/** The item that holds the light of `host` (the plugin, or the dialog's preview). */
+/** The item that holds the burst of `host` (the plugin, or the dialog's preview). */
 function prismOf(host) {
 	const item = host.ensureItem('prism');
-	if (item.e === undefined) { item.e = 0; item.hit = 0; item.echoes = []; item.lastEcho = 0; }
+	if (!item.stars) { item.stars = []; item.embers = []; item.flashAt = -1e9; item.big = 0; item.lastAt = 0; }
 	return item;
 }
 
-/** Lights the pair on the caret: what is left of its light, added to (a full flash for `flash`), and an echo breathing out (two for a flash). */
-function kindlePrism(host, rect, flash, now) {
+/** Sets off a burst at the caret `rect`: the flash, a few stars and embers; a big burst for `big`. */
+function kindlePrism(host, rect, big, now) {
 	const item = prismOf(host);
-	const left = item.e * Math.exp(-(now - item.hit) / PRISM_DECAY_MS);
-	item.e = Math.max(left, Math.min(flash ? 1 : PRISM_CAP, left + (flash ? 1 : PRISM_RISE)));
-	item.hit = now;
-	const step = item.lastX === undefined ? 0 : clamp(rect.x - item.lastX, -1, 1);   // which way the caret is going
-	if (step) item.dir = step;
-	item.lastX = rect.x;
-	if (now - item.lastEcho < PRISM_ECHO_GAP_MS) return;
-	item.lastEcho = now;
-	for (let i = 0; i < (flash ? 2 : 1) && item.echoes.length < PRISM_ECHOES_MAX; i++) {
-		item.echoes.push({ dir: item.dir || 0, t0: now + i * 180, life: lerp(PRISM_ECHO_MS[0], PRISM_ECHO_MS[1], Math.random()), from: flash ? 0.6 : 0.8, to: flash ? 1.7 : 1.4 });
+	item.flashAt = now; item.big = big ? 1 : 0;
+	if (!big && now - item.lastAt < PRISM_GAP_MS) return;
+	item.lastAt = now;
+	const u = Math.max(rect.h, 16) / 24, cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
+	for (let i = 0; i < (big ? 8 : 1 + (Math.random() < 0.45 ? 1 : 0)) && item.stars.length < PRISM_STARS_MAX; i++) {
+		const hue = PRISM_HUES[Math.floor(Math.random() * PRISM_HUES.length)], a = Math.random() * Math.PI * 2, v = (60 + Math.random() * 90) * u;
+		item.stars.push({
+			x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 15 * u, r: (2.6 + Math.random() * 3.4) * u, hue,
+			spin: (Math.random() - 0.5) * 6, rot: Math.random() * 6.28, tail: hue[0] === 190, t0: now + i * 25, life: lerp(PRISM_STAR_MS[0], PRISM_STAR_MS[1], Math.random()),
+		});
+	}
+	for (let i = 0; i < (big ? 10 : 2) && item.embers.length < PRISM_EMBERS_MAX; i++) {
+		const a = Math.random() * Math.PI * 2, v = (15 + Math.random() * 45) * u;
+		item.embers.push({ x: cx + Math.cos(a) * 3 * u, y: cy + Math.sin(a) * 3 * u, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 14 * u, r: (0.7 + Math.random() * 1.1) * u, ph: Math.random() * 6.28, t0: now, life: 900 + Math.random() * 700 });
 	}
 }
 
 function drawPrism(plugin, ctx, item, now, k) {
-	const age = now - item.hit, e = item.e * Math.exp(-age / PRISM_DECAY_MS);
-	item.echoes = item.echoes.filter((q) => now - q.t0 < q.life);
-	if (e < 0.012 && !item.echoes.length) { item.done = true; return; }   // before anything else: with no caret to draw at, it must still die away
+	const alive = (q) => now - q.t0 < q.life;
+	item.stars = item.stars.filter(alive); item.embers = item.embers.filter(alive);
+	const flash = (now - item.flashAt) / PRISM_FLASH_MS;
+	if (!item.stars.length && !item.embers.length && flash >= 1) { item.done = true; return; }
 	const rect = plugin.last;
 	if (!rect) return;
-	const dark = plugin.dark;
-	const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, R = Math.max(rect.h, 16) * PRISM_REACH;
-	const power = (plugin.cfg.prismStrength ?? 1) * Math.min(k, 1.5) * (dark ? 1 : 0.6);
+	const dark = plugin.dark, h = Math.max(rect.h, 16), u = h / 24, cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
+	const power = (plugin.cfg.prismStrength ?? 1) * Math.min(k, 1.5) * (dark ? 1 : 0.6), light = dark ? 62 : 42;
 	if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
-	const sprite = prismSprite();
 	ctx.save();
-	ctx.imageSmoothingEnabled = true;
-	ctx.imageSmoothingQuality = 'high';
-	const paint = (scale, alpha, dx = 0, tilt = 0) => {
-		if (alpha < 0.01) return;
-		const r = R * scale;
-		ctx.globalAlpha = Math.min(1, alpha);
-		ctx.save();
-		ctx.translate(cx + dx, cy);
-		ctx.rotate(tilt);
-		ctx.drawImage(sprite, -r, -r, r * 2, r * 2);
-		ctx.restore();
-	};
-	for (const q of item.echoes) {   // an echo: the pair opening out from the caret as it fades
-		const f = (now - q.t0) / q.life;
-		if (f < 0) continue;
-		const out = easeOutCubic(f);   // an echo is left behind: it drifts back against the way the caret went, and turns a little
-		paint(lerp(q.from, q.to, out), 0.6 * power * Math.pow(1 - f, 1.4) * Math.min(1, f / 0.1), -q.dir * R * 0.35 * out, q.dir * 0.25 * out);
-	}
-	if (e >= 0.012) {
-		// The anamorphic streak: a thin line of spectrum through the caret, as a lens throws across a bright point.
-		const L = R * (0.9 + 0.8 * e), g = ctx.createLinearGradient(cx - L, cy, cx + L, cy);
-		for (let i = 0; i <= 6; i++) g.addColorStop(0.1 + (i / 6) * 0.8, `hsla(${i * 45}, 100%, 62%, ${0.5 * Math.sin(Math.PI * (0.15 + 0.7 * i / 6))})`);
-		g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-		ctx.globalAlpha = Math.min(1, e * power);
+
+	if (flash >= 0 && flash < 1) {   // the flash, its anamorphic streak and the lens-orb on it
+		const f = 1 - flash, a = f * f * power * (item.big ? 1.3 : 1), reach = h * (item.big ? 4.5 : 3) * (0.6 + 0.4 * flash + 0.3);
+		const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, h * 1.1);
+		glow.addColorStop(0, `rgba(255,${dark ? 240 : 200},200,${0.55 * a})`);
+		glow.addColorStop(1, 'rgba(255,170,60,0)');
+		ctx.fillStyle = glow;
+		ctx.fillRect(cx - h * 1.1, cy - h * 1.1, h * 2.2, h * 2.2);
+		const g = ctx.createLinearGradient(cx - reach, cy, cx + reach, cy);
+		g.addColorStop(0, 'rgba(90,170,255,0)');
+		g.addColorStop(0.42, `hsla(205, 100%, ${light + 8}%, ${0.75 * a})`);
+		g.addColorStop(0.5, `rgba(255,255,255,${a})`);
+		g.addColorStop(0.58, `hsla(205, 100%, ${light + 8}%, ${0.75 * a})`);
+		g.addColorStop(1, 'rgba(90,170,255,0)');
 		ctx.fillStyle = g;
-		ctx.fillRect(cx - L, cy - 0.6, L * 2, 1.2);
-		// The pair itself: it leans into the move, and shimmers - its light and its angle never quite still.
-		const lean = (item.dir || 0) * 0.12 * e, shimmer = 0.9 + 0.1 * Math.sin(now * 0.006);
-		paint(0.9 + 0.1 * Math.min(1, e * 1.5) + 0.02 * Math.sin(now * 0.004), e * power * shimmer, (item.dir || 0) * R * 0.08 * e, lean + 0.04 * Math.sin(now * 0.003));
+		ctx.fillRect(cx - reach, cy - 1.1 * u, reach * 2, 2.2 * u);
+		ctx.fillRect(cx - 0.8 * u, cy - reach * 0.22, 1.6 * u, reach * 0.44);   // and a short vertical one across it
+		const ox = cx + reach * 0.7, orb = ctx.createRadialGradient(ox, cy, 0, ox, cy, 5 * u);
+		orb.addColorStop(0, `hsla(265, 100%, 78%, ${0.7 * a})`);
+		orb.addColorStop(0.6, `hsla(265, 100%, 70%, ${0.25 * a})`);
+		orb.addColorStop(1, 'hsla(265, 100%, 70%, 0)');
+		ctx.fillStyle = orb;
+		ctx.fillRect(ox - 5 * u, cy - 5 * u, 10 * u, 10 * u);
+	}
+
+	for (const q of item.embers) {   // embers: tiny, slowing, flickering
+		const t = (now - q.t0) / 1000, f = (now - q.t0) / q.life, drag = Math.exp(-2.2 * t);
+		const x = q.x + (q.vx * (1 - drag)) / 2.2, y = q.y + (q.vy * (1 - drag)) / 2.2 - 6 * t * t * u * 6;
+		const a = Math.sin(Math.PI * f) * (0.65 + 0.35 * Math.sin(q.ph + t * 14)) * power;
+		if (a < 0.02) continue;
+		ctx.globalAlpha = Math.min(1, a);
+		ctx.shadowColor = `hsla(30, 100%, 60%, 0.9)`;
+		ctx.shadowBlur = 4 * u;
+		ctx.fillStyle = `hsl(36, 100%, ${light + 12}%)`;
+		ctx.beginPath();
+		ctx.arc(x, y, q.r, 0, Math.PI * 2);
+		ctx.fill();
+	}
+	ctx.shadowBlur = 0;
+
+	for (const q of item.stars) {   // stars: flung out, slowing down, spinning, then shrinking away
+		const t = (now - q.t0) / 1000, f = t * 1000 / q.life;
+		if (f < 0) continue;
+		const drag = Math.exp(-3 * t), x = q.x + (q.vx * (1 - drag)) / 3, y = q.y + (q.vy * (1 - drag)) / 3;
+		const alpha = Math.min(1, f / 0.08) * (f < 0.55 ? 1 : 1 - (f - 0.55) / 0.45) * power, r = q.r * (f < 0.12 ? easeOutBack(f / 0.12) : 1 - 0.35 * f);
+		if (alpha <= 0.01) continue;
+		const [hh, ss, ll] = q.hue, col = `hsl(${hh}, ${ss}%, ${ll + (dark ? 0 : -18)}%)`;
+		ctx.save();
+		ctx.globalAlpha = alpha;
+		if (q.tail) {   // the cyan ones trail a tapering tail behind them
+			const sp = Math.hypot(q.vx, q.vy) * drag || 1, tl = Math.min(18 * u, sp * 0.16), ux = (q.vx * drag) / sp, uy = (q.vy * drag) / sp;
+			const tg = ctx.createLinearGradient(x, y, x - ux * tl, y - uy * tl);
+			tg.addColorStop(0, `hsla(${hh}, 100%, 70%, 0.8)`); tg.addColorStop(1, `hsla(${hh}, 100%, 70%, 0)`);
+			ctx.strokeStyle = tg; ctx.lineWidth = r * 0.7; ctx.lineCap = 'round';
+			ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - ux * tl, y - uy * tl); ctx.stroke();
+		}
+		ctx.translate(x, y);
+		ctx.shadowColor = `hsla(${hh}, 100%, 60%, 0.95)`;
+		ctx.shadowBlur = r * 2.2;
+		traceStar(ctx, r, q.rot + q.spin * t);
+		ctx.fillStyle = col; ctx.fill();
+		ctx.lineJoin = 'round'; ctx.lineWidth = r * 0.28; ctx.strokeStyle = col; ctx.stroke();   // chunky, rounded points
+		ctx.shadowBlur = 0;
+		traceStar(ctx, r * 0.5, q.rot + q.spin * t);
+		ctx.fillStyle = `hsla(${hh}, 100%, ${dark ? 90 : 75}%, 0.9)`; ctx.fill();   // the bright heart
+		ctx.restore();
 	}
 	ctx.restore();
 }
 
 EFFECTS.prism = {
 	id: 'prism', label: 'Prism', mode: 'signature', keepsState: true, blend: 'lighter',
-	preset: { name: 'Prism', color: '#c8f4ff', accent: '#b983ff' },
+	preset: { name: 'Prism', color: '#bfe9ff', accent: '#ff9a2e' },
 	defaults: { prismStrength: 1 },
 	onMove(plugin, prev, cur, info) {
-		const flash = info.typed ? info.dy >= cur.h * 0.8 : info.dist > cur.h * 4;   // a new line, or a jump
-		if (!flash && !isWriting(info)) return;
-		kindlePrism(plugin, cur, flash, info.now);
+		const big = info.typed ? info.dy >= cur.h * 0.8 : info.dist > cur.h * 4;   // a new line, or a jump
+		if (!big && !isWriting(info)) return;
+		kindlePrism(plugin, cur, big, info.now);
 	},
 	draw(plugin, ctx, item, p, k, now) { drawPrism(plugin, ctx, item, now, k); },
 	preview(plugin, pv, caret, now) {
 		if (now < (pv.prismNext || 0)) return;
-		pv.prismNext = now + 900;
+		pv.prismNext = now + 800;
 		kindlePrism(pv, caret, false, now);
 	},
 };

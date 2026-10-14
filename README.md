@@ -83,7 +83,7 @@ Run `Caret FX: set preset…` from the command palette. The dialog has:
   | Bracket tether | a line under the matching brackets or quotes around the caret (see above) |
   | Back-man | the caret eats what Backspace and Delete take (see above) |
   | Holy | tiny golden star glints (a couple of pixels) twinkle slowly on and around the caret, in place, like light catching a gem, and the caret keeps glinting for a moment after you stop |
-  | Prism | light through a lens: two crescents of spectrum (orange-red inside, white-cyan core, deep blue outside, with faint fringes beyond) flank the caret, and every letter sends an echo of them slowly out; a new line or a jump flashes them fully |
+  | Prism | a burst of light through glass: every letter flashes on the caret with a thin blue-white lens streak and a violet lens-orb, and flings chunky glowing stars (gold, orange, some cyan with tails, some violet) that slow down, spin and fade, with embers drifting among them; a new line or a jump is a big burst |
   | Health | thin glowing pluses float slowly up out of the caret as you write, with thin beams of light and tiny motes, like a healing spell, a few at a time; in the preset's greens, or a red cross if you pick red colors |
   | Zephyr | an anime-style wind skill: pointed, cel-shaded leaves are swept up round the caret and off behind it, fluttering, while thin speed lines streak back from the caret; a new line or a jump is a full gust |
   | Tide | a stylized water skill: every letter flicks a small spray of teardrops (round head, tapering tail, white glint) out of the caret to arc up and fall back, and now and then a bubble drifts up and pops; a new line or a jump is a big splash |

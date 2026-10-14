@@ -1530,16 +1530,18 @@ const shade = (hex, f) => { const c = hexToHsv(hex); return hsvToHex({ h: c.h, s
 const isWriting = (info) => info.typed && info.dx > 0.5 && Math.abs(info.dy) < 1;
 
 // ---- Effect: Holy --------------------------------------------------------------------------------------------------
-// Plus-shaped glints that twinkle on and around the caret, in place, like light catching the facets of a gem. Each one
-// swells from nothing to a thin four-pointed cross - a little longer sideways than up - and fades; the caret's color is
+// Plus-shaped glints that twinkle on and around the caret, in place, like light catching the facets of a gem: tiny
+// ones, a couple of pixels across, that come and go slowly. Each one swells from nothing to a four-pointed cross - a little longer sideways than up - and fades; the caret's color is
 // the gold in it and white its heart. Writing sets a few off, and for a moment after the last key the caret keeps
 // glinting by itself.
 // Settings: holySize (1 is normal).
-const HOLY_LIFE_MS = [650, 1000];   // how long a glint twinkles: the shortest and the longest
-const HOLY_AFTERGLOW_MS = 1100;     // how long the caret keeps glinting by itself after the last key
-const HOLY_MAX = 16;                // the most glints alive at once
-const HOLY_PINCH = 0.085;           // how near the middle the sides of a glint pass: lower is thinner arms
-const HOLY_WIDE = 1.3;              // how much longer a glint is sideways than up
+const HOLY_LIFE_MS = [1400, 2400];  // how long a glint twinkles: the shortest and the longest
+const HOLY_AFTERGLOW_MS = 1800;     // how long the caret keeps glinting by itself after the last key
+const HOLY_MAX = 20;                // the most glints alive at once
+const HOLY_PINCH = 0.2;             // how near the middle the sides of a glint pass: lower is thinner arms
+const HOLY_WIDE = 1.15;             // how much longer a glint is sideways than up
+const HOLY_PX = [1.4, 2.6];         // a glint's arm length at its peak, in px: tiny, like stars
+const HOLY_GAP_MS = [420, 940];     // the time between two glints the caret sets off by itself
 
 /** A glint's size over its life `p` (0..1): a quick swell to a peak, then a slower fade, nothing at either end. */
 const glintSize = (p) => (p <= 0 || p >= 1 ? 0 : Math.sin(Math.PI * Math.pow(p, 0.7)));
@@ -1570,7 +1572,7 @@ function addGlints(item, rect, n, now) {
 		const a = Math.random() * Math.PI * 2, d = rect.h * (0.4 + Math.random() * 0.75);
 		item.parts.push({
 			x: cx + Math.cos(a) * d * 1.35, y: cy + Math.sin(a) * d * 0.8,   // out wider than tall, like the caret's own glow
-			r: rect.h * (0.26 + Math.random() * 0.34), tilt: (Math.random() - 0.5) * 0.2,
+			r: lerp(HOLY_PX[0], HOLY_PX[1], Math.random()), tilt: (Math.random() - 0.5) * 0.2,
 			t0: now, life: lerp(HOLY_LIFE_MS[0], HOLY_LIFE_MS[1], Math.random()),
 		});
 	}
@@ -1581,7 +1583,7 @@ function igniteGlints(host, rect, n, now) {
 	const item = glintsOf(host);
 	addGlints(item, rect, n, now);
 	item.until = now + HOLY_AFTERGLOW_MS;
-	item.next = Math.max(item.next, now + 240);
+	item.next = Math.max(item.next, now + HOLY_GAP_MS[0]);
 }
 
 EFFECTS.holy = {
@@ -1598,7 +1600,7 @@ EFFECTS.holy = {
 		const rect = plugin.last;
 		if (rect && now < item.until && now >= item.next) {   // on its own, a glint now and then
 			addGlints(item, rect, 1, now);
-			item.next = now + 200 + Math.random() * 260;
+			item.next = now + lerp(HOLY_GAP_MS[0], HOLY_GAP_MS[1], Math.random());
 		}
 		item.parts = item.parts.filter((q) => now - q.t0 < q.life);
 		if (!item.parts.length && now >= item.until) { item.done = true; return; }
@@ -1610,22 +1612,22 @@ EFFECTS.holy = {
 			if (e < 0.02) continue;
 			const R = q.r * size * (0.3 + 0.7 * e), a = e * power;
 			// A soft halo, the colored cross, and the white heart of it.
-			const halo = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, R * 2.2);
-			halo.addColorStop(0, rgba(col, (dark ? 0.34 : 0.15) * a));   // on a light page the same halo reads as a smudge
+			const halo = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, R * 3.2);
+			halo.addColorStop(0, rgba(col, (dark ? 0.4 : 0.15) * a));   // on a light page the same halo reads as a smudge
 			halo.addColorStop(1, rgba(col, 0));
 			ctx.fillStyle = halo;
-			ctx.fillRect(q.x - R * 2.2, q.y - R * 2.2, R * 4.4, R * 4.4);
+			ctx.fillRect(q.x - R * 3.2, q.y - R * 3.2, R * 6.4, R * 6.4);
 			ctx.save();
 			ctx.translate(q.x, q.y);
 			ctx.rotate(q.tilt);
-			// The hairlines first: a long, thin cross that fades out toward its ends.
-			for (const [lx, ly] of [[R * HOLY_WIDE * 2.6, 0], [0, R * 2.2]]) {
+			// The hairlines first: a short, thin cross that fades out toward its ends.
+			for (const [lx, ly] of [[R * HOLY_WIDE * 2, 0], [0, R * 1.7]]) {
 				const hair = ctx.createLinearGradient(-lx, -ly, lx, ly);
 				hair.addColorStop(0, rgba(col, 0));
 				hair.addColorStop(0.5, dark ? `rgba(255,255,255,${0.9 * a})` : rgba(plugin.acc(), 0.8 * a));
 				hair.addColorStop(1, rgba(col, 0));
 				ctx.strokeStyle = hair;
-				ctx.lineWidth = 1.1;
+				ctx.lineWidth = 0.7;
 				ctx.beginPath();
 				ctx.moveTo(-lx, -ly);
 				ctx.lineTo(lx, ly);
@@ -1646,7 +1648,7 @@ EFFECTS.holy = {
 	},
 	preview(plugin, pv, caret, now) {
 		if (now < (pv.holyNext || 0)) return;
-		pv.holyNext = now + 520;
+		pv.holyNext = now + 900;
 		igniteGlints(pv, caret, 2, now);
 	},
 };
@@ -1830,13 +1832,16 @@ EFFECTS.prism = {
 };
 
 // ---- Effect: Health ------------------------------------------------------------------------------------------------
-// Writing heals: a small plus pops out of the caret and floats up, fading, and the caret gives a soft pulse - the way a
-// game shows health coming back. The pluses and the pulse are in the preset's colors, green; with other colors they are
-// whatever you like (a red cross, say).
-const HEALTH_LIFE_MS = [900, 1300];   // how long a plus floats: the shortest and the longest
-const HEALTH_MAX = 28;                // the most pluses alive at once
-const HEALTH_GAP_MS = 80;             // the least time between two pluses, so a fast typist is not buried in them
-const HEALTH_PULSE_MS = 380;          // how long the caret's pulse lasts
+// Writing heals, slowly: thin glowing pluses float up out of the caret, thin beams of light rise through them, tiny
+// motes drift up, and a flat ring opens on the line under the caret - the look of a healing spell in a game. All of it
+// is in the preset's colors, green; with other colors it is whatever you like (a red cross, say).
+const HEALTH_LIFE_MS = [2200, 3400];  // how long a plus floats: the shortest and the longest
+const HEALTH_MAX = 20;                // the most pluses alive at once
+const HEALTH_GAP_MS = 150;            // the least time between two bursts, so a fast typist is not buried in them
+const HEALTH_PULSE_MS = 1100;         // how long the ring and the caret's glow take to open and fade
+const HEALTH_ARM = 0.14;              // a plus's arm half-thickness against its arm length: lower is thinner
+const HEALTH_BEAMS_MAX = 5;           // the most beams of light alive at once
+const HEALTH_MOTES_MAX = 22;          // the most motes alive at once
 
 /** The colors of a plus, from the caret's: its top, its body (the glow's too) and its edge. */
 function healthPalette(plugin) {
@@ -1851,33 +1856,49 @@ function tracePlus(ctx, l, t) {
 	else { ctx.rect(-l, -t, 2 * l, 2 * t); ctx.rect(-t, -l, 2 * t, 2 * l); }
 }
 
-/** The item that holds the pluses of `host` (the plugin, or the dialog's preview). */
+/** The item that holds the pluses, beams and motes of `host` (the plugin, or the dialog's preview). */
 function pluses(host) {
 	const item = host.ensureItem('health');
-	if (!item.parts) { item.parts = []; item.lastAt = 0; item.pulseAt = -1e9; }
+	if (!item.parts) { item.parts = []; item.beams = []; item.motes = []; item.lastAt = 0; item.pulseAt = -1e9; }
 	return item;
 }
 
-/** A plus out of the caret `rect` (two, with `twin`), floating up from a little off its middle; and the caret's pulse. */
+/** A burst out of the caret `rect` (two pluses with `twin`): pluses floating up from a little off its middle, now and then a beam, a mote or two; and the ring. */
 function healPlus(host, rect, now, twin) {
 	const item = pluses(host);
 	item.pulseAt = now;
 	if (now - item.lastAt < HEALTH_GAP_MS) return;
 	item.lastAt = now;
+	const h = rect.h, cx = rect.x + rect.w / 2;
 	for (let i = 0; i < (twin ? 2 : 1) && item.parts.length < HEALTH_MAX; i++) {
 		item.parts.push({
-			x: rect.x + rect.w / 2 + (Math.random() - 0.5) * rect.h * 1.5, y: rect.y + rect.h * 0.15,
-			rise: rect.h * (1.3 + Math.random() * 1.1),                 // how far it floats in all
-			drift: (Math.random() - 0.5) * rect.h * 0.7,                // and how far it wanders sideways
-			sway: rect.h * (0.05 + Math.random() * 0.07), phase: Math.random() * 6.28,
-			l: rect.h * (0.24 + Math.random() * 0.16),                  // an arm's length
+			x: cx + (Math.random() - 0.5) * h * 1.6, y: rect.y + h * 0.15,
+			rise: h * (1.8 + Math.random() * 1.2),                     // how far it floats in all
+			drift: (Math.random() - 0.5) * h * 0.8,                    // and how far it wanders sideways
+			sway: h * (0.05 + Math.random() * 0.06), phase: Math.random() * 6.28,
+			l: h * (0.22 + Math.random() * 0.16),                      // an arm's length
 			t0: now, life: lerp(HEALTH_LIFE_MS[0], HEALTH_LIFE_MS[1], Math.random()),
+		});
+	}
+	if (item.beams.length < HEALTH_BEAMS_MAX && Math.random() < 0.45) {
+		item.beams.push({
+			x: cx + (Math.random() - 0.5) * h * 2.4, y: rect.y + h,
+			len: h * (2.2 + Math.random() * 2), rise: h * (0.8 + Math.random() * 0.8), w: 0.8 + Math.random() * 0.8,
+			t0: now, life: lerp(1800, 2800, Math.random()),
+		});
+	}
+	for (let i = 0, n = Math.random() < 0.5 ? 2 : 1; i < n && item.motes.length < HEALTH_MOTES_MAX; i++) {
+		item.motes.push({
+			x: cx + (Math.random() - 0.5) * h * 2.6, y: rect.y + h * (0.3 + Math.random() * 0.7),
+			rise: h * (1.2 + Math.random() * 1.4), drift: (Math.random() - 0.5) * h * 0.5,
+			phase: Math.random() * 6.28, r: 0.7 + Math.random() * 0.9,
+			t0: now, life: lerp(2400, 3800, Math.random()),
 		});
 	}
 }
 
 EFFECTS.health = {
-	id: 'health', label: 'Health', mode: 'signature', keepsState: true, blend: 'source-over',
+	id: 'health', label: 'Health', mode: 'signature', keepsState: true, blend: 'lighter',
 	preset: { name: 'Health', color: '#7dff9b', accent: '#12b04a' },
 	defaults: {},
 	onMove(plugin, prev, cur, info) {
@@ -1885,29 +1906,68 @@ EFFECTS.health = {
 		healPlus(plugin, cur, info.now, Math.random() < 0.2 * Math.min(plugin.cfg.intensity, 1.6));
 	},
 	draw(plugin, ctx, item, p, k, now) {
-		item.parts = item.parts.filter((q) => now - q.t0 < q.life);
+		const alive = (q) => now - q.t0 < q.life;
+		item.parts = item.parts.filter(alive); item.beams = item.beams.filter(alive); item.motes = item.motes.filter(alive);
 		const pulse = (now - item.pulseAt) / HEALTH_PULSE_MS;
-		if (!item.parts.length && pulse >= 1) { item.done = true; return; }
+		if (!item.parts.length && !item.beams.length && !item.motes.length && pulse >= 1) { item.done = true; return; }
 		const pal = healthPalette(plugin), rect = plugin.last, power = Math.min(1, 0.6 + 0.4 * k);
-		if (rect && pulse < 1) {   // the caret's pulse: a soft glow that swells and goes
-			const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, r = rect.h * (1.1 + 0.9 * pulse);
+		if (!plugin.dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
+		if (rect && pulse < 1) {   // the caret's glow and the ring under it: they open and fade slowly
+			const cx = rect.x + rect.w / 2, e = easeOutCubic(pulse), fade = 1 - pulse, base = rect.y + rect.h + 1;
+			const r = rect.h * (1 + 0.8 * e), cy = rect.y + rect.h / 2;
 			const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-			g.addColorStop(0, rgba(pal.mid, 0.34 * power * (1 - pulse) * (1 - pulse)));
+			g.addColorStop(0, rgba(pal.mid, 0.24 * power * fade * fade));
 			g.addColorStop(1, rgba(pal.mid, 0));
 			ctx.fillStyle = g;
 			ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+			ctx.save();
+			ctx.shadowColor = rgba(pal.mid, 0.8 * fade);
+			ctx.shadowBlur = 6;
+			ctx.lineWidth = 1;
+			for (const [scale, a] of [[1, 0.55], [0.62, 0.35]]) {
+				const rx = rect.h * (0.7 + 1.5 * e) * scale;
+				ctx.strokeStyle = rgba(pal.top, a * power * fade);
+				ctx.beginPath();
+				ctx.ellipse(cx, base, rx, rx * 0.24, 0, 0, Math.PI * 2);
+				ctx.stroke();
+			}
+			ctx.restore();
+		}
+		for (const q of item.beams) {   // thin beams of light, bright in the middle of their length, rising and fading
+			const f = (now - q.t0) / q.life, a = Math.sin(Math.PI * f) * power;
+			const y1 = q.y - q.rise * f, y0 = y1 - q.len;
+			const g = ctx.createLinearGradient(0, y0, 0, y1);
+			g.addColorStop(0, rgba(pal.top, 0));
+			g.addColorStop(0.6, rgba(pal.top, 0.8 * a));
+			g.addColorStop(1, rgba(pal.mid, 0));
+			ctx.fillStyle = g;
+			ctx.fillRect(q.x - q.w / 2, y0, q.w, q.len);
+			ctx.globalAlpha = 0.18;   // and a wider, fainter one round it
+			ctx.fillRect(q.x - q.w * 2, y0, q.w * 4, q.len);
+			ctx.globalAlpha = 1;
+		}
+		for (const q of item.motes) {   // tiny glowing specks drifting up
+			const age = now - q.t0, f = age / q.life, a = Math.sin(Math.PI * f) * power;
+			ctx.save();
+			ctx.shadowColor = rgba(pal.mid, 0.9);
+			ctx.shadowBlur = 4;
+			ctx.fillStyle = rgba(pal.top, 0.9 * a);
+			ctx.beginPath();
+			ctx.arc(q.x + q.drift * f + Math.sin(q.phase + age / 520) * 1.5, q.y - q.rise * f, q.r, 0, Math.PI * 2);
+			ctx.fill();
+			ctx.restore();
 		}
 		for (const q of item.parts) {
 			const age = now - q.t0, f = age / q.life;
-			const pop = easeOutBack(clamp01(age / 150)) * (1 - 0.25 * f);   // pops out a little too big, then shrinks as it goes
-			const alpha = (f < 0.6 ? 1 : 1 - (f - 0.6) / 0.4) * power;
+			const pop = easeOutBack(clamp01(age / 320)) * (1 - 0.15 * f);   // pops out a little too big, then settles and shrinks as it goes
+			const alpha = Math.min(1, f / 0.1) * (f < 0.6 ? 1 : 1 - (f - 0.6) / 0.4) * power;
 			if (alpha <= 0.01) continue;
-			const l = q.l * pop * (0.9 + 0.15 * Math.min(k, 1.6)), t = l * 0.31;
+			const l = q.l * pop * (0.9 + 0.15 * Math.min(k, 1.6)), t = Math.max(0.55, l * HEALTH_ARM);
 			ctx.save();
-			ctx.translate(q.x + q.drift * f + Math.sin(q.phase + age / 240) * q.sway, q.y - q.rise * easeOutCubic(f));
+			ctx.translate(q.x + q.drift * f + Math.sin(q.phase + age / 480) * q.sway, q.y - q.rise * f * (1.25 - 0.25 * f));
 			ctx.globalAlpha = alpha;
-			ctx.shadowColor = rgba(pal.mid, 0.75);
-			ctx.shadowBlur = l * 0.7;
+			ctx.shadowColor = rgba(pal.mid, 0.8);
+			ctx.shadowBlur = l * 0.8;
 			tracePlus(ctx, l, t);
 			const g = ctx.createLinearGradient(0, -l, 0, l);
 			g.addColorStop(0, pal.top);
@@ -1916,15 +1976,15 @@ EFFECTS.health = {
 			ctx.fillStyle = g;
 			ctx.fill();
 			ctx.shadowBlur = 0;
-			tracePlus(ctx, l * 0.5, t * 0.45);   // a lighter plus inside: the shine
-			ctx.fillStyle = rgba(pal.top, 0.55);
+			tracePlus(ctx, l * 0.55, t * 0.5);   // a lighter plus inside: the shine
+			ctx.fillStyle = rgba(pal.top, 0.7);
 			ctx.fill();
 			ctx.restore();
 		}
 	},
 	preview(plugin, pv, caret, now) {
 		if (now < (pv.healthNext || 0)) return;
-		pv.healthNext = now + 650;
+		pv.healthNext = now + 900;
 		healPlus(pv, caret, now, true);
 	},
 };

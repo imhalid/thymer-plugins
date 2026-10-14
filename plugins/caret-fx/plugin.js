@@ -2388,6 +2388,7 @@ function comboHit(host, rect, now) {
 	item.n++;
 	item.lastAt = now; item.popAt = now;
 	const tier = comboTier(item.n);
+	if (tier >= 1 && !host.isPreview) host.hideCaret('combo', true);   // at once, in the same breath as the letter: the real caret never gets a frame of its own
 	if (tier > before) { item.word = COMBO_TIERS[tier].word; item.wordAt = now; item.flashAt = now; item.flashTier = tier; }
 	if (tier >= 1) comboSparks(item, rect.x + rect.w / 2, rect.y + rect.h * 0.3, Math.max(rect.h, 16), tier, 2 + tier, now);
 }
@@ -2774,7 +2775,7 @@ class Plugin extends AppPlugin {
 		if (!this.block) return;
 		const clip = this.clipRect();
 		const visible = rect && (!clip || (rect.y + rect.h > clip.y && rect.y < clip.y + clip.h && rect.x + rect.w > clip.x && rect.x < clip.x + clip.w));
-		if (!visible) { this.block.style.display = 'none'; return; }
+		if (!visible || this.caretHolders.size) { this.block.style.display = 'none'; return; }   // an effect that draws the caret itself holds it: not even a frame of the block cursor
 		Object.assign(this.block.style, { display: 'block', left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.w}px`, height: `${rect.h}px` });
 		if (moved) { this.block.style.animation = 'none'; void this.block.offsetWidth; this.block.style.animation = ''; } // solid while moving, blinks when idle
 	}

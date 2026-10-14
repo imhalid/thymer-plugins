@@ -4,7 +4,7 @@ Personal plugins for [Thymer](https://thymer.com).
 
 | Plugin | What it does |
 | --- | --- |
-| [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning, Holy, Prism, Health, Zephyr) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
+| [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning, Holy, Prism, Health, Zephyr, Tide) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 
 ## Install a plugin
@@ -29,7 +29,7 @@ Click the word counter in the status bar (or run `Daily Garden: open flower coll
 
 Click an unlocked flower to plant it in the sidebar garden. Progress is stored in the app's local storage, so it is per device. Thresholds live in the `FLOWERS` list at the top of `plugin.js`.
 
-The sidebar plant can be hidden: run `Daily Garden: toggle sidebar plant`, or set `"showSidebar": false` under `custom` in the plugin's Configuration JSON (default `true`). Word counting, the status bar counter and the collection keep working.
+The sidebar plant is hidden by default. Run `Daily Garden: toggle sidebar plant` to show or hide it; the choice is remembered on this device (the app's local storage). Without a choice, `"showSidebar": true` under `custom` in the plugin's Configuration JSON shows it. Word counting, the status bar counter and the collection work either way.
 
 Other commands: `Daily Garden: set daily word goal`, `Daily Garden: reset today's plant` (does not touch the collection).
 
@@ -85,10 +85,10 @@ Run `Caret FX: set preset…` from the command palette. The dialog has:
   | Holy | tiny golden star glints (a couple of pixels) twinkle slowly on and around the caret, in place, like light catching a gem, and the caret keeps glinting for a moment after you stop |
   | Prism | light through a lens: two crescents of spectrum (orange-red inside, white-cyan core, deep blue outside, with faint fringes beyond) flank the caret, and every letter sends an echo of them slowly out; a new line or a jump flashes them fully |
   | Health | thin glowing pluses float slowly up out of the caret as you write, with thin beams of light and tiny motes, like a healing spell, a few at a time; in the preset's greens, or a red cross if you pick red colors |
+  | Zephyr | an anime-style wind skill: pointed, cel-shaded leaves are swept up round the caret and off behind it, fluttering, while thin speed lines streak back from the caret; a new line or a jump is a full gust |
+  | Tide | a stylized water skill: every letter flicks a small spray of teardrops (round head, tapering tail, white glint) out of the caret to arc up and fall back, and now and then a bubble drifts up and pops; a new line or a jump is a big splash |
 
-  | Zephyr | an anime-style wind skill: cel-shaded ribbons of wind (dark rim, mint body, white core) swoop round the caret with every letter, thin speed lines streak back from it and pointed leaves are swept up and off behind; a new line or a jump is a full gust |
-
-  Holy, Prism, Health and Zephyr answer writing, not deleting.
+  Holy, Prism, Health, Zephyr and Tide answer writing, not deleting.
 
 - **Effects** – two switches: **Block cursor** (a box the width of the letter instead of the line caret) and **Motion smear**
 - **Customize** – pick the caret/glow color or the trail/accent color with a saturation/brightness square, hue slider or hex field
@@ -99,7 +99,7 @@ Other commands:
 - `Caret FX: set intensity…` – slider from 0.3× (subtle) to 2× (intense); it also scales petals, leaves, crackles, glints, prism fans and pluses
 - `Caret FX: toggle bounce`, `Caret FX: toggle trail`
 
-Settings are saved in the plugin's Configuration JSON under `custom` and can be edited there:
+What you choose in the dialogs and commands (preset, switches, intensity) is remembered per device, in the app's local storage, and wins over the Configuration JSON, which is the place for defaults and tuning under `custom`:
 
 ```json
 {
@@ -112,7 +112,7 @@ Settings are saved in the plugin's Configuration JSON under `custom` and can be 
 }
 ```
 
-`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"ink"`, `"tether"`, `"backman"`, `"holy"`, `"prism"`, `"health"` or `"zephyr"`; `style` is `"line"` or `"block"`; choosing a preset in the dialog sets it for you. Holy, Prism and Zephyr have a setting each, `"holySize"`, `"prismStrength"` and `"zephyrSize"` (1 is normal).
+`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"ink"`, `"tether"`, `"backman"`, `"holy"`, `"prism"`, `"health"`, `"zephyr"` or `"tide"`; `style` is `"line"` or `"block"`; choosing a preset in the dialog sets it for you. Holy, Prism, Zephyr and Tide have a setting each, `"holySize"`, `"prismStrength"`, `"zephyrSize"` and `"tideSize"` (1 is normal).
 
 ### How it works
 

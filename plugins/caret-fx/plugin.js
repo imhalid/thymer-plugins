@@ -11,10 +11,10 @@
  * They are off until chosen in the "Caret FX: set preset…" dialog: Motion smear is a switch there (with the block
  * cursor); Fresh ink, Bracket tether and Back-man are special presets, like Lightning and the falling petals.
  *
- * Four special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
+ * Five special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
  * (tiny star glints that twinkle on the caret, like a gem), Prism (two crescents of spectrum flanking the caret, light
- * through a lens), Health (thin pluses and beams of light floating up as you write, as if you were gaining health) and Zephyr (an anime-style wind skill: cel-shaded ribbons of wind swooping round the caret, speed
- * lines and swept-up leaves). Pick them in "Caret FX: set preset…" under Special.
+ * through a lens), Health (thin pluses and beams of light floating up as you write, as if you were gaining health) and Zephyr (an anime-style wind skill: speed lines and leaves swept up round the caret) and Tide
+ * (a stylized water skill: sprays of teardrops and drifting bubbles). Pick them in "Caret FX: set preset…" under Special.
  *
  * Scope: the Thymer editor only. The plugin follows Thymer's own caret element
  * (div.listview-caret-self) and never touches the command palette, rename fields,
@@ -29,8 +29,8 @@
  *
  * Effects live in the EFFECTS registry (see "HOW TO ADD AN EFFECT"); the Plugin class knows none by name.
  *
- * Settings live in this plugin's config under "custom" (Edit Code > Configuration), or use
- * the command palette: "Caret FX: ...".
+ * Settings: defaults and tuning live in this plugin's config under "custom" (Edit Code > Configuration); what you
+ * choose in the "Caret FX: ..." dialogs and commands is kept per device and wins over it.
  */
 
 /*
@@ -85,6 +85,21 @@ const DIALOG_SWITCHES = [
 	['style', 'Block cursor', 'A box the width of the letter'],
 	['smear', 'Motion smear', 'Stretches as it moves, snaps back'],
 ];
+
+// Stacking: the effects (canvas, block cursor) sit above the editor, whose layers top out at 11, and below Thymer's own
+// menus, command palette and dialogs (z-index 998 and up), so nothing of the caret shows through or over them. The
+// preset dialog of this plugin is itself a dialog and sits above everything.
+
+// What the dialogs and commands choose is kept in this device's localStorage and laid over the configuration JSON, which
+// stays the place for defaults and tuning. (Saving the plugin's configuration reloads the plugin - the dialog would
+// close at every click - and AppPlugin has no way to save it quietly.)
+const CHOICES_KEY = 'caretfx.choices';
+function loadChoices() {
+	try { return JSON.parse(localStorage.getItem(CHOICES_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function saveChoices(patch) {
+	try { localStorage.setItem(CHOICES_KEY, JSON.stringify({ ...loadChoices(), ...patch })); } catch (e) { /* keep the in-memory value */ }
+}
 
 // Thymer DOM the plugin relies on (same hooks Thymer's own caret CSS uses).
 const CARET_SEL = 'div.listview-caret-self';
@@ -377,7 +392,7 @@ const UI_CSS = `
 .cfx-btn { all: unset; cursor: pointer; padding: 6px 14px; border-radius: 9px; border: 1px solid rgba(127,127,127,.4); font-size: 12.5px; }
 .cfx-btn:hover { background: rgba(127,127,127,.16); }
 .cfx-btn.primary { background: var(--c); color: #111; border-color: transparent; font-weight: 600; }
-.cfx-block { position: fixed; pointer-events: none; z-index: 2147482999; box-sizing: border-box; border-radius: 2px; animation: cfx-blockblink 1.1s steps(1) .6s infinite; }
+.cfx-block { position: fixed; pointer-events: none; z-index: 499; box-sizing: border-box; border-radius: 2px; animation: cfx-blockblink 1.1s steps(1) .6s infinite; }
 @keyframes cfx-blockblink { 50% { opacity: .3; } }
 body.cfx-caret-off div.listview-caret-self, body.cfx-caret-off .cfx-block { opacity: 0 !important; animation: none !important; transition: none !important; }
 `;
@@ -1509,7 +1524,7 @@ EFFECTS.backman = {
 };
 
 // =====================================================================================
-// SPECIAL PRESETS ORIGINAL TO CARET FX: Holy, Prism, Health, Zephyr
+// SPECIAL PRESETS ORIGINAL TO CARET FX: Holy, Prism, Health, Zephyr, Tide
 //
 // Written for this plugin, not ported. They are special presets like Sakura and Lightning: each brings its own colors and
 // is picked in the preset dialog's Special grid (or by "next preset"), one at a time. Like the falling petals they
@@ -1927,47 +1942,17 @@ EFFECTS.health = {
 };
 
 // ---- Effect: Zephyr ------------------------------------------------------------------------------------------------
-// An anime-style wind skill, the kind a game plays when a character calls the wind. Every letter calls a ribbon of wind
-// that swoops round the caret - drawn cel-shaded, a hard dark rim, a mint body and a white core, fat at its head and
-// drawn out to a point behind - while it chases its own tail away. Thin speed lines streak back from the caret, and pointed
-// leaves caught in the gust are swept round it and off behind, fluttering. A new line or a jump is a full gust: three
-// ribbons, a burst of speed lines and a swirl of leaves.
+// An anime-style wind skill, the kind a game plays when a character calls the wind. Pointed leaves caught in the gust
+// are swept round the caret and off behind it, fluttering - cel-shaded, a dark rim, a body in the preset's color and a
+// light vein - while thin speed lines streak back from the caret and a soft glow shows where the wind was called. A new
+// line or a jump is a full gust: a burst of speed lines and a swirl of leaves.
 // Settings: zephyrSize (1 is normal).
-const ZEPHYR_RIBBON_MS = [700, 1000];   // how long one ribbon lives: the shortest and the longest
-const ZEPHYR_RIBBONS_MAX = 6;           // the most ribbons alive at once
-const ZEPHYR_GAP_MS = 110;              // the least time between two gusts, so a fast typist does not bury the page in them
-const ZEPHYR_LEAVES_MAX = 10;           // the most leaves alive at once
+const ZEPHYR_GAP_MS = 100;              // the least time between two gusts, so a fast typist does not bury the page in them
+const ZEPHYR_LEAVES_MAX = 12;           // the most leaves alive at once
 const ZEPHYR_LEAF_MS = [1500, 2400];    // how long a leaf is in the air
 const ZEPHYR_STREAKS_MAX = 5;           // the most speed lines alive at once
 const ZEPHYR_STREAK_MS = 420;           // how long a speed line lasts
-const ZEPHYR_STEPS = 28;                // the points a ribbon is drawn through
 const ZEPHYR_GLOW_MS = 420;             // how long the soft glow a gust leaves on the caret lasts
-
-const easeInCubic = (t) => t * t * t;
-
-/** Where a ribbon is at `s` (0..1) along its spiral round (cx, cy): out wider than tall, drifting outward as it turns. Pure. */
-function zephyrPoint(q, cx, cy, h, s) {
-	const ang = q.a0 + q.dir * q.sweep * s, rho = lerp(q.r0, q.r1, s) * h;
-	return { x: cx + Math.cos(ang) * rho * 1.35, y: cy + Math.sin(ang) * rho * 0.8 };
-}
-
-/** Fills a ribbon through `pts`, `w` wide at its fattest: round at the head (the end of `pts`), drawn out to a point at the tail. */
-function fillRibbon(ctx, pts, w) {
-	const n = pts.length - 1, left = [], right = [];
-	for (let i = 0; i <= n; i++) {
-		const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)];
-		const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
-		const u = i / n, half = w * Math.pow(Math.sin(Math.PI * Math.pow(u, 1.6)), 0.9);   // fattest about two thirds of the way to the head
-		left.push({ x: pts[i].x - (dy / len) * half, y: pts[i].y + (dx / len) * half });
-		right.push({ x: pts[i].x + (dy / len) * half, y: pts[i].y - (dx / len) * half });
-	}
-	ctx.beginPath();
-	ctx.moveTo(left[0].x, left[0].y);
-	for (let i = 1; i <= n; i++) ctx.lineTo(left[i].x, left[i].y);
-	for (let i = n; i >= 0; i--) ctx.lineTo(right[i].x, right[i].y);
-	ctx.closePath();
-	ctx.fill();
-}
 
 /** The outline of a pointed leaf `len` from its middle to each tip and `wid` out to each side. */
 function traceLeaf(ctx, len, wid) {
@@ -1981,28 +1966,20 @@ function traceLeaf(ctx, len, wid) {
 /** The item that holds the wind of `host` (the plugin, or the dialog's preview). */
 function zephyrOf(host) {
 	const item = host.ensureItem('zephyr');
-	if (!item.ribbons) { item.ribbons = []; item.leaves = []; item.streaks = []; item.lastAt = 0; item.glowAt = -1e9; item.flip = 1; }
+	if (!item.leaves) { item.leaves = []; item.streaks = []; item.lastAt = 0; item.glowAt = -1e9; }
 	return item;
 }
 
-/** Calls the wind at the caret `rect`: a ribbon, a speed line and now and then a leaf; a full gust for `big`. */
+/** Calls the wind at the caret `rect`: a speed line, a leaf (most letters) and a glow; a full gust for `big`. */
 function callZephyr(host, rect, big, now) {
 	const item = zephyrOf(host);
 	item.glowAt = now;
 	if (!big && now - item.lastAt < ZEPHYR_GAP_MS) return;
 	item.lastAt = now;
-	for (let i = 0; i < (big ? 3 : 1) && item.ribbons.length < ZEPHYR_RIBBONS_MAX; i++) {
-		item.flip = -item.flip;   // each ribbon turns the other way from the last
-		item.ribbons.push({
-			a0: Math.PI + (Math.random() - 0.5) * 2.4 + i * 2.1, dir: item.flip, sweep: Math.PI * (0.85 + Math.random() * 0.35),
-			r0: 0.55 + Math.random() * 0.2, r1: 1.05 + Math.random() * 0.45, wid: 0.14 + Math.random() * 0.05,
-			t0: now + i * 90, life: lerp(ZEPHYR_RIBBON_MS[0], ZEPHYR_RIBBON_MS[1], Math.random()),
-		});
-	}
-	for (let i = 0; i < (big ? 3 : 1) && item.streaks.length < ZEPHYR_STREAKS_MAX; i++) {
+	for (let i = 0; i < (big ? 4 : 1) && item.streaks.length < ZEPHYR_STREAKS_MAX; i++) {
 		item.streaks.push({ dy: (Math.random() - 0.5) * rect.h * 0.8, len: 9 + Math.random() * 16, t0: now + i * 50, life: ZEPHYR_STREAK_MS });
 	}
-	const leaves = big ? 5 : Math.random() < 0.45 ? 1 : 0;
+	const leaves = big ? 6 : Math.random() < 0.7 ? 1 : 0;
 	for (let i = 0; i < leaves && item.leaves.length < ZEPHYR_LEAVES_MAX; i++) {
 		item.leaves.push({
 			a0: Math.random() * Math.PI * 2, dir: Math.random() < 0.5 ? -1 : 1, turns: 0.9 + Math.random() * 0.8,
@@ -2014,9 +1991,9 @@ function callZephyr(host, rect, big, now) {
 
 function drawZephyr(plugin, ctx, item, now, k) {
 	const alive = (q) => now - q.t0 < q.life;
-	item.ribbons = item.ribbons.filter(alive); item.leaves = item.leaves.filter(alive); item.streaks = item.streaks.filter(alive);
+	item.leaves = item.leaves.filter(alive); item.streaks = item.streaks.filter(alive);
 	const glow = (now - item.glowAt) / ZEPHYR_GLOW_MS;
-	if (!item.ribbons.length && !item.leaves.length && !item.streaks.length && glow >= 1) { item.done = true; return; }
+	if (!item.leaves.length && !item.streaks.length && glow >= 1) { item.done = true; return; }
 	const rect = plugin.last;
 	if (!rect) return;
 	const dark = plugin.dark, h = Math.max(rect.h, 16), cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
@@ -2024,7 +2001,7 @@ function drawZephyr(plugin, ctx, item, now, k) {
 	const body = plugin.col(), rim = plugin.acc(), core = dark ? '#ffffff' : lighten(body, 0.75);
 	ctx.save();
 
-	if (glow < 0) { /* a gust still to come */ } else if (glow < 1) {   // a soft glow where the wind is called
+	if (glow >= 0 && glow < 1) {   // a soft glow where the wind is called
 		const r = h * (0.9 + 0.5 * glow), g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
 		g.addColorStop(0, rgba(body, 0.3 * power * (1 - glow) * (1 - glow)));
 		g.addColorStop(1, rgba(body, 0));
@@ -2046,20 +2023,6 @@ function drawZephyr(plugin, ctx, item, now, k) {
 		ctx.moveTo(tail, y);
 		ctx.lineTo(head, y);
 		ctx.stroke();
-	}
-
-	for (const q of item.ribbons) {   // ribbons: head runs ahead, the tail chases it, and it is gone
-		const f = (now - q.t0) / q.life;
-		if (f < 0) continue;
-		const head = easeOutCubic(clamp01(f / 0.55)), tail = easeInCubic(clamp01((f - 0.3) / 0.7)) * head;
-		if (head - tail < 0.03) continue;
-		const pts = [];
-		for (let i = 0; i <= ZEPHYR_STEPS; i++) pts.push(zephyrPoint(q, cx, cy, h, lerp(tail, head, i / ZEPHYR_STEPS)));
-		const w = q.wid * h * size, fade = (f < 0.75 ? 1 : 1 - (f - 0.75) / 0.25) * power;
-		ctx.globalAlpha = fade;
-		ctx.fillStyle = rim; fillRibbon(ctx, pts, w);          // the dark rim: the whole width
-		ctx.fillStyle = body; fillRibbon(ctx, pts, w * 0.68);   // the body
-		ctx.fillStyle = core; fillRibbon(ctx, pts, w * 0.26);   // and the white core
 	}
 
 	for (const q of item.leaves) {   // leaves: round the caret on a widening spiral, swept off behind, turning over as they go
@@ -2107,6 +2070,162 @@ EFFECTS.zephyr = {
 		if (now < (pv.zephyrNext || 0)) return;
 		pv.zephyrNext = now + 750;
 		callZephyr(pv, caret, false, now);
+	},
+};
+
+// ---- Effect: Tide --------------------------------------------------------------------------------------------------
+// A stylized water skill, drawn the way an anime draws it: every letter flicks a small spray of teardrops out of the
+// caret that arc up and fall back, each a round head with a tapering tail, a darker rim and a white glint; now and then a
+// bubble - a thin ring with a glare - drifts up, wobbling, and pops. A soft aqua glow shows where the water was called.
+// A new line or a jump is a big splash: a fan of drops and a handful of bubbles.
+// Settings: tideSize (1 is normal).
+const TIDE_GAP_MS = 90;                // the least time between two sprays, so a fast typist does not bury the page in them
+const TIDE_DROPS_MAX = 26;             // the most drops alive at once
+const TIDE_DROP_MS = [900, 1400];      // how long a drop is in the air
+const TIDE_GRAVITY = 270;              // px/s^2 at a 24 px caret; scaled with the caret
+const TIDE_BUBBLES_MAX = 10;           // the most bubbles alive at once
+const TIDE_BUBBLE_MS = [1800, 2800];   // how long a bubble drifts before it pops
+const TIDE_GLOW_MS = 450;              // how long the soft glow a spray leaves on the caret lasts
+
+/** The outline of a drop in its own frame: a round head of radius `r` toward +x and a tail drawn out to a point behind. */
+function traceDrop(ctx, r) {
+	ctx.beginPath();
+	ctx.moveTo(-r * 2.7, 0);
+	ctx.quadraticCurveTo(-r * 0.8, -r * 0.95, 0, -r);
+	ctx.arc(0, 0, r, -Math.PI / 2, Math.PI / 2);
+	ctx.quadraticCurveTo(-r * 0.8, r * 0.95, -r * 2.7, 0);
+	ctx.closePath();
+}
+
+/** The item that holds the water of `host` (the plugin, or the dialog's preview). */
+function tideOf(host) {
+	const item = host.ensureItem('tide');
+	if (!item.drops) { item.drops = []; item.bubbles = []; item.lastAt = 0; item.glowAt = -1e9; }
+	return item;
+}
+
+/** Flicks water out of the caret `rect`: a few drops and now and then a bubble; a splash for `big`. */
+function callTide(host, rect, big, now) {
+	const item = tideOf(host);
+	item.glowAt = now;
+	if (!big && now - item.lastAt < TIDE_GAP_MS) return;
+	item.lastAt = now;
+	const u = Math.max(rect.h, 16) / 24, ox = rect.x + rect.w / 2, oy = rect.y + rect.h * 0.25;
+	const drops = big ? 9 : 2 + (Math.random() < 0.5 ? 1 : 0);
+	for (let i = 0; i < drops && item.drops.length < TIDE_DROPS_MAX; i++) {
+		const ang = -Math.PI / 2 + (Math.random() - 0.5) * (big ? 2.6 : 1.9), speed = (big ? 110 : 70) + Math.random() * (big ? 110 : 80);
+		item.drops.push({
+			x: ox, y: oy, vx: Math.cos(ang) * speed * u, vy: Math.sin(ang) * speed * u, g: TIDE_GRAVITY * u,
+			r: (1.5 + Math.random() * 1.5) * u, t0: now + i * 18, life: lerp(TIDE_DROP_MS[0], TIDE_DROP_MS[1], Math.random()),
+		});
+	}
+	const bubbles = big ? 4 : Math.random() < 0.4 ? 1 : 0;
+	for (let i = 0; i < bubbles && item.bubbles.length < TIDE_BUBBLES_MAX; i++) {
+		item.bubbles.push({
+			x: ox + (Math.random() - 0.5) * rect.h * 1.4, y: rect.y + rect.h * (0.2 + Math.random() * 0.6),
+			rise: rect.h * (1.2 + Math.random() * 1.4), drift: (Math.random() - 0.5) * rect.h * 0.6, wob: 1 + Math.random() * 1.6,
+			phase: Math.random() * 6.28, r: (2 + Math.random() * 3) * u, t0: now + i * 60, life: lerp(TIDE_BUBBLE_MS[0], TIDE_BUBBLE_MS[1], Math.random()),
+		});
+	}
+}
+
+function drawTide(plugin, ctx, item, now, k) {
+	const alive = (q) => now - q.t0 < q.life;
+	item.drops = item.drops.filter(alive); item.bubbles = item.bubbles.filter(alive);
+	const glow = (now - item.glowAt) / TIDE_GLOW_MS;
+	if (!item.drops.length && !item.bubbles.length && glow >= 1) { item.done = true; return; }
+	const rect = plugin.last;
+	if (!rect) return;
+	const dark = plugin.dark, h = Math.max(rect.h, 16), cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
+	const size = (plugin.cfg.tideSize ?? 1) * (0.9 + 0.15 * Math.min(k, 1.6)), power = Math.min(1, 0.7 + 0.3 * k);
+	const body = plugin.col(), deep = plugin.acc(), foam = dark ? '#ffffff' : lighten(body, 0.7), edge = shade(deep, 0.7);
+	ctx.save();
+
+	if (glow >= 0 && glow < 1) {   // a soft glow where the water is called
+		const r = h * (0.9 + 0.6 * glow), g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+		g.addColorStop(0, rgba(body, 0.28 * power * (1 - glow) * (1 - glow)));
+		g.addColorStop(1, rgba(body, 0));
+		ctx.fillStyle = g;
+		ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+	}
+
+	for (const q of item.bubbles) {   // bubbles: a thin ring with a glare, drifting up and wobbling; at the end, a pop
+		const age = now - q.t0, f = age / q.life;
+		if (f < 0) continue;
+		const x = q.x + q.drift * f + Math.sin(q.phase + age / 380) * q.wob, y = q.y - q.rise * f;
+		const popAt = 0.88, r = q.r * size * (0.8 + 0.3 * Math.min(f, popAt));
+		const a = Math.min(1, f / 0.12) * power;
+		ctx.save();
+		if (f < popAt) {
+			ctx.globalAlpha = a;
+			ctx.beginPath();
+			ctx.arc(x, y, r, 0, Math.PI * 2);
+			ctx.fillStyle = rgba(body, 0.16);
+			ctx.fill();
+			ctx.strokeStyle = rgba(foam, 0.85);
+			ctx.lineWidth = 1;
+			ctx.stroke();
+			ctx.strokeStyle = rgba(foam, 0.95);   // the glare, a short arc at the upper left
+			ctx.lineWidth = 1.2;
+			ctx.lineCap = 'round';
+			ctx.beginPath();
+			ctx.arc(x, y, r * 0.62, Math.PI * 1.05, Math.PI * 1.45);
+			ctx.stroke();
+		} else {   // the pop: the ring flies apart and thins out
+			const pf = (f - popAt) / (1 - popAt);
+			ctx.globalAlpha = a * (1 - pf);
+			ctx.strokeStyle = rgba(foam, 0.9);
+			ctx.lineWidth = 1 * (1 - 0.5 * pf);
+			ctx.beginPath();
+			ctx.arc(x, y, r * (1 + 0.9 * pf), 0, Math.PI * 2);
+			ctx.stroke();
+		}
+		ctx.restore();
+	}
+
+	for (const q of item.drops) {   // drops: thrown up, pulled down, the tail always trailing behind
+		const t = (now - q.t0) / 1000, f = (now - q.t0) / q.life;
+		if (f < 0) continue;
+		const x = q.x + q.vx * t, y = q.y + q.vy * t + 0.5 * q.g * t * t, vy = q.vy + q.g * t;
+		const alpha = Math.min(1, f / 0.08) * (f < 0.6 ? 1 : 1 - (f - 0.6) / 0.4) * power;
+		if (alpha <= 0.01) continue;
+		const r = q.r * size;
+		ctx.save();
+		ctx.translate(x, y);
+		ctx.rotate(Math.atan2(vy, q.vx));
+		ctx.globalAlpha = alpha;
+		const g = ctx.createLinearGradient(-r * 2.7, 0, r, 0);   // light at the tail, deep at the head
+		g.addColorStop(0, body);
+		g.addColorStop(1, deep);
+		traceDrop(ctx, r);
+		ctx.fillStyle = g;
+		ctx.fill();
+		ctx.strokeStyle = edge;
+		ctx.lineWidth = 0.8;
+		ctx.stroke();
+		ctx.beginPath();   // the glint
+		ctx.ellipse(r * 0.28, -r * 0.4, r * 0.38, r * 0.2, -0.5, 0, Math.PI * 2);
+		ctx.fillStyle = foam;
+		ctx.fill();
+		ctx.restore();
+	}
+	ctx.restore();
+}
+
+EFFECTS.tide = {
+	id: 'tide', label: 'Tide', mode: 'signature', keepsState: true, blend: 'source-over',
+	preset: { name: 'Tide', color: '#8fe6ff', accent: '#1f7ae0' },
+	defaults: { tideSize: 1 },
+	onMove(plugin, prev, cur, info) {
+		const big = info.typed ? info.dy >= cur.h * 0.8 : info.dist > cur.h * 4;   // a new line, or a jump
+		if (!big && !isWriting(info)) return;
+		callTide(plugin, cur, big, info.now);
+	},
+	draw(plugin, ctx, item, p, k, now) { drawTide(plugin, ctx, item, now, k); },
+	preview(plugin, pv, caret, now) {
+		if (now < (pv.tideNext || 0)) return;
+		pv.tideNext = now + 800;
+		callTide(pv, caret, false, now);
 	},
 };
 
@@ -2366,8 +2485,8 @@ class Plugin extends AppPlugin {
 	readConfig() {
 		try {
 			const custom = this.getConfiguration()?.custom || {};
-			this.cfg = { ...DEFAULTS, ...custom };
-		} catch (e) { this.cfg = { ...DEFAULTS }; }
+			this.cfg = { ...DEFAULTS, ...custom, ...loadChoices() };
+		} catch (e) { this.cfg = { ...DEFAULTS, ...loadChoices() }; }
 		// Effects that cannot be toggled (no command) must not stay off because of an old saved value.
 		for (const e of Object.values(EFFECTS)) if (e.mode === 'always' && e.toggleable === false) this.cfg[e.id] = true;
 		if (this.canvas) this.applyCaretStyle();
@@ -2378,11 +2497,7 @@ class Plugin extends AppPlugin {
 		this.cfg = { ...this.cfg, ...patch };
 		this.syncEffects();
 		this.applyCaretStyle();
-		try {
-			const conf = this.getConfiguration();
-			conf.custom = { ...(conf.custom || {}), ...patch };
-			this.saveConfiguration(conf);
-		} catch (e) { /* keep in-memory value */ }
+		saveChoices(patch);
 		// Show the new look right away at the current caret.
 		if ('style' in patch) { this.last = null; this.sample(false); }
 		else if (this.last) this.addPulse(this.last);
@@ -2421,23 +2536,14 @@ class Plugin extends AppPlugin {
 		this.dlg = this.dlgBox = this.dlgKey = null;
 	}
 
-	// Apply right away, write the configuration once editing pauses.
+	// Apply right away (and remember it).
 	live(patch) {
 		this.cfg = { ...this.cfg, ...patch };
-		this.pendingSave = { ...(this.pendingSave || {}), ...patch };
+		saveChoices(patch);
 		this.syncEffects();
 		this.applyCaretStyle();
 		this.dlgBox?.style.setProperty('--c', this.col());
 		this.dlgBox?.style.setProperty('--a', this.acc());
-		clearTimeout(this.saveT);
-		this.saveT = setTimeout(() => {
-			try {
-				const conf = this.getConfiguration();
-				conf.custom = { ...(conf.custom || {}), ...this.pendingSave };
-				this.saveConfiguration(conf);
-			} catch (e) { /* keep in-memory value */ }
-			this.pendingSave = null;
-		}, 400);
 	}
 
 	// Pointer-drag helper: calls fn(x, y) in 0..1 coordinates of el while dragging.
@@ -2664,7 +2770,7 @@ class Plugin extends AppPlugin {
 
 	mountCanvas() {
 		const cv = document.createElement('canvas');
-		cv.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483000;';
+		cv.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:500;';
 		document.body.appendChild(cv);
 		this.canvas = cv;
 		this.ctx = cv.getContext('2d');

@@ -11,6 +11,7 @@
  */
 
 const STORE_KEY = 'daily-garden:v1';
+const SIDEBAR_KEY = 'daily-garden:sidebar';   // '1' shown, '0' hidden; set by the toggle command
 const DEFAULT_GOAL = 500;
 
 const todayKey = () => {
@@ -280,18 +281,21 @@ class Plugin extends AppPlugin {
 		}, next.getTime() - now.getTime());
 	}
 
-	// ---- sidebar plant (option: "showSidebar" in this plugin's configuration "custom", default true) ----
+	// ---- sidebar plant ----
+	// The toggle command's choice is kept in this device's localStorage and wins; without one, "showSidebar" in the plugin's
+	// configuration "custom" decides, and the plant is hidden unless that says "showSidebar": true. (AppPlugin cannot save
+	// its configuration quietly - saving reloads the plugin - so the choice was never kept before.)
 
 	showSidebar() {
-		try { return this.getConfiguration()?.custom?.showSidebar !== false; } catch (e) { return true; }
+		try {
+			const chosen = localStorage.getItem(SIDEBAR_KEY);
+			if (chosen === '1' || chosen === '0') return chosen === '1';
+		} catch (e) { /* fall through to the configuration */ }
+		try { return this.getConfiguration()?.custom?.showSidebar === true; } catch (e) { return false; }
 	}
 
 	setShowSidebar(on) {
-		try {
-			const conf = this.getConfiguration();
-			conf.custom = { ...(conf.custom || {}), showSidebar: on };
-			this.saveConfiguration(conf);
-		} catch (e) { /* applied below anyway */ }
+		try { localStorage.setItem(SIDEBAR_KEY, on ? '1' : '0'); } catch (e) { /* applied below anyway */ }
 		this.applySidebar(on);
 	}
 

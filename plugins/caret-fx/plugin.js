@@ -2242,7 +2242,7 @@ const SLIME_STEP = 1 / 240;   // s: the springs are integrated in steps this sma
 
 /** The spring state of the jelly of `item`: m (the middle's sideways offset), t (the top's, chasing m), sx and sy (scales), each with its velocity. */
 function slimeState(item) {
-	return item.S || (item.S = { m: 0, vm: 0, t: 0, vt: 0, sx: 1, vx: 0, sy: 1, vy: 0 });
+	return item.S || (item.S = { m: 0, vm: 0, j: 0, vj: 0, t: 0, vt: 0, sx: 1, vx: 0, sy: 1, vy: 0 });
 }
 
 /** A kick from the caret moving from `prev` to `cur`: lean the way it went, stretch along the move; squash for a leap. */
@@ -2253,9 +2253,9 @@ function wobbleSlime(plugin, prev, cur) {
 	const dir = dx >= 0 ? 1 : -1;
 	if (Math.abs(dy) > cur.h * 0.6 || dist > cur.h * 2.5) {   // a new line or a jump: lands flat, then springs up
 		S.sy = 0.55; S.sx = 1.4; S.vy = 6; S.vx = -4;
-		S.vm += dir * 110; S.vt += dir * 160;
+		S.vm += dir * 110; S.vj += dir * 130; S.vt += dir * 160;
 	} else {
-		S.vm += dir * 45; S.vt += dir * 80;
+		S.vm += dir * 45; S.vj += dir * 60; S.vt += dir * 80;
 		S.sx = Math.min(1.35, S.sx + 0.16); S.sy = Math.max(0.7, S.sy - 0.1);
 	}
 	plugin.kick();
@@ -2269,27 +2269,33 @@ function drawSlime(plugin, ctx, item, now, dt) {
 	// What the middle is pulled toward: nothing but the rest sway, which is two slow waves out of step.
 	const drive = idle * w * (0.13 * Math.sin(now * 0.0057) + 0.05 * Math.sin(now * 0.0093 + 1));
 	const breathe = 1 + idle * 0.03 * Math.sin(now * 0.0057 + 1);
-	const wm = 20, zm = 0.2, wt = 28, zt = 0.16, ws = 26, zs = 0.2;   // spring speeds (rad/s) and dampings: underdamped, so it overshoots
+	const wm = 20, zm = 0.2, wj = 24, wt = 30, zt = 0.16, ws = 26, zs = 0.2;   // spring speeds (rad/s) and dampings: underdamped, so it overshoots
 	let left = Math.min((dt || 16) / 1000, 0.05);
 	while (left > 1e-6) {
 		const s = Math.min(SLIME_STEP, left);
 		left -= s;
 		S.vm += (-wm * wm * (S.m - drive) - 2 * zm * wm * S.vm) * s; S.m += S.vm * s;
-		S.vt += (-wt * wt * (S.t - S.m) - 2 * zt * wt * S.vt) * s; S.t += S.vt * s;
+		S.vj += (-wj * wj * (S.j - S.m) - 2 * zt * wj * S.vj) * s; S.j += S.vj * s;
+		S.vt += (-wt * wt * (S.t - S.j) - 2 * zt * wt * S.vt) * s; S.t += S.vt * s;
 		S.vx += (-ws * ws * (S.sx - 1) - 2 * zs * ws * S.vx) * s; S.sx += S.vx * s;
 		S.vy += (-ws * ws * (S.sy - breathe) - 2 * zs * ws * S.vy) * s; S.sy += S.vy * s;
 	}
 	if (!plugin.isPreview) plugin.hideCaret('slime', true);   // only the jelly is seen, never the line caret under it
-	const hw = (w * S.sx) / 2, hh = h * S.sy, top = clamp(S.t, -w * 1.2, w * 1.2), mid = S.m * 0.5 + top * 0.35;
+	const hw = (w * S.sx) / 2, hh = h * S.sy;
 	const bulge = clamp((1 - S.sy) * w * 0.9, -w * 0.5, w * 0.6);
-	const sag = clamp(S.vt * 0.004, -3, 3);
+	// The spine: the base fixed, then three joints that each lag the one below, so the body bends in a soft curve. The
+	// two edges are drawn through points along it, and bow out a little when the jelly is squashed.
+	const lim = w * 1.2, spine = [[0, 0], [0.35, clamp(S.m, -lim, lim)], [0.7, clamp(S.j, -lim, lim)], [1, clamp(S.t, -lim, lim)]];
+	const edge = (side) => spine.map(([f, off]) => ({ x: side * (hw + bulge * Math.sin(Math.PI * f)) + off, y: -hh * f }));
+	const L = edge(-1), R = edge(1).reverse();
+	const curve = (pts) => { for (let i = 1; i < pts.length - 1; i++) ctx.quadraticCurveTo(pts[i].x, pts[i].y, (pts[i].x + pts[i + 1].x) / 2, (pts[i].y + pts[i + 1].y) / 2); ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y); };
 	ctx.save();
 	ctx.translate(cx, base);
 	ctx.beginPath();
-	ctx.moveTo(-hw, 0);
-	ctx.quadraticCurveTo(-hw - bulge + mid, -hh / 2, -hw + top, -hh);
-	ctx.quadraticCurveTo(top, -hh + sag, hw + top, -hh);
-	ctx.quadraticCurveTo(hw + bulge + mid, -hh / 2, hw, 0);
+	ctx.moveTo(L[0].x, L[0].y);
+	curve(L);
+	ctx.lineTo(R[0].x, R[0].y);
+	curve(R);
 	ctx.closePath();
 	paintCaretBody(ctx, plugin.col(), 0.45, 1);
 	ctx.restore();

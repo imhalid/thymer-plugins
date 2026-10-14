@@ -2362,6 +2362,98 @@ function atomPoint(cx, cy, rx, ry, rot, ph) {
 	return { x: cx + Math.cos(rot) * ex - Math.sin(rot) * ey, y: cy + Math.sin(rot) * ex + Math.cos(rot) * ey };
 }
 
+// ---- The bending: an SVG displacement filter on the panel, driven by a map drawn every frame -----------------------------
+// The shader samples the screen and bends where it samples; a plugin cannot read the page's pixels, but the browser can
+// bend them for it: while a wave runs, the editor panel gets a filter (feDisplacementMap, once per color channel so red
+// and blue are pulled apart) whose map is a gray field with, in the band, vectors pointing at the wave's center.
+const SHOCK_FORCE_PX = 16;       // the most the band moves the page, in px
+const SHOCK_ABERRATION = 0.14;   // how much more red is moved than green, and blue than green
+const SHOCK_MAP_SCALE = 0.4;     // the map is drawn at this share of the panel's size
+let shockSpriteMade = null, shockSvgMade = false;
+
+/** A field of unit vectors pointing at its middle, in the red and green of its pixels (128 is no move). */
+function shockSprite() {
+	if (shockSpriteMade) return shockSpriteMade;
+	const S = 128, cv = document.createElement('canvas');
+	cv.width = cv.height = S;
+	const c = cv.getContext('2d'), img = c.createImageData(S, S);
+	for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+		const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2, d = Math.hypot(dx, dy) || 1, i = (y * S + x) * 4;
+		img.data[i] = 128 - 127 * (dx / d); img.data[i + 1] = 128 - 127 * (dy / d); img.data[i + 2] = 128; img.data[i + 3] = 255;   // sampled from nearer the middle: the page seems pushed out
+	}
+	c.putImageData(img, 0, 0);
+	return (shockSpriteMade = cv);
+}
+
+/** The filter, once: three displacements, each keeping one channel, added back together. Its map is set per frame. */
+function shockSvg() {
+	if (shockSvgMade && document.getElementById('cfx-shock-map')) return;
+	shockSvgMade = true;
+	const k = SHOCK_FORCE_PX * 2, ch = (id, scale, m) => `<feDisplacementMap in="SourceGraphic" in2="map" scale="${scale}" xChannelSelector="R" yChannelSelector="G" result="d${id}"/><feColorMatrix in="d${id}" type="matrix" values="${m}" result="c${id}"/>`;
+	const host = document.createElement('div');
+	host.id = 'cfx-shock-svg';
+	host.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;';
+	host.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"><filter id="cfx-shock" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+		<feImage id="cfx-shock-map" href="" preserveAspectRatio="none" result="map"/>
+		${ch('r', k * (1 + SHOCK_ABERRATION), '1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0')}
+		${ch('g', k, '0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0')}
+		${ch('b', k * (1 - SHOCK_ABERRATION), '0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0')}
+		<feBlend in="cr" in2="cg" mode="screen" result="crg"/><feBlend in="crg" in2="cb" mode="screen"/></filter></svg>`;
+	document.body.appendChild(host);
+}
+
+/** Lets the page go: no filter, no map. */
+function shockClear(item) {
+	clearTimeout(item.shockT);
+	if (item.shockPanel) { item.shockPanel.style.filter = ''; item.shockPanel = null; }
+	if (item.shockUrl) { URL.revokeObjectURL(item.shockUrl); item.shockUrl = null; }
+}
+
+/** One frame of the bending for the newest wave of `item`: draw the map, hand it to the filter. */
+function shockStep(plugin, item, now, band) {
+	const q = item.waves[item.waves.length - 1];
+	if (!q) return shockClear(item);
+	const panel = (plugin.caretEl && plugin.caretEl.closest('.panel')) || document.querySelector(FOCUSED_PANEL_SEL);
+	if (!panel || item.shockBusy) return;
+	const pr = panel.getBoundingClientRect(), sc = SHOCK_MAP_SCALE, W = Math.max(8, Math.round(pr.width * sc)), H = Math.max(8, Math.round(pr.height * sc));
+	const f = (now - q.t0) / q.life, pos = Math.sin((f * Math.PI) / 2), R = q.h * ATOM_WAVE_REACH * sc, hi = Math.min(pos + 0.03, 1.2), Rb = Math.max(2, hi * R);
+	shockSvg();
+	const map = item.shockMap || (item.shockMap = document.createElement('canvas')), tmp = item.shockTmp || (item.shockTmp = document.createElement('canvas'));
+	if (map.width !== W || map.height !== H) { map.width = W; map.height = H; }
+	const T = Math.ceil(Rb * 2) + 2;
+	tmp.width = T; tmp.height = T;
+	const m = map.getContext('2d'), t = tmp.getContext('2d');
+	t.drawImage(shockSprite(), 0, 0, T, T);
+	t.globalCompositeOperation = 'destination-in';
+	const g = t.createRadialGradient(T / 2, T / 2, 0, T / 2, T / 2, Rb);
+	for (let i = 0; i <= 14; i++) { const d = (i / 14) * hi; g.addColorStop(i / 14, `rgba(0,0,0,${band(d, pos)})`); }
+	t.fillStyle = g;
+	t.fillRect(0, 0, T, T);
+	m.fillStyle = 'rgb(128,128,128)';
+	m.fillRect(0, 0, W, H);
+	m.drawImage(tmp, (q.x - pr.left) * sc - T / 2, (q.y - pr.top) * sc - T / 2);
+	item.shockBusy = true;
+	map.toBlob((blob) => {
+		item.shockBusy = false;
+		if (!blob || !item.waves || !item.waves.length) return;
+		const url = URL.createObjectURL(blob), img = document.getElementById('cfx-shock-map');
+		if (!img) return URL.revokeObjectURL(url);
+		img.setAttribute('href', url);
+		img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', url);
+		if (item.shockUrl) URL.revokeObjectURL(item.shockUrl);
+		item.shockUrl = url;
+		if (item.shockPanel !== panel) { shockClear(item); item.shockUrl = url; panel.style.filter = 'url(#cfx-shock)'; item.shockPanel = panel; }
+		clearTimeout(item.shockT);
+		item.shockT = setTimeout(() => shockClear(item), 400);   // however it ends (a preset switched away mid-wave), the page is let go
+	}, 'image/png');
+}
+
+/** How strongly the band bends the page at distance `d` (0..1 of the reach) when the wave is at `pos`: the shader's feathered band. Pure. */
+function atomBand(d, pos) {
+	const sm = (e0, e1, x) => { const t = clamp01((x - e0) / (e1 - e0)); return t * t * (3 - 2 * t); };
+	return sm(pos - ATOM_WAVE_THICK - ATOM_WAVE_FEATHER, pos - ATOM_WAVE_THICK, d) - sm(pos - ATOM_WAVE_FEATHER, pos, d);
+}
+
 /** The item that holds the atom of `host` (the plugin, or the dialog's preview). */
 function atomOf(host) {
 	const item = host.ensureItem('atom');
@@ -2434,7 +2526,7 @@ function drawAtom(plugin, ctx, item, now, k, dt) {
 		const lo = Math.max(0, pos - ATOM_WAVE_THICK - ATOM_WAVE_FEATHER - 0.02), hi = pos + 0.03;
 		const gradient = (shift, color) => {   // the band as a radial gradient; `shift` slides it, as a channel sampled at an offset
 			const g = ctx.createRadialGradient(q.x, q.y, Math.max(0, (lo + shift) * R), q.x, q.y, (hi + shift) * R);
-			for (let i = 0; i <= 12; i++) { const d = lerp(lo, hi, i / 12); g.addColorStop(i / 12, color(0.9 * mask(d) * fade)); }
+			for (let i = 0; i <= 12; i++) { const d = lerp(lo, hi, i / 12); g.addColorStop(i / 12, color(0.3 * mask(d) * fade)); }
 			return g;
 		};
 		if (pos > 0.01) {
@@ -2452,6 +2544,7 @@ function drawAtom(plugin, ctx, item, now, k, dt) {
 		}
 	}
 	ctx.restore();
+	if (!plugin.isPreview) { if (item.waves.length) shockStep(plugin, item, now, atomBand); else shockClear(item); }
 	plugin.kick();   // the electrons never rest
 }
 

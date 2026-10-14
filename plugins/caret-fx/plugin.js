@@ -5,6 +5,11 @@
  * trail when the caret moves, and signature effects (lightning, falling petals and leaves).
  * Inspired by the Ghostty cursor_blaze / cursor_lightning shaders.
  *
+ * Four more effects - Motion smear, Fresh ink, Bracket tether and Back-man (the caret that eats what
+ * Backspace and Delete take) - are ported from Cursor-Smith by Sadsnake1
+ * (https://github.com/Sadsnake1/cursor-smith, MIT License). See THIRD-PARTY NOTICE below.
+ * They are off until switched on ("Caret FX: toggle ...").
+ *
  * Scope: the Thymer editor only. The plugin follows Thymer's own caret element
  * (div.listview-caret-self) and never touches the command palette, rename fields,
  * dropdowns or other plugins' inputs. Effects are clipped to the editor's scroll
@@ -20,6 +25,38 @@
  *
  * Settings live in this plugin's config under "custom" (Edit Code > Configuration), or use
  * the command palette: "Caret FX: ...".
+ */
+
+/*
+ * THIRD-PARTY NOTICE
+ *
+ * Motion smear, Fresh ink, Bracket tether and Back-man are ported from Cursor-Smith by Sadsnake1
+ * (https://github.com/Sadsnake1/cursor-smith), as of its version 1.8.1. Their algorithms, constants and design
+ * decisions come from that project's source; the code here adapts them to Thymer's editor DOM and to this plugin's
+ * canvas. Each of the four names the Cursor-Smith files it follows. Cursor-Smith is distributed under the MIT
+ * License, reproduced here as that license asks:
+ *
+ *   MIT License
+ *
+ *   Copyright (c) 2026 Sadsnake1
+ *
+ *   Permission is hereby granted, free of charge, to any person obtaining a copy
+ *   of this software and associated documentation files (the "Software"), to deal
+ *   in the Software without restriction, including without limitation the rights
+ *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *   copies of the Software, and to permit persons to whom the Software is
+ *   furnished to do so, subject to the following conditions:
+ *
+ *   The above copyright notice and this permission notice shall be included in all
+ *   copies or substantial portions of the Software.
+ *
+ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *   SOFTWARE.
  */
 
 // Colour-only presets: [name, caret/glow color, accent color]. Special presets come from the effect registry.
@@ -156,6 +193,130 @@ function rowForCaret(caretEl, r) {
 	return null;
 }
 
+// =====================================================================================
+// LINE TEXT
+// Thymer's plugin SDK reports what a line says once it has changed, but has no caret, selection or text-layout API: it
+// cannot say where the caret is or where a letter is drawn. So the text of the line the caret is on is read from the
+// DOM: its characters, where each one is drawn, and where the caret stands among them. Fresh ink, Bracket tether and
+// Back-man all work from this.
+// =====================================================================================
+
+/** The element that holds an editor row's text. */
+const lineDivOf = (row) => (row instanceof HTMLElement ? row.querySelector(':scope > .line-div') || row.querySelector('.line-div') : null);
+
+/** One editor row's text, with the geometry of every character in it. */
+class LineText {
+	constructor(row) {
+		this.row = row;
+		this.guid = row.getAttribute('data-guid') || '';
+		this.el = lineDivOf(row);
+		this.nodes = [];    // the text nodes, in reading order
+		this.starts = [];   // where each of them begins in `text`
+		let text = '';
+		if (this.el) {
+			const walk = document.createTreeWalker(this.el, NodeFilter.SHOW_TEXT);
+			for (let n = walk.nextNode(); n; n = walk.nextNode()) { this.nodes.push(n); this.starts.push(text.length); text += n.data; }
+		}
+		this.text = text;
+	}
+
+	/** The index in `text` of a DOM position (a text node and an offset, or an element and a child index); -1 outside the row. */
+	indexOf(node, off) {
+		if (!this.el || !node || !this.el.contains(node)) return -1;
+		try {
+			const r = document.createRange();
+			r.setStart(this.el, 0);
+			r.setEnd(node, off);
+			return r.toString().length;
+		} catch (e) { return -1; }
+	}
+
+	/** The index of the character boundary nearest a point; -1 when the point is not over this row's text. */
+	indexAt(x, y) {
+		let range = null;
+		try {
+			if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(x, y);
+			else if (document.caretPositionFromPoint) {
+				const pos = document.caretPositionFromPoint(x, y);
+				if (pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); }
+			}
+		} catch (e) { return -1; }
+		return range ? this.indexOf(range.startContainer, range.startOffset) : -1;
+	}
+
+	/** Where characters [i, j) are drawn: one { x, y, w, h } per run of text on one visual line. Each text node is measured on its own, so no element box around it is counted. */
+	rects(i, j) {
+		const out = [];
+		for (let k = 0; k < this.nodes.length; k++) {
+			const node = this.nodes[k], from = this.starts[k];
+			const a = Math.max(i, from), b = Math.min(j, from + node.data.length);
+			if (b <= a) continue;
+			const r = document.createRange();
+			r.setStart(node, a - from);
+			r.setEnd(node, b - from);
+			for (const c of r.getClientRects()) if (c.width > 0.5 && c.height > 0.5) out.push({ x: c.left, y: c.top, w: c.width, h: c.height });
+		}
+		return out;
+	}
+
+	/** Where the character at `i` (`n` code units long) is drawn; null when it is not. */
+	charRect(i, n = 1) { return this.rects(i, i + n)[0] || null; }
+
+	/** The element whose style the character at `i` is drawn in. */
+	styleHost(i) {
+		let k = this.nodes.length - 1;
+		while (k > 0 && this.starts[k] > i) k--;
+		return k >= 0 ? this.nodes[k].parentElement : this.el;
+	}
+}
+
+/** The row with this guid, wherever it is now (an editor may redraw its rows). */
+const rowByGuid = (guid) => (guid ? document.querySelector(`.listitem[data-guid="${CSS.escape(guid)}"]`) : null);
+
+/**
+ * The line the caret is on and where in it: { line, idx, collapsed }, or null. The browser's own selection says
+ * where (Thymer's editor is contenteditable); the caret element's position is the fallback. Read once per sample
+ * and shared by every effect, unless `fresh`.
+ */
+function caretLine(plugin, fresh = false) {
+	const memo = plugin.lineMemo;
+	if (!fresh && memo && memo.n === plugin.sampleN) return memo.value;
+	let value = null;
+	const rect = plugin.last, el = plugin.caretEl;
+	if (rect && el && el.isConnected) {
+		const row = rowForCaret(el, { top: rect.y, bottom: rect.y + rect.h, left: rect.x });
+		const line = row && new LineText(row);
+		if (line && line.el) {
+			const sel = window.getSelection();
+			let idx = -1, collapsed = true;
+			if (sel && sel.rangeCount && sel.focusNode && line.el.contains(sel.focusNode)) { idx = line.indexOf(sel.focusNode, sel.focusOffset); collapsed = sel.isCollapsed; }
+			if (idx < 0) idx = line.indexAt(rect.x + 1, rect.y + rect.h / 2);
+			if (idx >= 0) value = { line, idx, collapsed };
+		}
+	}
+	plugin.lineMemo = { n: plugin.sampleN, value };
+	return value;
+}
+
+/**
+ * What changed in a line of text: { at, removed, inserted }, or null when nothing did. `caret` is where the caret
+ * stands after the edit. Typing and deleting both leave it at the edge of the change, which settles which of
+ * several identical letters was meant (the second "l" of "hello"); any other change - a paste, a selection wiped
+ * - is the stretch between the text's common head and common tail.
+ */
+function lineEdit(before, after, caret) {
+	if (before === after) return null;
+	const d = after.length - before.length;
+	if (d < 0 && before.slice(0, caret) + before.slice(caret - d) === after) return { at: caret, removed: before.slice(caret, caret - d), inserted: '' };
+	if (d > 0 && caret >= d && after.slice(0, caret - d) + after.slice(caret) === before) return { at: caret - d, removed: '', inserted: after.slice(caret - d, caret) };
+	const max = Math.min(before.length, after.length);
+	let head = 0;
+	while (head < max && before.charCodeAt(head) === after.charCodeAt(head)) head++;
+	let tail = 0;
+	while (tail < max - head && before.charCodeAt(before.length - 1 - tail) === after.charCodeAt(after.length - 1 - tail)) tail++;
+	return { at: head, removed: before.slice(head, before.length - tail), inserted: after.slice(head, after.length - tail) };
+}
+
 const UI_CSS = `
 .cfx-ov { position: fixed; inset: 0; z-index: 2147483100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); backdrop-filter: blur(3px); animation: cfx-in .14s ease-out; }
 @keyframes cfx-in { from { opacity: 0; } to { opacity: 1; } }
@@ -194,6 +355,7 @@ const UI_CSS = `
 .cfx-btn.primary { background: var(--c); color: #111; border-color: transparent; font-weight: 600; }
 .cfx-block { position: fixed; pointer-events: none; z-index: 2147482999; box-sizing: border-box; border-radius: 2px; animation: cfx-blockblink 1.1s steps(1) .6s infinite; }
 @keyframes cfx-blockblink { 50% { opacity: .3; } }
+body.cfx-caret-off div.listview-caret-self, body.cfx-caret-off .cfx-block { opacity: 0 !important; animation: none !important; transition: none !important; }
 `;
 
 // =====================================================================================
@@ -204,12 +366,20 @@ const UI_CSS = `
 //   - mode 'always': runs whenever cfg[id] is true (toggle command generated; toggleable:false = always on).
 //     mode 'signature': runs when cfg.fx === id; needs preset { name, color, accent } for the dialog's Special grid.
 //   - defaults: extra config keys, merged into DEFAULTS automatically.
+//     defaultOn: false keeps an 'always' effect off until it is toggled (new effects should not change a look that exists).
 //   - onMove(plugin, prev, cur, info): after the caret moved; info = { typed, dist, dx, dy, now }.
 //     Push items onto plugin.items as { effect: id, t0, dur, ...own fields } (dur: Infinity for long-lived ones).
+//   - onSample(plugin, cur, info): after every look at the caret, moved or not, with cur null when there is no caret;
+//     info = { typed, moved, now }. For effects that watch the text (what was typed, what is bracketed).
+//   - onKey(plugin, e, now): on a keydown in the editor, before the editor has acted on it (the DOM is still as it was).
 //   - onPulse(plugin, rect, now): optional; a gentle "show the current look" trigger (theme/config change).
 //   - draw(plugin, ctx, item, p, k, now, dt): p = progress 0..1, k = intensity, dt = ms since last frame.
 //     Items are removed when p >= 1 or item.done = true. blend: 'lighter' | 'source-over' (set by the core).
+//     A still item (item.rest = true) is redrawn whenever a frame runs but does not ask for frames of its own.
 //   - preview(plugin, pv, caret, now): optional; spawn demo items into pv.items for the dialog preview.
+//   - Effects that keep state or take over the caret: plugin.state(id) is their state bag, plugin.ensureItem(id) their one
+//     long-lived item, plugin.hideCaret(id, on) hides Thymer's caret while they draw their own. keepsState: true has the
+//     core drop all three when the effect is switched off or the plugin unloads.
 // =====================================================================================
 const EFFECTS = {};
 
@@ -468,6 +638,852 @@ EFFECTS.paper = makeParticleEffect({
 	particle: { shape: 'leaf', size: [6, 11], tones: [['#8fd18f', '#2e7d32'], ['#b5e2a8', '#43a047'], ['#6fbf73', '#1b5e20'], ['#a5d6a7', '#388e3c']], fall: 0.06, sway: 1.2 },
 });
 
+// ---- Ported from Cursor-Smith: Motion smear, Fresh ink, Bracket tether, Back-man ------------------------------------
+// By Sadsnake1, MIT License; see THIRD-PARTY NOTICE at the top of this file. All four are off until switched on
+// (command palette: "Caret FX: toggle ..."), and their settings live in this plugin's configuration under "custom".
+
+/** The caret as an effect that stands in for it must match it: the block cursor's box, or the width of Thymer's own line caret. */
+function caretBox(plugin) {
+	const r = plugin.last;
+	return r && { x: r.x, y: r.y, w: plugin.cfg.style === 'block' ? r.w : r.lw, h: r.h, cw: r.cw };
+}
+
+/**
+ * Fills and rings the current path the way the block cursor is drawn (.cfx-block): a tint, a 1.5 px ring and a soft
+ * glow. `fill` and `ring` are 0..1 strengths; a Line caret is all fill and no ring.
+ */
+function paintCaretBody(ctx, col, fill, ring) {
+	if (fill > 0) {
+		ctx.shadowColor = rgba(col, 0.45 * ring);
+		ctx.shadowBlur = 8 * ring;
+		ctx.fillStyle = rgba(col, fill);
+		ctx.fill();
+		ctx.shadowBlur = 0;
+	}
+	if (ring > 0) {
+		ctx.lineWidth = 1.5;
+		ctx.lineJoin = 'round';
+		ctx.strokeStyle = rgba(col, ring);
+		ctx.stroke();
+	}
+}
+
+// ---- Effect: Motion smear ------------------------------------------------------------------------------------------
+// From Cursor-Smith's src/paint/paint-smear.ts. The caret stretches as it moves and snaps back when it arrives. It is
+// drawn as a quad whose four corners are blends of two tracked points: a leading point on a spring (it may overshoot
+// and snap back, which is the feel) and a trailing point that lags behind it (an approach with no velocity of its own,
+// so it can neither rotate nor boomerang). Whichever face of the caret trails the move is decided by the area each
+// face sweeps, so the shape is a parallelogram in every frame. While it moves, Thymer's caret (or the block cursor) is
+// hidden and the quad is drawn in its place; when it has arrived, the real caret is shown again.
+// Not ported: Tapered trail, Max length and Conserve area, which Cursor-Smith leaves off by default.
+// Settings: smearStiffness (the leading point), smearTrailingStiffness, smearDamping, each 0..1.
+const SMEAR_MAX_STEP = 1 / 240;     // s: the spring is integrated in steps this small, so every frame rate swings alike
+const SMEAR_SETTLE_V = 30;          // px/s: slower than this and within half a pixel of the caret, the smear has arrived
+const SMEAR_KEY_STEP_CHARS = 2.5;   // a move along the row by at most this many letters is the keyboard's (typing, an arrow)...
+const SMEAR_KEY_STEP_MS = 200;      // ...and for this long after one the leading edge sits on the caret: only the tail trails
+const SMEAR_LINE_CHANGE = 0.6;      // a move to another line, by more than this share of a line, is not smeared (it would streak through the text between)
+
+/**
+ * One frame of the smear toward `rect` ({ x, y, w, h }), `dt` seconds on. `s` holds the two points, the centre the
+ * caret had a frame ago and the direction of travel, held after the caret stops so the tail keeps pointing back the way
+ * it came. `pinned` puts the leading point on the caret. Returns the corners (top-left, top-right, bottom-right,
+ * bottom-left) and whether they are still on their way.
+ */
+function stepSmear(s, rect, dt, cfg, pinned) {
+	const { lead, trail } = s;
+	const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
+	const dx = cx - s.cx, dy = cy - s.cy, len = Math.hypot(dx, dy);
+	if (len > 0.01) s.dir = { x: dx / len, y: dy / len };
+	s.cx = cx; s.cy = cy;
+
+	const freqLead = 2 + clamp01(cfg.smearStiffness) * 38;
+	const freqTrail = 2 + clamp01(cfg.smearTrailingStiffness) * 38;
+	const damping = 0.15 + clamp01(cfg.smearDamping) * 1.15;
+	if (pinned) { lead.x = rect.x; lead.y = rect.y; lead.vx = lead.vy = 0; }
+	const steps = Math.max(1, Math.min(16, Math.ceil(dt / SMEAR_MAX_STEP))), h = dt / steps;
+	const k = freqLead * freqLead, damp = 2 * damping * freqLead, f = 1 - Math.exp(-freqTrail * h);
+	for (let i = 0; i < steps; i++) {
+		lead.vx += (k * (rect.x - lead.x) - damp * lead.vx) * h;
+		lead.vy += (k * (rect.y - lead.y) - damp * lead.vy) * h;
+		lead.x += lead.vx * h;
+		lead.y += lead.vy * h;
+		trail.x += (lead.x - trail.x) * f;
+		trail.y += (lead.y - trail.y) * f;
+	}
+	if (![lead.x, lead.y, lead.vx, lead.vy, trail.x, trail.y].every(Number.isFinite)) {
+		lead.x = trail.x = rect.x; lead.y = trail.y = rect.y; lead.vx = lead.vy = 0;
+	}
+
+	// The rear face of the caret trails and the front face leads. Which is which is the area each face sweeps - the
+	// sides sweep h*|dx|, the top and bottom w*|dy| - blended by their share (to the fourth power, so one clearly
+	// dominant axis wins outright), never by a branch: a branch is where the quad used to snap between two shapes.
+	const dir = s.dir;
+	const hx = (rect.h * (dir ? Math.abs(dir.x) : 0)) ** 4, wy = (rect.w * (dir ? Math.abs(dir.y) : 0)) ** 4;
+	const u = hx + wy > 0 ? hx / (hx + wy) : 0.5;
+	const sgnX = dir ? Math.sign(dir.x) : 0, sgnY = dir ? Math.sign(dir.y) : 0;
+	const tvx = (lead.x - trail.x) * freqTrail, tvy = (lead.y - trail.y) * freqTrail;   // the trailing point's speed
+	let moving = false;
+	const corners = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([fx, fy]) => {
+		const ox = fx * rect.w, oy = fy * rect.h;
+		const front = dir ? (ox > 0 ? 1 : -1) * sgnX * u + (oy > 0 ? 1 : -1) * sgnY * (1 - u) : 0;   // +1 front face .. -1 rear face
+		const lag = (1 - front) / 2;                                                                  // 0 at the leading point .. 1 at the trailing one
+		const vx = lead.vx + (tvx - lead.vx) * lag, vy = lead.vy + (tvy - lead.vy) * lag;
+		const c = { x: lead.x + (trail.x - lead.x) * lag + ox, y: lead.y + (trail.y - lead.y) * lag + oy };
+		if (Math.abs(c.x - rect.x - ox) > 0.5 || Math.abs(c.y - rect.y - oy) > 0.5 || Math.abs(vx) > SMEAR_SETTLE_V || Math.abs(vy) > SMEAR_SETTLE_V) moving = true;
+		return c;
+	});
+	if (moving) return { corners, moving };
+	// Arrived: onto the caret exactly, with no velocity left to creep back into motion.
+	lead.x = trail.x = rect.x; lead.y = trail.y = rect.y; lead.vx = lead.vy = 0;
+	return { corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([fx, fy]) => ({ x: rect.x + fx * rect.w, y: rect.y + fy * rect.h })), moving };
+}
+
+function finishSmear(plugin, item) {
+	item.done = true;
+	plugin.hideCaret('smear', false);
+}
+
+EFFECTS.smear = {
+	id: 'smear', label: 'Motion smear', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
+	defaults: { smearStiffness: 0.6, smearTrailingStiffness: 0.4, smearDamping: 0.8 },
+	onMove(plugin, prev, cur, info) {
+		if (backManBusy(plugin)) return;   // the creature has the caret
+		const S = plugin.state('smear');
+		const dx = Math.abs(cur.x - prev.x), dy = Math.abs(cur.y - prev.y);
+		if (dy < 1 && dx > 0.5 && dx <= SMEAR_KEY_STEP_CHARS * cur.cw) S.stepT = info.now;
+		if (dy > cur.h * SMEAR_LINE_CHANGE) {
+			// Another line: the caret is simply there.
+			if (S.lead) { S.lead = { x: cur.x, y: cur.y, vx: 0, vy: 0 }; S.trail = { x: cur.x, y: cur.y }; }
+			return;
+		}
+		if (plugin.items.some((i) => i.effect === 'smear' && !i.done)) return;   // already under way: it chases the caret by itself
+		S.lead = { x: prev.x, y: prev.y, vx: 0, vy: 0 };
+		S.trail = { x: prev.x, y: prev.y };
+		S.cx = prev.x + prev.w / 2; S.cy = prev.y + prev.h / 2; S.dir = null;
+		plugin.items.push({ effect: 'smear', t0: info.now, dur: Infinity });
+	},
+	draw(plugin, ctx, item, p, k, now, dt) {
+		const S = plugin.state('smear'), rect = caretBox(plugin);
+		if (!rect || !S.lead || backManBusy(plugin)) return finishSmear(plugin, item);
+		const { corners, moving } = stepSmear(S, rect, dt / 1000, plugin.cfg, now - (S.stepT || 0) < SMEAR_KEY_STEP_MS);
+		if (!moving) return finishSmear(plugin, item);
+		plugin.hideCaret('smear', true);   // hidden only in a frame that draws the quad, so the caret never blinks out between the two
+		const block = plugin.cfg.style === 'block';
+		ctx.save();
+		ctx.beginPath();
+		corners.forEach((c, i) => (i ? ctx.lineTo(c.x, c.y) : ctx.moveTo(c.x, c.y)));
+		ctx.closePath();
+		paintCaretBody(ctx, plugin.col(), block ? 0.42 : 1, block ? 1 : 0);
+		ctx.restore();
+	},
+};
+
+// ---- Effect: Fresh ink ---------------------------------------------------------------------------------------------
+// From Cursor-Smith's src/effects/effects-ink.ts, where it is part of Typewriter. The characters just typed stay wet in
+// the caret's color and dry into the text over a second or two. Each run of typing is one mark - where it starts in its
+// line, its text and when each character went in - and every frame finds each character's own box again, so the ink
+// stays on its letters through a wrap, a scroll or an edit before it. A mark whose text is no longer where it was is cut
+// back to what is left of it (Backspace), looked for nearby (an edit before it) or dropped. The letters are drawn over the
+// real ones, in the same font, on whole device pixels.
+// Not ported: the gradient ramp and "Keep text color".
+// Settings: inkMs (how long the ink takes to dry), inkStrength (0..1).
+const INK_MAX_RUN = 12;     // an insertion longer than this is a paste or a completion, not typing
+const INK_MAX_CHARS = 80;   // the most wet characters at once; the oldest go first
+const INK_SEARCH = 64;      // how far a mark is looked for after an edit before it, in characters
+const INK_HOLD = 0.3;       // the share of the drying time the ink stays fully wet before it fades
+
+const easeInOutSine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+
+/** How wet a character is `age` ms after it went in: fully for the first part of the drying time `ms`, then easing to dry. */
+function inkWetness(age, ms) {
+	const u = age / Math.max(1, ms);
+	if (u >= 1) return 0;
+	return u <= INK_HOLD ? 1 : 1 - easeInOutSine((u - INK_HOLD) / (1 - INK_HOLD));
+}
+
+/** Drops `n` code units from the front of a mark, never half a surrogate pair (the halves of an emoji dry together). */
+function trimInkFront(m, n) {
+	if (n > 0 && n < m.text.length) {
+		const c = m.text.charCodeAt(n);
+		if (c >= 0xdc00 && c <= 0xdfff) n++;
+	}
+	m.from += n;
+	m.text = m.text.slice(n);
+	m.times = m.times.slice(n);
+}
+
+const cutInk = (m, keep) => { m.text = m.text.slice(0, keep); m.times = m.times.slice(0, keep); };
+
+/** Puts `text` typed at `at` in `line` among the marks: the run before it grows when it was typed on from there. */
+function addInk(S, line, at, text, now) {
+	const tail = S.marks[S.marks.length - 1];
+	if (tail && tail.guid === line.guid && tail.from + tail.text.length === at) {
+		tail.text += text;
+		for (let i = 0; i < text.length; i++) tail.times.push(now);
+	} else {
+		S.marks.push({ guid: line.guid, row: line.row, from: at, text, times: new Array(text.length).fill(now) });
+	}
+	let total = 0;
+	for (const m of S.marks) total += m.text.length;
+	while (total > INK_MAX_CHARS && S.marks.length) {
+		const m = S.marks[0];
+		const cut = Math.min(m.text.length, total - INK_MAX_CHARS);
+		trimInkFront(m, cut);
+		total -= cut;
+		if (!m.text.length) S.marks.shift();
+	}
+}
+
+/**
+ * Where a mark's text is now in `line` (`head` is the caret's place in it, or -1). True with m.from - and m.text,
+ * cut back - brought up to date; false when it is gone.
+ */
+function locateInk(line, m, head) {
+	const text = line.text, len = m.text.length;
+	if (m.from + len <= text.length && text.slice(m.from, m.from + len) === m.text) return true;
+	// Backspace: the run's end is gone and the caret sits where it now ends.
+	const here = text.slice(m.from, Math.min(text.length, m.from + len));
+	let k = 0;
+	while (k < here.length && here.charCodeAt(k) === m.text.charCodeAt(k)) k++;
+	if (k > 0 && head === m.from + k) { cutInk(m, k); return true; }
+	// An edit before it moved it: the nearest copy of its text, if it is long enough to be itself rather than any letter nearby.
+	if (len >= 2) {
+		const lo = Math.max(0, m.from - INK_SEARCH);
+		const win = text.slice(lo, Math.min(text.length, m.from + len + INK_SEARCH));
+		let best = -1;
+		for (let i = win.indexOf(m.text); i >= 0; i = win.indexOf(m.text, i + 1)) {
+			if (best < 0 || Math.abs(lo + i - m.from) < Math.abs(lo + best - m.from)) best = i;
+		}
+		if (best >= 0) { m.from = lo + best; return true; }
+	}
+	// Its end rewritten under it (an input method committing the characters chosen): what still stands at its start stays wet.
+	if (k > 0 && k < len) {
+		const hi = m.text.charCodeAt(k - 1);
+		if (hi >= 0xd800 && hi <= 0xdbff) k--;   // never half an emoji
+	}
+	if (k <= 0) return false;
+	cutInk(m, k);
+	return true;
+}
+
+EFFECTS.ink = {
+	id: 'ink', label: 'Fresh ink', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
+	defaults: { inkMs: 1500, inkStrength: 0.8 },
+	// What was typed is what the caret's line gained since the last sample.
+	onSample(plugin, cur, info) {
+		const S = plugin.state('ink');
+		if (!S.marks) S.marks = [];
+		const cl = cur && caretLine(plugin);
+		const before = S.base;
+		S.base = cl ? { guid: cl.line.guid, text: cl.line.text } : null;
+		S.head = cl ? { guid: cl.line.guid, idx: cl.idx } : null;
+		if (!cl || !before || !info.typed || before.guid !== cl.line.guid) return;
+		const edit = lineEdit(before.text, cl.line.text, cl.idx);
+		if (!edit || !edit.inserted || edit.inserted.length > INK_MAX_RUN || edit.inserted.includes('\n')) return;
+		addInk(S, cl.line, edit.at, edit.inserted, info.now);
+		plugin.ensureItem('ink');
+		plugin.kick();
+	},
+	draw(plugin, ctx, item, p, k, now) {
+		const S = plugin.state('ink');
+		const ms = Math.max(100, Math.min(10000, Number(plugin.cfg.inkMs) || 1500));
+		const strength = clamp01(Number(plugin.cfg.inkStrength ?? 0.8));
+		const dpr = window.devicePixelRatio || 1, snap = (v) => Math.round(v * dpr) / dpr;
+		const lines = new Map(), styles = new Map(), metrics = new Map();   // per frame: a row's text, an element's font, a font's size
+		const kept = [];
+		ctx.save();
+		ctx.fillStyle = plugin.col();
+		ctx.textAlign = 'left';
+		ctx.textBaseline = 'alphabetic';
+		for (const m of S.marks || []) {
+			if (!m.row.isConnected) m.row = rowByGuid(m.guid);
+			if (!m.row) continue;
+			let line = lines.get(m.row);
+			if (!line) lines.set(m.row, (line = new LineText(m.row)));
+			if (!locateInk(line, m, S.head && S.head.guid === m.guid ? S.head.idx : -1)) continue;
+			let dry = 0;   // the dry front of the run goes: only wet letters are kept
+			while (dry < m.times.length && now - m.times[dry] >= ms) dry++;
+			if (dry) trimInkFront(m, dry);
+			if (!m.text.length) continue;
+			kept.push(m);
+			let i = 0;
+			for (const ch of m.text) {
+				const at = m.from + i, a = strength * inkWetness(now - m.times[i], ms);
+				i += ch.length;
+				if (a <= 0 || !ch.trim()) continue;
+				const r = line.charRect(at, ch.length);
+				if (!r) continue;
+				const host = line.styleHost(at);
+				let st = styles.get(host);
+				if (!st) {
+					const cs = getComputedStyle(host);
+					st = { font: `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`, size: parseFloat(cs.fontSize) || 14 };
+					styles.set(host, st);
+				}
+				ctx.font = st.font;
+				let mt = metrics.get(st.font);
+				if (!mt) {
+					const t = ctx.measureText('M');
+					mt = { ascent: t.fontBoundingBoxAscent ?? st.size * 0.8, descent: t.fontBoundingBoxDescent ?? st.size * 0.2 };
+					metrics.set(st.font, mt);
+				}
+				ctx.globalAlpha = a;
+				ctx.fillText(ch, snap(r.x), snap(r.y + mt.ascent + (r.h - mt.ascent - mt.descent) / 2));   // centred in the line box, like the browser's own baseline
+			}
+		}
+		ctx.restore();
+		S.marks = kept;
+		if (!kept.length) item.done = true;
+	},
+};
+
+// ---- Effect: Bracket tether ----------------------------------------------------------------------------------------
+// From Cursor-Smith's src/paint/paint-tether.ts and src/util/text.ts. A line under the span between matching brackets
+// or quotes: a bracket the caret touches wins over anything it merely sits inside; failing that, the innermost enclosing
+// run wins, whichever of the quote or bracket candidates opens closest to the caret. Short ticks turn up at the opening
+// and the closing end only, so a span that wraps is not claimed to end at every wrap point. Only for a collapsed caret:
+// over a selection the line would fight the selection highlight.
+// It is a plain depth count over one line's text, not a syntax-aware match, and decorative: nothing edits from it.
+// Differences from Cursor-Smith: a Thymer line is its own block, so there are no blockquote markers or code fences to
+// cut a span at, and angle brackets are left out (in notes "<" and ">" are comparisons far more often than tags).
+// Settings: tetherStrength (0..1, the line's opacity).
+const BRACKET_OPEN = { '(': ')', '[': ']', '{': '}' };
+const BRACKET_CLOSE = { ')': '(', ']': '[', '}': '{' };
+const QUOTE_CHARS = ['"', "'", '`'];   // backtick too: inline code behaves like a quoted run
+// Curly quotes are directional - an opener is matched to its own nearest closer - unlike the straight ones, which pair left to right.
+// U+201C to U+201D (double) and U+2018 to U+2019 (single).
+const CURLY_QUOTE_OPEN = { '“': '”', '‘': '’' };
+const TETHER_SCAN = 4000;   // how far, in characters, a match is looked for each way; bounds a pasted wall of text
+const TETHER_DROP = 1.5;    // the line runs this far under the text, not through it
+const TETHER_TICK = 4;      // the ticks at its two ends
+
+const WORD_CHAR = /[\p{L}\p{N}_]/u;
+// A quote between two word characters is an apostrophe ("don't", "rock'n'roll", "don’t"), not a delimiter: without this
+// the apostrophes of two words would be paired and a line drawn across the sentence between them.
+const isQuoteDelimiter = (text, i) => !(WORD_CHAR.test(text[i - 1] || '') && WORD_CHAR.test(text[i + 1] || ''));
+
+/** The index of the bracket matching the one at `at`, or -1. */
+function matchingBracket(text, at) {
+	const ch = text[at];
+	const open = BRACKET_OPEN[ch] ? ch : BRACKET_CLOSE[ch];
+	if (!open) return -1;
+	const close = BRACKET_OPEN[open];
+	let depth = 0;
+	if (ch === open) {
+		for (let i = at, end = Math.min(text.length, at + TETHER_SCAN); i < end; i++) {
+			if (text[i] === open) depth++;
+			else if (text[i] === close && --depth === 0) return i;
+		}
+	} else {
+		for (let i = at, end = Math.max(0, at - TETHER_SCAN); i >= end; i--) {
+			if (text[i] === close) depth++;
+			else if (text[i] === open && --depth === 0) return i;
+		}
+	}
+	return -1;
+}
+
+/** The innermost bracket pair the caret at `pos` sits inside. Each bracket type is counted apart, so an unrelated "]" in the middle of a "(...)" does not derail it. */
+function enclosingBracket(text, pos) {
+	const depth = { ')': 0, ']': 0, '}': 0 };
+	for (let i = Math.min(pos, text.length) - 1, stop = Math.max(0, pos - TETHER_SCAN); i >= stop; i--) {
+		const c = text[i];
+		if (BRACKET_CLOSE[c]) { depth[c]++; continue; }
+		const closer = BRACKET_OPEN[c];
+		if (!closer) continue;
+		if (depth[closer] > 0) { depth[closer]--; continue; }
+		const to = matchingBracket(text, i);
+		return to >= 0 ? { from: i, to } : null;
+	}
+	return null;
+}
+
+/** The innermost quoted run that contains the caret at `pos` or touches it (parked just outside either quote counts). */
+function quoteSpan(text, pos) {
+	let best = null;
+	const consider = (a, b) => {
+		if (pos < a || pos > b + 1) return;
+		if (!best || a > best.from) best = { from: a, to: b };
+	};
+	for (const q of QUOTE_CHARS) {
+		const marks = [];
+		for (let i = 0; i < text.length; i++) if (text[i] === q && isQuoteDelimiter(text, i)) marks.push(i);
+		for (let i = 0; i + 1 < marks.length; i += 2) consider(marks[i], marks[i + 1]);
+	}
+	for (const openCh in CURLY_QUOTE_OPEN) {
+		const closeCh = CURLY_QUOTE_OPEN[openCh];
+		for (let i = 0; i < text.length; i++) {
+			if (text[i] !== openCh) continue;
+			let depth = 1;
+			for (let j = i + 1; j < text.length; j++) {
+				if (text[j] === openCh) depth++;
+				else if (text[j] === closeCh && isQuoteDelimiter(text, j) && --depth === 0) { consider(i, j); break; }
+			}
+		}
+	}
+	return best;
+}
+
+/** What the tether joins, as { from, to } indexes of the two ends (the closer included), or null. */
+function tetherSpan(lineText, pos) {
+	// A window around the caret, so a pathological line cannot turn one sample into a megabyte read.
+	const lo = Math.max(0, pos - TETHER_SCAN), text = lineText.slice(lo, pos + TETHER_SCAN), at0 = pos - lo;
+	for (const at of [at0 - 1, at0]) {
+		if (at < 0 || !(BRACKET_OPEN[text[at]] || BRACKET_CLOSE[text[at]])) continue;
+		const m = matchingBracket(text, at);
+		if (m >= 0) return { from: lo + Math.min(at, m), to: lo + Math.max(at, m) };
+	}
+	const q = quoteSpan(text, at0), b = enclosingBracket(text, at0);
+	const best = q && b ? (q.from > b.from ? q : b) : q || b;
+	return best && { from: lo + best.from, to: lo + best.to };
+}
+
+/**
+ * The rules to draw under characters [from, to] of `line`: one per visual line the span covers, top to bottom, each
+ * { left, right, bottom }. The text measures itself - a span that wraps comes back already split at its wrap points -
+ * and the boxes of one baseline (a bold stretch, a link) are folded into a single rule rather than a dashed row.
+ */
+function tetherSegments(line, from, to) {
+	const rows = [];
+	for (const r of line.rects(from, to + 1)) {
+		const bottom = r.y + r.h;
+		const row = rows.find((o) => Math.abs(o.bottom - bottom) < 1.5);
+		if (row) { row.left = Math.min(row.left, r.x); row.right = Math.max(row.right, r.x + r.w); }
+		else rows.push({ left: r.x, right: r.x + r.w, bottom });
+	}
+	return rows.sort((a, b) => a.bottom - b.bottom || a.left - b.left);
+}
+
+EFFECTS.tether = {
+	id: 'tether', label: 'Bracket tether', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
+	defaults: { tetherStrength: 0.35 },
+	onSample(plugin, cur) {
+		const S = plugin.state('tether');
+		const cl = cur && caretLine(plugin);
+		// The scan depends only on where the caret is in what text, so it is kept while that holds; the coordinates are
+		// measured every time, since scrolling and wrapping move them without moving the caret.
+		let span = null;
+		if (cl && cl.collapsed) {
+			const key = cl.line.guid + ':' + cl.idx + ':' + cl.line.text;
+			if (S.key !== key) { S.key = key; S.span = tetherSpan(cl.line.text, cl.idx); }
+			span = S.span;
+		}
+		const segs = span ? tetherSegments(cl.line, span.from, span.to) : null;
+		const sig = segs ? segs.map((s) => `${Math.round(s.left)},${Math.round(s.right)},${Math.round(s.bottom)}`).join('|') : '';
+		if (sig === S.sig) return;
+		S.sig = sig;
+		S.segs = segs && segs.length ? segs : null;
+		// A still item: it is redrawn whenever a frame runs, and asks for none of its own.
+		if (S.segs) plugin.ensureItem('tether').rest = true;
+		plugin.kick();
+	},
+	draw(plugin, ctx, item, p, k) {
+		const segs = plugin.state('tether').segs;
+		if (!segs) { item.done = true; return; }
+		const alpha = clamp01(plugin.cfg.tetherStrength * Math.min(k, 1.5));
+		let total = 0;
+		for (const s of segs) total += s.right - s.left;
+		if (alpha <= 0.01 || total < 2) return;   // the caret sits on its own match, an empty pair: nothing to underline
+		ctx.save();
+		ctx.lineWidth = 1.5;
+		ctx.lineCap = 'round';
+		ctx.strokeStyle = rgba(plugin.col(), alpha);
+		ctx.beginPath();
+		segs.forEach((s, i) => {
+			const y = s.bottom + TETHER_DROP;
+			ctx.moveTo(s.left, y);
+			ctx.lineTo(s.right, y);
+			if (i === 0) { ctx.moveTo(s.left, y); ctx.lineTo(s.left, y - TETHER_TICK); }
+			if (i === segs.length - 1) { ctx.moveTo(s.right, y); ctx.lineTo(s.right, y - TETHER_TICK); }
+		});
+		ctx.stroke();
+		ctx.restore();
+	},
+};
+
+// ---- Effect: Back-man ----------------------------------------------------------------------------------------------
+// From Cursor-Smith's src/effects/effects-backman.ts, effects-eaters.ts and effects-delete.ts. While Backspace or Delete
+// eats text, the caret is a little creature: the caret's box with a soft-lipped mouth on the side it eats from (left for
+// Backspace, right for Delete) and a big square eye with a tiny glint. It takes one bite per letter - the letter slides
+// into the open mouth and shrinks away as the jaws shut - then gulps (the front swells, then the back) with a happy
+// squint. Letters coming faster than it chews (a held key) are chewed at its own steady pace, about seven bites a
+// second; a word or a selection is one big bite, slower, with a bigger gulp. Its head and its feet (the box's top and
+// bottom edges) never change; its sides bend in a V toward where it is going, on a spring each bite kicks and that eases
+// back when the bites stop. A Line caret morphs into the box first, and back when the creature is done.
+//
+// The SDK reports a line only after it has changed, and says nothing of where the letters a key removes were drawn, so
+// what a deletion took is worked out from the DOM: the line's text, and where its letters are drawn, are read when the
+// key goes down and compared with the line after the edit (Cursor-Smith kept the previous document and read the letters
+// back from it the same way). A change that is not exactly a deletion at the caret reads as nothing, and nothing is eaten.
+// Not ported: Cursor-Smith's letter effects for what the creature has eaten (Burst, Evaporate), which Caret FX has no
+// counterpart for.
+const BACKMAN_CHOMP_MS = 140;        // one bite, the mouth open and shut: a held key's pace, about seven a second
+const BACKMAN_GULP_MS = 220;         // the gulp after the last bite...
+const BACKMAN_GULP_FROM = 0.6;       // ...from this share of a chomp in (the jaws closing)
+const BACKMAN_SQUINT_MS = 420;       // the happy squint, from the gulp on: quick to shut, held, slow to open - outlasting the gulp
+const BACKMAN_SQUINT_SHUT = 0.2, BACKMAN_SQUINT_HELD = 0.5;   // its shares: shutting, then held shut
+const BACKMAN_GROW = 0.18;           // how far the gulp swells it, in box widths a side at the middle
+const BACKMAN_BIG = { chomp: 1.5, gulp: 1.4, grow: 1.9, kick: 1.6 };   // a big bite (a word, a selection) against a letter's
+const BACKMAN_BEND_HZ = 6;           // the bend's spring: its frequency...
+const BACKMAN_BEND_DAMPING = 0.62;   // ...its damping ratio (a hair past straight on the way back, then still)...
+const BACKMAN_BEND_KICK = 26;        // ...the kick a bite gives it, in box widths a second...
+const BACKMAN_BEND_MAX = 0.6;        // ...and the most it bends, in box widths at the middle
+const BACKMAN_SLIDE_MS = 70;         // how long a letter takes to slide into the mouth, at most: on a held key the letters it has bitten must not lag out of its back
+const BACKMAN_MEAL_MAX = 12;         // the most letters one deletion feeds it
+const BACKMAN_READ_MAX = 40;         // a deletion longer than this is a selection wiped, not writing undone: its letters are not laid out one by one
+const BACKMAN_WATCH_MS = 300;        // how long after a key the line is watched for the deletion it made
+const BACKMAN_MORPH_IN_MS = 90;      // a Line caret becoming the box: fast, so it answers the key at once...
+const BACKMAN_MORPH_OUT_MS = 160;    // ...and becoming the Line again, with a little overshoot
+
+const hump = (g, a, b) => (g > a && g < b ? Math.sin((Math.PI * (g - a)) / (b - a)) : 0);   // a bump from 0 to 1 and back over [a, b] of g, 0 outside
+const smoothStep = (x) => { const c = clamp01(x); return c * c * (3 - 2 * c); };
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const easeOutBack = (t) => { const c = 1.6; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };   // out with a little overshoot, back to rest
+
+/** The squint `q` of its way through (0..1): shutting, held shut, opening. */
+const squintAt = (q) => q <= 0 || q >= 1 ? 0
+	: q < BACKMAN_SQUINT_SHUT ? smoothStep(q / BACKMAN_SQUINT_SHUT)
+	: q < BACKMAN_SQUINT_SHUT + BACKMAN_SQUINT_HELD ? 1
+	: smoothStep((1 - q) / (1 - BACKMAN_SQUINT_SHUT - BACKMAN_SQUINT_HELD));
+
+/** The eye as shown, eased toward the squint over `dt` ms: shutting fast, opening slowly, so quick bites do not flick it open and shut between them. */
+function backManEyeEase(cur, target, dt) {
+	const next = target + (cur - target) * Math.exp(-Math.max(0, dt) / (target > cur ? 30 : 80));
+	return Math.abs(next - target) < 0.005 ? target : next;
+}
+
+/**
+ * The chewing `tn` ms into a run that began with a key, its last key `tk` ms in (0: one key). The mouth chomps at its
+ * own pace, one chomp after another while keys keep coming, and finishes the chomp the last key fell in (one key, one
+ * chomp; a held key, about seven a second, never a flicker of half bites). Then the gulp's swell - the front first, then
+ * the back, as it goes down - and the squint that goes with it. `end`: when the last chomp shuts; `done`: the gulp and
+ * the squint are over.
+ */
+function backManBite(tn, tk = 0, big = false) {
+	const ch = BACKMAN_CHOMP_MS * (big ? BACKMAN_BIG.chomp : 1);
+	const gulp = BACKMAN_GULP_MS * (big ? BACKMAN_BIG.gulp : 1);
+	const grow = BACKMAN_GROW * (big ? BACKMAN_BIG.grow : 1);
+	const end = Math.max(1, Math.ceil((Math.max(0, tk) + ch) / ch)) * ch;
+	const open = tn >= 0 && tn < end ? Math.sin((Math.PI * (tn % ch)) / ch) : 0;
+	const from = tn - (end - ch) - BACKMAN_GULP_FROM * ch;
+	const g = from / gulp, q = from / (BACKMAN_SQUINT_MS * (big ? BACKMAN_BIG.gulp : 1));
+	return { open, front: grow * hump(g, 0, 0.55), back: grow * hump(g, 0.35, 1), squint: squintAt(q), g, end, done: g >= 1 && q >= 1 };
+}
+
+/** A key at `now` on a run of chewing `c` (or none): a new run when there is none, when its last chomp has shut, or for a big bite; else the same run with this key its latest. */
+function backManChew(c, now, big) {
+	if (!c || big || now - c.c0 >= backManBite(0, c.t - c.c0, c.big).end) return { c0: now, t: now, big };
+	return { c0: c.c0, t: now, big: c.big };
+}
+
+/** When a letter that set off at `now` is down: at the end of the chomp in progress, or of the next when this one is nearly shut. */
+function backManDown(c, now) {
+	const ch = BACKMAN_CHOMP_MS * (c.big ? BACKMAN_BIG.chomp : 1);
+	return c.c0 + Math.ceil((now - c.c0 + 0.4 * ch) / ch) * ch;
+}
+
+/** The bend's spring from `s` over dt seconds (at most two: a longer gap - a window in the background - is long settled anyway), in small steps so any frame rate gives the same swing; held at BACKMAN_BEND_MAX. */
+function backManSpring(s, dt) {
+	const w = 2 * Math.PI * BACKMAN_BEND_HZ;
+	dt = Math.max(0, Math.min(2, dt));
+	const steps = Math.max(1, Math.ceil(dt * 480)), h = dt / steps;
+	for (let i = 0; i < steps; i++) {
+		s.v += (-w * w * s.bend - 2 * BACKMAN_BEND_DAMPING * w * s.v) * h;
+		s.bend += s.v * h;
+		if (Math.abs(s.bend) > BACKMAN_BEND_MAX) {
+			s.bend = Math.sign(s.bend) * BACKMAN_BEND_MAX;
+			if (s.v * s.bend > 0) s.v = 0;
+		}
+	}
+}
+
+/**
+ * The creature's outline in a unit box (0..1 across, 0..1 down), facing right (dir 1) or left (dir -1): the box with a
+ * V bitten into the front at its middle, as deep as the mouth is open (shut, the jaws meet). The four corners stay where
+ * the box's are - its head and feet never change; the sides bend: every other point is pushed `bend` box widths sideways
+ * (+ is right) times how near the middle it is, so each side is a V from its middle, and the front and the back swell out
+ * by `front` and `back` the same way. Eight points: the head's two corners, the upper lip, the mouth's corner, the lower
+ * lip, the feet's two corners, the back's middle.
+ */
+function backManShape(open, dir, bend = 0, front = 0, back = front) {
+	const o = clamp01(open);
+	const jaw = 0.36 * o, depth = 0.78 * o;
+	const right = [   // facing right; the third entry marks the front's points
+		[0, 0, false], [1, 0, true],
+		[1, 0.5 - jaw, true], [1 - depth, 0.5, true], [1, 0.5 + jaw, true],
+		[1, 1, true], [0, 1, false], [0, 0.5, false],
+	];
+	const f = dir >= 0 ? 1 : -1;
+	return right.map(([x, y, isFront]) => {
+		const mid = 1 - Math.abs(2 * y - 1);
+		const sx = f > 0 ? x : 1 - x;
+		return [sx + (bend + (isFront ? f * front : -f * back)) * mid, y];
+	});
+}
+
+/**
+ * The outline as a path in a w x h box - ["M", x, y], ["L", x, y], ["Q", cx, cy, x, y], ["Z"] - its lips soft: each lip
+ * and the mouth's corner rounded (a curve through the corner), more the wider the mouth; the head's and feet's corners
+ * as the box's, square or rounded by `corner` px.
+ */
+function backManOutline(body, open, w, h, corner = 0) {
+	const jaw = 0.36 * clamp01(open) * h;
+	const c = Math.max(0, corner);
+	const radius = [c, c, Math.min(0.24 * w, 0.5 * jaw), Math.min(0.14 * w, 0.3 * jaw), Math.min(0.24 * w, 0.5 * jaw), c, c, 0];
+	const pts = body.map(([x, y]) => [x * w, y * h]);
+	const n = pts.length;
+	const out = [['M', (pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2]];   // from halfway along the head, so its first corner can be rounded too
+	for (let k = 1; k <= n; k++) {
+		const i = k % n;
+		const p = pts[i], a = pts[(i + n - 1) % n], b = pts[(i + 1) % n];
+		const la = Math.hypot(a[0] - p[0], a[1] - p[1]), lb = Math.hypot(b[0] - p[0], b[1] - p[1]);
+		const d = Math.min(radius[i], la / 2, lb / 2);
+		if (d < 0.05) { out.push(['L', p[0], p[1]]); continue; }
+		out.push(['L', p[0] + ((a[0] - p[0]) / la) * d, p[1] + ((a[1] - p[1]) / la) * d]);
+		out.push(['Q', p[0], p[1], p[0] + ((b[0] - p[0]) / lb) * d, p[1] + ((b[1] - p[1]) / lb) * d]);
+	}
+	out.push(['Z']);
+	return out;
+}
+
+/**
+ * Its eye in a w x h box, px from the top left, as polygons: a big square up at the top, its front edge seven tenths of
+ * the way to the front - just clear of the upper lip with the mouth wide open - moved with the bend; a tiny square glint
+ * in its upper front corner. As it squints (the gulp) it narrows from top and bottom, and past halfway it is a happy "^"
+ * (`closed`) with no glint.
+ */
+function backManEye(dir, bend, squint, w, h) {
+	const f = dir >= 0 ? 1 : -1;
+	const size = Math.min(0.6 * w, 0.24 * h);
+	const top = 0.05 * h;
+	const cy = top + size / 2;
+	const front = 0.7 * w;
+	const cx = (f > 0 ? front - size / 2 : w - front + size / 2) + bend * w * (1 - Math.abs(2 * (cy / h) - 1));
+	const s = clamp01(squint);
+	const closed = s >= 0.55;
+	const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+	let shape;
+	if (closed) {
+		const R = size / 2, a = 0.3 * size, t = Math.max(1, 0.22 * size);   // a "^" band across the eye's width
+		shape = [[cx - R, cy + a], [cx, cy - a], [cx + R, cy + a], [cx + R, cy + a + t], [cx, cy - a + t], [cx - R, cy + a + t]];
+	} else {
+		const hh = (size * (1 - (0.75 * s) / 0.55)) / 2;
+		shape = rect(cx - size / 2, cy - hh, cx + size / 2, cy + hh);
+	}
+	const g = Math.max(1, 0.28 * size), inset = 0.16 * size;
+	const gx = f > 0 ? cx + size / 2 - inset - g : cx - size / 2 + inset;
+	return { shape, glint: s < 0.25 ? rect(gx, cy - size / 2 + inset, gx + g, cy - size / 2 + inset + g) : null };
+}
+
+/** How far into the box the caret is (1 all the way): `sinceIn` ms after it began, `sinceOut` ms after it began going back (or -1). In fast and smooth; back with a little overshoot. */
+function backManMorph(sinceIn, sinceOut) {
+	if (sinceOut >= 0) return 1 - easeOutBack(clamp01(sinceOut / BACKMAN_MORPH_OUT_MS));
+	return easeOutCubic(clamp01(sinceIn / BACKMAN_MORPH_IN_MS));
+}
+
+/** A rect between `a` (k 0) and `b` (k 1). */
+const lerpRect = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, w: Math.max(0.5, a.w + (b.w - a.w) * k), h: Math.max(0.5, a.h + (b.h - a.h) * k) });
+
+/** A bite: Backspace (dir -1, it eats leftward) or Delete (dir 1); `big` for a word or a selection. Chewed at its own pace, each kicking the bend toward where it eats. The letters still going in are down at once: it has moved on from them. */
+function biteBackMan(S, dir, big, now) {
+	const kick = dir * BACKMAN_BEND_KICK * (big ? BACKMAN_BIG.kick : 1);
+	const s = S.chew;
+	if (!s) { S.chew = { c0: now, t: now, big, dir, bend: 0, v: kick, at: now, meal: [] }; return; }
+	if (now > s.at) backManSpring(s, (now - s.at) / 1000);
+	for (const m of s.meal) m.t1 = Math.min(m.t1, now);
+	Object.assign(s, backManChew(s, now, big));
+	s.dir = dir;
+	s.at = Math.max(s.at, now);
+	s.v += kick;
+}
+
+/** Where the creature is at `now`: its chewing (the mouth, the gulp, the squint), which way it faces, how far it bends (the spring, run up to now) and the letters going in - or null when it is the caret again (the gulp over and the bend settled). */
+function backManPose(S, now) {
+	const s = S.chew;
+	if (!s) return null;
+	const b = backManBite(Math.max(0, now - s.c0), s.t - s.c0, s.big);
+	// The eye eases toward the squint, and once shut stays shut for the rest of the spell: opening it again just before turning back into the caret was a blink too many.
+	if (b.squint >= 0.55) s.shut = true;
+	const eye = backManEyeEase(s.eye ?? 0, s.shut ? 1 : b.squint, now - s.at);
+	if (now > s.at) { backManSpring(s, (now - s.at) / 1000); s.eye = eye; s.at = now; }
+	s.meal = s.meal.filter((m) => now < m.t1);   // a letter that is down is gone
+	if (b.done && Math.abs(s.bend) < 0.004 && Math.abs(s.v) < 0.05) { S.chew = null; return null; }
+	const meal = s.meal.map((m) => {
+		const u = clamp01((now - m.t0) / Math.max(1, Math.min(m.t1 - m.t0, BACKMAN_SLIDE_MS)));
+		return { m, e: 1 - (1 - u) * (1 - u) };
+	});
+	return { open: b.open, front: b.front, back: b.back, squint: eye, dir: s.dir, bend: s.bend, meal };
+}
+
+/** How far into its shape the caret is at `now`, starting the morph with the creature's first pose and the way back when its pose ends; null once back (always, at once, for a block cursor: it is the box already). */
+function backManMorphNow(S, posed, now, instant) {
+	let s = S.morph;
+	if (posed) {
+		if (!s) s = S.morph = { t0: now, exit: 0 };
+		else if (s.exit) { s.t0 = now - BACKMAN_MORPH_IN_MS * (1 - backManMorph(0, now - s.exit)); s.exit = 0; }
+	} else if (s) {
+		if (!s.exit) s.exit = now;
+		if (instant || now - s.exit >= BACKMAN_MORPH_OUT_MS) { S.morph = null; return null; }
+	} else return null;
+	return { back: !!s.exit, m: backManMorph(now - s.t0, s.exit ? now - s.exit : -1) };
+}
+
+/** Whether the creature has, or is about to have, the caret: Motion smear stands aside for it. */
+function backManBusy(plugin) {
+	const S = plugin.fxState.backman;
+	return !!S && !!(S.pending || S.chew || S.morph);
+}
+
+/** The line as it stands before a deletion key does its work: its text, and where the letters near the caret are drawn and in what. */
+function readDeletion(cl, e, now) {
+	const { line, idx, collapsed } = cl;
+	// A bare key takes the letter next to the caret; a word or a selection takes more.
+	const reach = collapsed && !e.ctrlKey && !e.altKey && !e.metaKey ? 2 : BACKMAN_READ_MAX;
+	const lo = Math.max(0, idx - reach), hi = Math.min(line.text.length, idx + reach);
+	const styles = new Map(), cells = [];
+	for (let i = lo; i < hi; i++) {
+		const r = line.charRect(i);
+		if (!r) { cells.push(null); continue; }
+		const host = line.styleHost(i);
+		let st = styles.get(host);
+		if (!st) {
+			const cs = getComputedStyle(host);
+			st = { font: `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`, color: cs.color };
+			styles.set(host, st);
+		}
+		cells.push({ ...r, ...st });
+	}
+	return { row: line.row, guid: line.guid, text: line.text, lo, cells, dir: e.key === 'Backspace' ? -1 : 1, t: now };
+}
+
+/**
+ * Looks for the deletion a key made (S.pending, from readDeletion): when the line's text has changed, and by exactly a
+ * deletion, the letters it took are fed to the creature, nearest the caret first, each to slide into the mouth from
+ * where it stood. Anything else - a paste, an undo, a change elsewhere - reads as nothing.
+ */
+function settleDeletion(plugin, S, now) {
+	const pd = S.pending;
+	if (!pd) return;
+	if (now - pd.t > BACKMAN_WATCH_MS) { S.pending = null; return; }
+	const row = pd.row.isConnected ? pd.row : rowByGuid(pd.guid);
+	if (!row) { S.pending = null; return; }
+	const line = new LineText(row);
+	if (line.text === pd.text) return;   // the key has not been applied yet
+	S.pending = null;
+	const sel = window.getSelection();
+	let idx = sel && sel.rangeCount && sel.focusNode ? line.indexOf(sel.focusNode, sel.focusOffset) : -1;
+	if (idx < 0 && plugin.last) idx = line.indexAt(plugin.last.x + 1, plugin.last.y + plugin.last.h / 2);
+	if (idx < 0) return;
+	const edit = lineEdit(pd.text, line.text, idx);
+	if (!edit || edit.inserted || !edit.removed || edit.removed.length > BACKMAN_READ_MAX) return;
+	const letters = [];
+	let off = 0;
+	for (const ch of edit.removed) {
+		const cell = pd.cells[edit.at + off - pd.lo];
+		off += ch.length;
+		if (ch.trim() && cell) letters.push({ char: ch, cx: cell.x + cell.w / 2, cy: cell.y + cell.h / 2, w: cell.w, font: cell.font, color: cell.color });
+	}
+	if (pd.dir < 0) letters.reverse();   // Backspace eats leftward: the letter nearest the caret is the last one
+	if (!letters.length) return;
+	biteBackMan(S, pd.dir, edit.removed.length > 1, now);
+	const t1 = backManDown(S.chew, now);
+	for (const l of letters.slice(0, BACKMAN_MEAL_MAX)) S.chew.meal.push({ ...l, t0: now, t1 });
+	plugin.kick();
+}
+
+function traceOutline(ctx, cmds, x, y) {
+	ctx.beginPath();
+	for (const c of cmds) {
+		if (c[0] === 'M') ctx.moveTo(x + c[1], y + c[2]);
+		else if (c[0] === 'L') ctx.lineTo(x + c[1], y + c[2]);
+		else if (c[0] === 'Q') ctx.quadraticCurveTo(x + c[1], y + c[2], x + c[3], y + c[4]);
+		else ctx.closePath();
+	}
+}
+
+function tracePoly(ctx, pts, x, y) {
+	ctx.beginPath();
+	pts.forEach(([px, py], i) => (i ? ctx.lineTo(x + px, y + py) : ctx.moveTo(x + px, y + py)));
+	ctx.closePath();
+}
+
+/**
+ * The creature in the caret's box `r`: the letters going in first, under it (they show in the mouth and go out of sight
+ * behind the jaws), then the body, tinted and ringed like the block cursor, with the eye a square of the caret's own
+ * color and the glint a white dot in it. `fill` and `ring` are how much of each (paintCaretBody).
+ */
+function drawBackMan(plugin, ctx, r, pose, fill, ring, corner) {
+	const col = plugin.col();
+	const inset = 0.75 * ring;   // the ring lies inside the box, as the block cursor's does
+	const x = r.x + inset, y = r.y + inset, w = Math.max(1, r.w - 2 * inset), h = Math.max(1, r.h - 2 * inset);
+	const body = backManShape(pose.open, pose.dir, pose.bend, pose.front, pose.back);
+	// The letters going in, to the mouth's corner, in the text's color.
+	const mx = x + body[3][0] * w, my = y + body[3][1] * h;
+	for (const { m, e } of pose.meal) {
+		const k = Math.max(0.05, 1 - 0.8 * e);
+		ctx.save();
+		ctx.font = m.font;
+		ctx.fillStyle = m.color;
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.translate(m.cx + (mx - m.cx) * e, m.cy + (my - m.cy) * e);
+		ctx.scale(k, k);
+		ctx.fillText(m.char, 0, 0);
+		ctx.restore();
+	}
+	traceOutline(ctx, backManOutline(body, pose.open, w, h, corner), x, y);
+	paintCaretBody(ctx, col, fill, ring);
+	const eye = backManEye(pose.dir, pose.bend, pose.squint, w, h);
+	ctx.fillStyle = col;
+	tracePoly(ctx, eye.shape, x, y);
+	ctx.fill();
+	if (eye.glint) {
+		ctx.fillStyle = 'rgba(255,255,255,0.9)';
+		tracePoly(ctx, eye.glint, x, y);
+		ctx.fill();
+	}
+}
+
+EFFECTS.backman = {
+	id: 'backman', label: 'Back-man', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over', defaults: {},
+	// The key goes down before the editor acts on it: the line is as it was, and its letters are still where they stand.
+	onKey(plugin, e, now) {
+		if (e.isComposing || (e.key !== 'Backspace' && e.key !== 'Delete')) return;
+		const S = plugin.state('backman');
+		settleDeletion(plugin, S, now);   // a key still unanswered is answered before the next is read
+		const cl = caretLine(plugin, true);
+		if (!cl) return;
+		S.pending = readDeletion(cl, e, now);
+		plugin.ensureItem('backman');
+		plugin.kick();
+	},
+	onSample(plugin) { settleDeletion(plugin, plugin.state('backman'), performance.now()); },
+	draw(plugin, ctx, item, p, k, now) {
+		const S = plugin.state('backman');
+		settleDeletion(plugin, S, now);
+		const block = plugin.cfg.style === 'block';
+		const pose = backManPose(S, now);
+		const eat = backManMorphNow(S, !!pose, now, block);
+		if (!eat && !S.pending) { item.done = true; plugin.hideCaret('backman', false); return; }
+		const rect = caretBox(plugin);
+		if (!eat || !rect) return;   // only watching for a deletion so far
+		plugin.hideCaret('backman', true);
+		const m = clamp01(eat.m);
+		// The caret's own shape toward the box a letter wide at the same gap; a block cursor is the box already.
+		const r = lerpRect(rect, { x: rect.x, y: rect.y, w: rect.cw, h: rect.h }, eat.m);
+		const fill = block ? 0.42 : 1 - 0.58 * m, ring = block ? 1 : m;
+		ctx.save();
+		if (pose && !eat.back) drawBackMan(plugin, ctx, r, pose, fill, ring, block ? 2 : 0);
+		else {   // going back: the plain shape between the box and the caret's own
+			ctx.beginPath();
+			if (ctx.roundRect) ctx.roundRect(r.x, r.y, r.w, r.h, block ? 2 : 0);
+			else ctx.rect(r.x, r.y, r.w, r.h);
+			paintCaretBody(ctx, plugin.col(), fill, ring);
+		}
+		ctx.restore();
+	},
+};
+
 // ---- Defaults: core keys + every effect's keys (toggle key per 'always' effect, plus its own defaults) ----
 const DEFAULTS = {
 	color: '#ffb929',       // main caret / glow color (dark theme)
@@ -477,7 +1493,7 @@ const DEFAULTS = {
 	intensity: 1,           // 0.3 (subtle) .. 2 (strong)
 };
 for (const e of Object.values(EFFECTS)) {
-	if (e.mode === 'always') DEFAULTS[e.id] = true;
+	if (e.mode === 'always') DEFAULTS[e.id] = e.defaultOn !== false;
 	Object.assign(DEFAULTS, e.defaults);
 }
 
@@ -497,6 +1513,11 @@ class Plugin extends AppPlugin {
 	raf = 0;
 	preset = 0;
 	cleanup = [];
+	fxState = {};              // each effect's own state, by id (see state())
+	caretHolders = new Set();  // the effects that have hidden Thymer's caret to draw their own (see hideCaret())
+	running = new Set();       // ids of the effects that were active at the last syncEffects()
+	sampleN = 0;               // counts sample() calls, so what is read from the DOM is read once per sample
+	lineMemo = null;           // caretLine()'s answer for the current sample
 
 	onLoad() {
 		this.readConfig();
@@ -515,6 +1536,9 @@ class Plugin extends AppPlugin {
 			if (!this.caretEl) return; // typing in the palette, a rename field or another plugin: not ours
 			const typing = (e.key.length === 1 && !e.ctrlKey && !e.metaKey) || e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Enter';
 			if (typing) { this.lastTypeKey = performance.now(); setTimeout(() => this.sample(true), 0); }
+			if (document.querySelector(MODAL_SEL)) return;
+			const now = performance.now();
+			for (const fx of this.activeEffects()) this.callHook(fx, 'onKey', e, now);
 		}, cap);
 		listen(document, 'keyup', nav, cap);
 		listen(document, 'click', nav, cap);
@@ -543,6 +1567,8 @@ class Plugin extends AppPlugin {
 		cancelAnimationFrame(this.raf);
 		this.cleanup.forEach((f) => { try { f(); } catch (e) { /* ignore */ } });
 		this.cleanup = [];
+		for (const id of this.running) if (EFFECTS[id]?.keepsState) this.dropEffect(id);
+		this.running = new Set();
 		this.canvas?.remove();
 		this.closeDialog();
 		this.uiStyle?.remove();
@@ -625,6 +1651,54 @@ class Plugin extends AppPlugin {
 		return PRESETS.map(([n, c, a]) => [n, c, a, null]).concat(special);
 	}
 
+	// An effect's hook must never break typing: a failure is logged once and the effect carries on without it.
+	callHook(e, hook, ...args) {
+		try { e[hook]?.(this, ...args); } catch (err) { this.warnOnce(e, hook, err); }
+	}
+
+	warnOnce(e, where, err) {
+		if (e.warned) return;
+		e.warned = true;
+		console.warn(`[Caret FX] ${e.id}.${where} failed; the effect keeps going without it`, err);
+	}
+
+	// The state bag of an effect that keeps some (keepsState: true); dropped when it is switched off.
+	state(id) { return this.fxState[id] || (this.fxState[id] = {}); }
+
+	// The one long-lived item an effect keeps in the draw list, made on first need.
+	ensureItem(id) {
+		let item = this.items.find((it) => it.effect === id && !it.done);
+		if (!item) { item = { effect: id, t0: performance.now(), dur: Infinity }; this.items.push(item); }
+		return item;
+	}
+
+	// An effect that draws the caret itself (Motion smear, Back-man) takes Thymer's caret and the block cursor out of
+	// sight while it does; they come back when the last of them lets go.
+	hideCaret(id, on) {
+		if (on) this.caretHolders.add(id); else this.caretHolders.delete(id);
+		document.body.classList.toggle('cfx-caret-off', this.caretHolders.size > 0);
+	}
+
+	// What an effect that keeps state leaves behind when it stops: its items, its state, its hold on the caret.
+	dropEffect(id) {
+		this.items = this.items.filter((it) => it.effect !== id);
+		delete this.fxState[id];
+		this.hideCaret(id, false);
+	}
+
+	// Called when the settings may have changed which effects run: one that was on and is now off lets go.
+	syncEffects() {
+		const on = new Set(this.activeEffects().map((e) => e.id));
+		let dropped = false;
+		for (const id of this.running) {
+			if (on.has(id) || !EFFECTS[id]?.keepsState) continue;
+			this.dropEffect(id);
+			dropped = true;
+		}
+		this.running = on;
+		if (dropped) this.kick();
+	}
+
 
 	// Thymer draws its caret as the left border of div.listview-caret-self, colored by --ed-caret-self-fg.
 	// Only that variable is overridden, so nothing outside the editor changes.
@@ -672,10 +1746,12 @@ class Plugin extends AppPlugin {
 		// Effects that cannot be toggled (no command) must not stay off because of an old saved value.
 		for (const e of Object.values(EFFECTS)) if (e.mode === 'always' && e.toggleable === false) this.cfg[e.id] = true;
 		if (this.canvas) this.applyCaretStyle();
+		this.syncEffects();
 	}
 
 	update(patch) {
 		this.cfg = { ...this.cfg, ...patch };
+		this.syncEffects();
 		this.applyCaretStyle();
 		try {
 			const conf = this.getConfiguration();
@@ -724,6 +1800,7 @@ class Plugin extends AppPlugin {
 	live(patch) {
 		this.cfg = { ...this.cfg, ...patch };
 		this.pendingSave = { ...(this.pendingSave || {}), ...patch };
+		this.syncEffects();
 		this.applyCaretStyle();
 		this.dlgBox?.style.setProperty('--c', this.col());
 		this.dlgBox?.style.setProperty('--a', this.acc());
@@ -877,7 +1954,9 @@ class Plugin extends AppPlugin {
 		const y = lt ? lt.top : bestRect.top, h = lt ? lt.height : bestRect.height;
 		// Block cursor: as wide as the character under the caret; a sensible width at an empty spot.
 		const cw = (lt && lt.width > 1 ? lt.width : 0) || Math.max(6, h * 0.5);
-		return { x: bestRect.left, y, w: this.cfg.style === 'block' ? cw : 2, h };
+		// cw: the character's width, in either style. lw: the line caret's own width, for the effects that stand in for it.
+		const lw = bestRect.width >= 0.5 && bestRect.width <= 8 ? bestRect.width : 2;
+		return { x: bestRect.left, y, w: this.cfg.style === 'block' ? cw : 2, h, cw, lw };
 	}
 
 	// Effects are confined to the editor's scroll area, between the title bar and the status bar.
@@ -906,11 +1985,13 @@ class Plugin extends AppPlugin {
 		typed = typed || performance.now() - (this.lastTypeKey || 0) < 220;
 		if (document.querySelector(MODAL_SEL)) return; // command palette / dropdown open: leave the editor caret alone
 		const cur = this.caretRect();
-		if (!cur) { this.updateBlock(null); return; }
+		this.sampleN++;
+		if (!cur) { this.updateBlock(null); this.notifySample(null, typed, false); return; }
 		const prev = this.last;
 		this.last = cur;
 		const moved = !prev || Math.hypot(cur.x - prev.x, cur.y - prev.y) >= 0.5;
 		this.updateBlock(cur, moved);
+		this.notifySample(cur, typed, moved);
 		if (!prev) return this.addPulse(cur);
 
 		const dx = cur.x - prev.x, dy = cur.y - prev.y;
@@ -918,8 +1999,14 @@ class Plugin extends AppPlugin {
 		if (!moved) return; // same position: key repeat/blink/duplicate events must not stack effects
 
 		const info = { typed, dist, dx, dy, now: performance.now() };
-		for (const e of this.activeEffects()) e.onMove?.(this, prev, cur, info);
+		for (const e of this.activeEffects()) this.callHook(e, 'onMove', prev, cur, info);
 		this.kick();
+	}
+
+	// Every look at the caret, moved or not (a Delete key moves nothing): the effects that watch the text read it here.
+	notifySample(cur, typed, moved) {
+		const info = { typed, moved, now: performance.now() };
+		for (const e of this.activeEffects()) this.callHook(e, 'onSample', cur, info);
 	}
 
 	// Shows the current look at the caret (first sight of the caret, theme or config change).
@@ -945,6 +2032,7 @@ class Plugin extends AppPlugin {
 		this.canvas.width = Math.round(window.innerWidth * dpr);
 		this.canvas.height = Math.round(window.innerHeight * dpr);
 		this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		if (this.items.length) this.kick();   // resizing clears the canvas: a still item (the tether) would not come back by itself
 	}
 
 	kick() { if (!this.raf) this.raf = requestAnimationFrame((t) => this.frame()); }
@@ -958,7 +2046,7 @@ class Plugin extends AppPlugin {
 		if (clip) { ctx.beginPath(); ctx.rect(clip.x, clip.y, clip.w, clip.h); ctx.clip(); }
 		this.renderItems(now);
 		ctx.restore();
-		if (this.items.length) this.kick();
+		if (this.items.some((it) => !it.rest)) this.kick();   // a still item is redrawn with the others but needs no frames of its own
 	}
 
 	// Draws every live item through its effect's draw(); the blend mode comes from the effect. Also used by the dialog preview.
@@ -974,10 +2062,10 @@ class Plugin extends AppPlugin {
 			const e = EFFECTS[it.effect];
 			if (!e) { it.done = true; continue; }
 			ctx.globalCompositeOperation = e.blend || 'source-over';
-			e.draw(this, ctx, it, (now - it.t0) / it.dur, k, now, dt);
+			try { e.draw(this, ctx, it, (now - it.t0) / it.dur, k, now, dt); } catch (err) { it.done = true; this.warnOnce(e, 'draw', err); }
 		}
 		ctx.globalCompositeOperation = 'source-over';
 		this.items = this.items.filter((it) => !it.done);
-		if (!this.items.length) this.lastT = 0;
+		if (!this.items.some((it) => !it.rest)) this.lastT = 0;   // nothing animating: the next frame starts a fresh clock
 	}
 }

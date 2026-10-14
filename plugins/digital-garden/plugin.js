@@ -233,6 +233,24 @@ class Plugin extends AppPlugin {
 		this.events.on('lineitem.created', (ev) => track(ev, true), { collection: '*' });
 		this.events.on('lineitem.updated', (ev) => track(ev, false), { collection: '*' });
 
+		// The plugin events only arrive once Thymer has saved the line - after typing pauses. So the words are also counted
+		// as they are typed, from the line the caret is in; the saved-line event then finds the same count and adds nothing.
+		const live = () => {
+			try {
+				const node = window.getSelection()?.focusNode, row = node && (node.nodeType === 1 ? node : node.parentElement)?.closest('.listitem[data-guid]');
+				if (!row) return;
+				const guid = row.getAttribute('data-guid');
+				let text = '';
+				const walk = document.createTreeWalker(row, NodeFilter.SHOW_TEXT, { acceptNode: (t) => (t.parentElement?.closest('.listitem[data-guid]') === row ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT) });
+				for (let t = walk.nextNode(); t; t = walk.nextNode()) text += t.nodeValue + ' ';
+				const now = text.trim().split(/\s+/).filter(Boolean).length;
+				const prev = this.lineWords.has(guid) ? this.lineWords.get(guid) : (now <= 1 ? 0 : now);
+				this.lineWords.set(guid, now);
+				if (now > prev) { this.rollDayIfNeeded(); this.state.words += now - prev; this.state.total += now - prev; this.onProgress(); }
+			} catch (e) { /* the saved-line events still count */ }
+		};
+		this.onInput = () => requestAnimationFrame(live);
+		document.addEventListener('input', this.onInput, true);
 		this.events.on('lineitem.deleted', (ev) => this.lineWords.delete(ev.lineItemGuid), { collection: '*' });
 
 		this.scheduleMidnight();
@@ -241,6 +259,7 @@ class Plugin extends AppPlugin {
 
 	onUnload() {
 		clearTimeout(this.midnightTimer);
+		if (this.onInput) document.removeEventListener('input', this.onInput, true);
 		this.closeCollection();
 	}
 

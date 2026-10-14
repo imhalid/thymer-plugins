@@ -8,12 +8,13 @@
  * Four more effects - Motion smear, Fresh ink, Bracket tether and Back-man (the caret that eats what
  * Backspace and Delete take) - are ported from Cursor-Smith by Sadsnake1
  * (https://github.com/Sadsnake1/cursor-smith, MIT License). See THIRD-PARTY NOTICE below.
- * They are off until switched on ("Caret FX: toggle ...").
+ * They are off until chosen in the "Caret FX: set preset…" dialog: Motion smear is a switch there (with the block
+ * cursor); Fresh ink, Bracket tether and Back-man are special presets, like Lightning and the falling petals.
  *
  * Three special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
  * (plus-shaped glints that twinkle on the caret, like a gem), Prism (a holographic shimmer: a glass prism on the caret
  * that fans out the colors of the spectrum as you write) and Health (pluses floating up as you write, as if you were
- * gaining health). Pick them in "Caret FX: set color..." under Special.
+ * gaining health). Pick them in "Caret FX: set preset…" under Special.
  *
  * Scope: the Thymer editor only. The plugin follows Thymer's own caret element
  * (div.listview-caret-self) and never touches the command palette, rename fields,
@@ -75,6 +76,14 @@ const PRESETS = [
 	['Mint', '#9dffcf', '#08b36b'],
 	['Lime', '#e4ff6a', '#4bb800'],
 	['Mono', '#ffffff', '#8a8f98'],
+];
+
+// The switches in the preset dialog, in its order: [key, label, caption]. 'style' is the block cursor (cfg.style is
+// 'block' when on); every other key is the id of an 'always' effect. They have no command of their own.
+// (Fresh ink, Bracket tether and Back-man are not here: they are special presets, one at a time like Lightning.)
+const DIALOG_SWITCHES = [
+	['style', 'Block cursor', 'A box the width of the letter'],
+	['smear', 'Motion smear', 'Stretches as it moves, snaps back'],
 ];
 
 // Thymer DOM the plugin relies on (same hooks Thymer's own caret CSS uses).
@@ -200,9 +209,8 @@ function rowForCaret(caretEl, r) {
 
 // =====================================================================================
 // LINE TEXT
-// Thymer's plugin SDK reports what a line says once it has changed, but has no caret, selection or text-layout API: it
-// cannot say where the caret is or where a letter is drawn. So the text of the line the caret is on is read from the
-// DOM: its characters, where each one is drawn, and where the caret stands among them. Fresh ink, Bracket tether and
+// Thymer exposes no document model to a plugin, so the text of the line the caret is on is read from the DOM:
+// its characters, where each one is drawn, and where the caret stands among them. Fresh ink, Bracket tether and
 // Back-man all work from this.
 // =====================================================================================
 
@@ -325,7 +333,7 @@ function lineEdit(before, after, caret) {
 const UI_CSS = `
 .cfx-ov { position: fixed; inset: 0; z-index: 2147483100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); backdrop-filter: blur(3px); animation: cfx-in .14s ease-out; }
 @keyframes cfx-in { from { opacity: 0; } to { opacity: 1; } }
-.cfx-box { width: 340px; max-width: 92vw; padding: 18px; border-radius: 18px; border: 1px solid rgba(127,127,127,.28); box-shadow: 0 28px 80px rgba(0,0,0,.5); font: 13px/1.4 system-ui, sans-serif; animation: cfx-pop .18s cubic-bezier(.2,1.2,.4,1); }
+.cfx-box { width: 340px; max-width: 92vw; max-height: 92vh; overflow-y: auto; padding: 18px; border-radius: 18px; border: 1px solid rgba(127,127,127,.28); box-shadow: 0 28px 80px rgba(0,0,0,.5); font: 13px/1.4 system-ui, sans-serif; animation: cfx-pop .18s cubic-bezier(.2,1.2,.4,1); }
 @keyframes cfx-pop { from { transform: translateY(8px) scale(.97); } to { transform: none; } }
 .cfx-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .cfx-title { font-size: 15px; font-weight: 650; }
@@ -336,13 +344,24 @@ const UI_CSS = `
 .cfx-preview .cfx-trail { position: absolute; left: 118px; top: 31px; width: 70px; height: 22px; background: linear-gradient(90deg, transparent, var(--a)); opacity: .55; filter: blur(2px); }
 .cfx-preview .cfx-caret { position: absolute; left: 186px; top: 28px; width: 2.5px; height: 28px; border-radius: 2px; background: var(--c); box-shadow: 0 0 10px var(--c), 0 0 22px var(--a); animation: cfx-blink 1.1s steps(1) infinite; }
 @keyframes cfx-blink { 50% { opacity: .35; } }
+.cfx-preview.block .cfx-caret { width: 14px; border-radius: 2px; background: color-mix(in srgb, var(--c) 42%, transparent); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 8px color-mix(in srgb, var(--c) 45%, transparent); }
 .cfx-preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cfx-opts { display: grid; gap: 1px; margin: 0 -8px; }
+.cfx-opt { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 8px; border-radius: 9px; cursor: pointer; }
+.cfx-opt:hover { background: rgba(127,127,127,.12); }
+.cfx-opt:focus-visible { outline: 2px solid var(--c); outline-offset: -2px; }
+.cfx-opt-name { display: block; font-size: 13px; }
+.cfx-opt-note { display: block; font-size: 11px; opacity: .55; }
+.cfx-sw { position: relative; flex: none; width: 30px; height: 18px; border-radius: 9px; background: rgba(127,127,127,.35); transition: background .15s; }
+.cfx-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: transform .15s; }
+.cfx-opt[aria-checked="true"] .cfx-sw { background: var(--c); }
+.cfx-opt[aria-checked="true"] .cfx-sw::after { transform: translateX(12px); }
 .cfx-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 8px 4px; }
 .cfx-pre { all: unset; box-sizing: border-box; cursor: pointer; text-align: center; }
 .cfx-dot { width: 34px; height: 34px; margin: 0 auto 3px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(127,127,127,.35); transition: transform .12s; }
 .cfx-pre:hover .cfx-dot { transform: scale(1.1); }
 .cfx-pre.on .cfx-dot { box-shadow: 0 0 0 2px var(--c); }
-.cfx-pre span { font-size: 9px; opacity: .6; white-space: nowrap; }
+.cfx-pre span { display: block; font-size: 9px; line-height: 1.15; opacity: .6; }
 .cfx-sl { position: relative; height: 34px; cursor: pointer; touch-action: none; outline: none; }
 .cfx-sl-track { position: absolute; left: 0; right: 0; top: 14px; height: 6px; border-radius: 3px; background: rgba(127,127,127,.28); }
 .cfx-sl-fill { position: absolute; left: 0; top: 14px; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--a), var(--c)); box-shadow: 0 0 10px var(--c); }
@@ -872,7 +891,7 @@ function locateInk(line, m, head) {
 }
 
 EFFECTS.ink = {
-	id: 'ink', label: 'Fresh ink', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
+	id: 'ink', label: 'Fresh ink', mode: 'signature', preset: { name: 'Fresh ink', color: '#6f9cff', accent: '#1d3fbf' }, keepsState: true, blend: 'source-over',
 	defaults: { inkMs: 1500, inkStrength: 0.8 },
 	// What was typed is what the caret's line gained since the last sample.
 	onSample(plugin, cur, info) {
@@ -1060,7 +1079,7 @@ function tetherSegments(line, from, to) {
 }
 
 EFFECTS.tether = {
-	id: 'tether', label: 'Bracket tether', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
+	id: 'tether', label: 'Bracket tether', mode: 'signature', preset: { name: 'Bracket tether', color: '#e879f9', accent: '#86198f' }, keepsState: true, blend: 'source-over',
 	defaults: { tetherStrength: 0.35 },
 	onSample(plugin, cur) {
 		const S = plugin.state('tether');
@@ -1116,10 +1135,10 @@ EFFECTS.tether = {
 // bottom edges) never change; its sides bend in a V toward where it is going, on a spring each bite kicks and that eases
 // back when the bites stop. A Line caret morphs into the box first, and back when the creature is done.
 //
-// The SDK reports a line only after it has changed, and says nothing of where the letters a key removes were drawn, so
-// what a deletion took is worked out from the DOM: the line's text, and where its letters are drawn, are read when the
-// key goes down and compared with the line after the edit (Cursor-Smith kept the previous document and read the letters
-// back from it the same way). A change that is not exactly a deletion at the caret reads as nothing, and nothing is eaten.
+// What a deletion took is not known to a Thymer plugin (there is no document model), so it is worked out from the DOM:
+// the line's text, and where its letters are drawn, are read when the key goes down and compared with the line after the
+// edit (Cursor-Smith kept the previous document and read the letters back from it the same way). A change that is not
+// exactly a deletion at the caret reads as nothing, and nothing is eaten.
 // Not ported: Cursor-Smith's letter effects for what the creature has eaten (Burst, Evaporate), which Caret FX has no
 // counterpart for.
 const BACKMAN_CHOMP_MS = 140;        // one bite, the mouth open and shut: a held key's pace, about seven a second
@@ -1450,7 +1469,7 @@ function drawBackMan(plugin, ctx, r, pose, fill, ring, corner) {
 }
 
 EFFECTS.backman = {
-	id: 'backman', label: 'Back-man', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over', defaults: {},
+	id: 'backman', label: 'Back-man', mode: 'signature', preset: { name: 'Back-man', color: '#ffe14d', accent: '#ff9500' }, keepsState: true, blend: 'source-over', defaults: {},
 	// The key goes down before the editor acts on it: the line is as it was, and its letters are still where they stand.
 	onKey(plugin, e, now) {
 		if (e.isComposing || (e.key !== 'Backspace' && e.key !== 'Delete')) return;
@@ -1493,7 +1512,7 @@ EFFECTS.backman = {
 // SPECIAL PRESETS ORIGINAL TO CARET FX: Holy, Prism, Health
 //
 // Written for this plugin, not ported. They are special presets like Sakura and Lightning: each brings its own colors and
-// is picked in the color dialog's Special grid (or by "next color preset"), one at a time. Like the falling petals they
+// is picked in the preset dialog's Special grid (or by "next preset"), one at a time. Like the falling petals they
 // keep everything in their one long-lived item, so the dialog's preview can run them on its own canvas, and they answer
 // writing - the caret moving forward along its line as a key is typed - rather than deleting. (Holy and Prism also catch
 // a new line, or the caret landing somewhere else.)
@@ -1975,12 +1994,11 @@ class Plugin extends AppPlugin {
 		this.installCaretObserver();
 		this.installThemeObserver();
 
-		this.ui.addCommandPaletteCommand({ label: 'Caret FX: set color…', icon: 'ti-palette', onSelected: () => this.colorDialog() });
-		this.ui.addCommandPaletteCommand({ label: 'Caret FX: next color preset', icon: 'ti-color-swatch', onSelected: () => this.nextPreset() });
+		this.ui.addCommandPaletteCommand({ label: 'Caret FX: set preset…', icon: 'ti-palette', onSelected: () => this.presetDialog() });
+		this.ui.addCommandPaletteCommand({ label: 'Caret FX: next preset', icon: 'ti-color-swatch', onSelected: () => this.nextPreset() });
 		this.ui.addCommandPaletteCommand({ label: 'Caret FX: set intensity…', icon: 'ti-adjustments', onSelected: () => this.intensityDialog() });
-		this.ui.addCommandPaletteCommand({ label: 'Caret FX: toggle block cursor', icon: 'ti-square', onSelected: () => this.update({ style: this.cfg.style === 'block' ? 'line' : 'block' }) });
 		for (const e of Object.values(EFFECTS)) {
-			if (e.mode !== 'always' || e.toggleable === false) continue;
+			if (e.mode !== 'always' || e.toggleable === false || DIALOG_SWITCHES.some(([key]) => key === e.id)) continue;
 			this.ui.addCommandPaletteCommand({ label: `Caret FX: toggle ${e.label.toLowerCase()}`, icon: 'ti-toggle-right', onSelected: () => this.update({ [e.id]: !this.cfg[e.id] }) });
 		}
 
@@ -2277,8 +2295,8 @@ class Plugin extends AppPlugin {
 		requestAnimationFrame(tick);
 	}
 
-	colorDialog() {
-		this.dialog('Caret color', (box) => {
+	presetDialog() {
+		this.dialog('Caret preset', (box) => {
 			const html = (h) => { const t = document.createElement('div'); t.innerHTML = h; return t.firstElementChild; };
 			const preview = html('<div class="cfx-preview"><span>Typing something…</span><div class="cfx-trail"></div><div class="cfx-caret"></div></div>');
 			box.appendChild(preview);
@@ -2287,8 +2305,7 @@ class Plugin extends AppPlugin {
 			box.appendChild(html('<div class="cfx-label">Colors</div>'));
 			const grid = html('<div class="cfx-presets"></div>');
 			box.appendChild(grid);
-			const specialNames = Object.values(EFFECTS).filter((e) => e.mode === 'signature' && e.preset).map((e) => e.preset.name.toLowerCase()).join(', ');
-			box.appendChild(html(`<div class="cfx-label">Special · ${specialNames}</div>`));
+			box.appendChild(html('<div class="cfx-label">Special</div>'));
 			const special = html('<div class="cfx-presets"></div>');
 			box.appendChild(special);
 
@@ -2300,6 +2317,26 @@ class Plugin extends AppPlugin {
 				(fx ? special : grid).appendChild(b);
 			});
 			refreshPresets();
+
+			box.appendChild(html('<div class="cfx-label">Effects</div>'));
+			const opts = html('<div class="cfx-opts"></div>');
+			box.appendChild(opts);
+			const isOn = (key) => (key === 'style' ? this.cfg.style === 'block' : !!this.cfg[key]);
+			const refreshSwitches = () => {
+				preview.classList.toggle('block', this.cfg.style === 'block');
+				opts.querySelectorAll('.cfx-opt').forEach((b) => b.setAttribute('aria-checked', String(isOn(b.dataset.key))));
+			};
+			for (const [key, label, note] of DIALOG_SWITCHES) {
+				const b = html(`<button class="cfx-opt" role="switch" data-key="${key}"><span><span class="cfx-opt-name"></span><span class="cfx-opt-note"></span></span><span class="cfx-sw"></span></button>`);
+				b.querySelector('.cfx-opt-name').textContent = label;
+				b.querySelector('.cfx-opt-note').textContent = note;
+				b.onclick = () => {
+					this.update({ [key]: key === 'style' ? (isOn(key) ? 'line' : 'block') : !isOn(key) });
+					refreshSwitches();
+				};
+				opts.appendChild(b);
+			}
+			refreshSwitches();
 		});
 	}
 
@@ -2495,3 +2532,4 @@ class Plugin extends AppPlugin {
 		if (!this.items.some((it) => !it.rest)) this.lastT = 0;   // nothing animating: the next frame starts a fresh clock
 	}
 }
+

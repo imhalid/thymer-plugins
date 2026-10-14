@@ -43,21 +43,18 @@ The caret itself takes your chosen color, even when you are not typing, and reac
 
 ### Effects from Cursor-Smith
 
-Four more effects are ported from [Cursor-Smith](https://github.com/Sadsnake1/cursor-smith) by Sadsnake1, an Obsidian plugin (MIT). They are off until you switch them on from the command palette:
+Four more effects are ported from [Cursor-Smith](https://github.com/Sadsnake1/cursor-smith) by Sadsnake1, an Obsidian plugin (MIT). They are off until you choose them in the `Caret FX: set preset…` dialog: Motion smear is a switch there, the other three are Special presets (one at a time, like Lightning).
 
-- **Motion smear** (`Caret FX: toggle motion smear`) – the caret stretches as it moves and snaps back when it arrives, on a spring. While you type, only its tail trails.
-- **Fresh ink** (`Caret FX: toggle fresh ink`) – the letters you just typed stay wet in the caret color and dry into the text over a second or two.
-- **Bracket tether** (`Caret FX: toggle bracket tether`) – a line under the span between the matching brackets or quotes around the caret; it follows a span that wraps onto more lines.
-- **Back-man** (`Caret FX: toggle back-man`) – while Backspace or Delete eats text, the caret becomes a little creature that takes one bite per letter and gulps it down. A word or a selection is one big bite.
+- **Motion smear** (a switch in the dialog) – the caret stretches as it moves and snaps back when it arrives, on a spring. While you type, only its tail trails.
+- **Fresh ink** (Special preset) – the letters you just typed stay wet in the caret color and dry into the text over a second or two.
+- **Bracket tether** (Special preset) – a line under the span between the matching brackets or quotes around the caret; it follows a span that wraps onto more lines.
+- **Back-man** (Special preset) – while Backspace or Delete eats text, the caret becomes a little creature that takes one bite per letter and gulps it down. A word or a selection is one big bite.
 
 Their settings go under `custom` in the Configuration JSON, all optional:
 
 ```json
 {
   "smear": false,
-  "ink": false,
-  "tether": false,
-  "backman": false,
   "smearStiffness": 0.6,
   "smearTrailingStiffness": 0.4,
   "smearDamping": 0.8,
@@ -71,7 +68,7 @@ The plugin SDK has no caret, selection or text-layout API, so Fresh ink, Bracket
 
 ### Color and special presets
 
-Run `Caret FX: set color…` from the command palette. The dialog has:
+Run `Caret FX: set preset…` from the command palette. The dialog has:
 
 - **Colors** – plain presets: Amber, Sunset, Rose, Violet, Ice, Ocean, Mint, Lime, Mono
 - **Special** – presets that bring their own effect, previewed live in the dialog:
@@ -82,17 +79,21 @@ Run `Caret FX: set color…` from the command palette. The dialog has:
   | Sakura | pink petals drift off the caret |
   | Autumn | orange and red leaves fall |
   | Paper | green leaves fall |
+  | Fresh ink | what you type stays wet in the caret color, then dries (see above) |
+  | Bracket tether | a line under the matching brackets or quotes around the caret (see above) |
+  | Back-man | the caret eats what Backspace and Delete take (see above) |
   | Holy | plus-shaped golden glints twinkle on and around the caret, in place, like light catching a gem, and the caret keeps glinting for a moment after you stop |
   | Prism | a holographic shimmer: a small glass prism lights up on the caret and fans the colors of the spectrum out of its faces as you write, each fan turned further round than the last, with an iridescent ring turning about it; a new line or a jump flashes it fully |
   | Health | small pluses pop out of the caret and float up as you write, with a soft pulse, as if you were gaining health; in the preset's greens, or a red cross if you pick red colors |
 
   Holy, Prism and Health answer writing, not deleting.
 
+- **Effects** – two switches: **Block cursor** (a box the width of the letter instead of the line caret) and **Motion smear**
 - **Customize** – pick the caret/glow color or the trail/accent color with a saturation/brightness square, hue slider or hex field
 
 Other commands:
 
-- `Caret FX: next color preset` – cycles through every preset
+- `Caret FX: next preset` – cycles through every preset
 - `Caret FX: set intensity…` – slider from 0.3× (subtle) to 2× (intense); it also scales petals, leaves, crackles, glints, prism fans and pluses
 - `Caret FX: toggle bounce`, `Caret FX: toggle trail`
 
@@ -109,7 +110,7 @@ Settings are saved in the plugin's Configuration JSON under `custom` and can be 
 }
 ```
 
-`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"holy"`, `"prism"` or `"health"`; choosing a preset in the dialog sets it for you. Holy and Prism have a setting each, `"holySize"` and `"prismStrength"` (1 is normal).
+`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"ink"`, `"tether"`, `"backman"`, `"holy"`, `"prism"` or `"health"`; `style` is `"line"` or `"block"`; choosing a preset in the dialog sets it for you. Holy and Prism have a setting each, `"holySize"` and `"prismStrength"` (1 is normal).
 
 ### How it works
 

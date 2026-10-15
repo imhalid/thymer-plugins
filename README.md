@@ -7,7 +7,7 @@ Personal plugins for [Thymer](https://thymer.com).
 | [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning, Holy, Prism, Health, Zephyr, Tide) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
 | [`achievements`](plugins/achievements) | 62 writing achievements, from easy to legendary (words, speed, streaks, tasks, night owl, ...) that pay rings, with a small 3D mascot drawn in plain WebGL in the top-left corner: it spins, runs faster while you type, and hops with a banner when something unlocks |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
-| [`cursor-fx`](plugins/cursor-fx) | Mouse effects drawn from particle textures: a ripple, spark burst, magic circle, electric zap, hearts, slash, firework or smoke puff where you click, and a comet, fairy-dust or flame trail behind the pointer |
+| [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
 
 ## Install a plugin
 
@@ -138,7 +138,7 @@ Motion smear, Fresh ink, Bracket tether and Back-man are ported from [Sadsnake1/
 
 ## Cursor FX
 
-Effects for the mouse. Clicking plays a click effect where you clicked (Ripple, Spark burst, Magic circle, Electric zap, Hearts, Slash, Firework, Smoke puff, or Random), and moving the pointer can leave a trail (Comet, Fairy dust, Flame, or none). Pick them, the colour and the size in `Cursor FX: settings…` (clicking in there is the preview); `Cursor FX: next click effect`, `Cursor FX: next trail` and `Cursor FX: turn on or off` work from the command palette. Choices are kept per device.
+Effects for the mouse, in presets made to go together: each puts a click effect, a trail behind the pointer (a comet, fairy dust, or none), a size and two colours (a main one and an accent some parts take). Frost (a ripple, a comet), Arcane (one of seven spells each click: pentagram, heptagram, compass, nova, twin rings, vortex, sun sigil), Festival (fireworks), Sweetheart (hearts) and Quiet (a small ripple). The spells come in a shuffled order, never the same twice running. Pick a preset in `Cursor FX: choose preset…` (picking it plays it); `Cursor FX: next preset` and `Cursor FX: turn on or off` work from the command palette. The choice is kept per device.
 
 Everything is drawn from small grayscale CC0 textures (Kenney's Particle Pack and a Screaming Brain Studios noise, see `fx/LICENSE.md`) as instanced WebGL particles on one canvas that clicks pass through; it draws only while something is alive. On a dark theme the light adds up; on a light theme the colour is darkened and painted. It stays off on phones and tablets and with reduced motion.
 

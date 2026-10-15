@@ -4,7 +4,7 @@
   "icon": "ti-pointer",
   "off": false,
   "item_name": "Note",
-  "description": "Click effects and pointer trails drawn from particle textures",
+  "description": "Click effects and pointer trails in ready-made presets, drawn from particle textures",
   "show_sidebar_items": true,
   "show_cmdpal_items": true,
   "views": [],
@@ -19,10 +19,7 @@
   },
   "custom": {
     "on": true,
-    "click": "ripple",
-    "trail": "comet",
-    "color": "#5fd8ff",
-    "size": 1
+    "preset": "frost"
   },
   "home": false
 }

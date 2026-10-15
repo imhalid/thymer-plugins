@@ -1,18 +1,19 @@
 /**
  * Cursor FX
  *
- * Effects for the mouse: something happens where you click (a ripple, a spark burst, a magic circle, electricity, hearts, a
- * slash, a firework, a puff of smoke, or a random one of them each time), and the pointer can leave a trail as it moves (a
- * comet, fairy dust, or flame). Everything is drawn from small grayscale textures (see fx/LICENSE.md), tinted with the chosen
- * colour.
+ * Effects for the mouse, chosen as a whole: a preset (Frost, Arcane, Festival, Sweetheart, Quiet) puts together what happens
+ * where you click (a ripple, one of seven spells, a firework, hearts), the trail the pointer leaves (a comet, fairy dust, or
+ * none), a size, and two colours: the main one, and an accent that some parts of each effect take (a comet's head, a firework's
+ * every third star). Arcane casts a different spell each click.
+ * Everything is drawn from small grayscale textures (see fx/LICENSE.md), tinted with those colours.
  *
  * How: one transparent WebGL canvas over the whole window, which clicks pass through. Each particle is a textured quad with its
  * own position, speed, size, rotation, life and sprite; all of them are drawn in one instanced draw call. The canvas draws only
  * while something is alive, so standing still costs nothing. On a dark theme the light adds up (additive blending); on a light
  * theme the colour is darkened and painted over, so it stays visible.
  *
- * Off on phones and tablets (no mouse there) and with reduced motion. The choices made in "Cursor FX: settings…" are kept per
- * device in localStorage and laid over the defaults in this plugin's configuration (Edit Code > Configuration, "custom").
+ * Off on phones and tablets (no mouse there) and with reduced motion. The preset picked in "Cursor FX: choose preset…" is kept
+ * per device in localStorage and laid over the default in this plugin's configuration (Edit Code > Configuration, "custom").
  *
  * The textures are baked into this file at build time (see build.mjs).
  */
@@ -22,17 +23,24 @@ let fxImgs = null;
 /** The textures as images, decoded once and kept, so they are ready by the first click. */
 const fxImages = () => fxImgs || (fxImgs = Object.fromEntries(Object.entries(FX).map(([k, src]) => { const i = new Image(); i.src = src; return [k, i]; })));
 
-// The atlas: 6 x 4 cells of 128px (fx/LICENSE.md lists the sprites in this order).
-const ATLAS_COLS = 6, ATLAS_ROWS = 4;
+// The atlas: 6 x 3 cells of 128px (fx/LICENSE.md lists the sprites in this order).
+const ATLAS_COLS = 6, ATLAS_ROWS = 3;
 const S = {
-	ZAP: 0, BOLT: 4, RING: 5, SOFTRING: 6, STAR: 7, STREAK: 8, GLOW: 9, STAR6: 10, RUNE: 11, RUNE7: 12, TWIRL: 13, DOT: 14,
-	HEART: 15, CRESCENT: 16, SCRATCH: 17, SMOKE: 18, FLAME: 19, FLAME_TALL: 20, WISP: 21, STAR5: 22, BURST: 23,
+	RING: 0, SOFTRING: 1, STAR: 2, GLOW: 3, STAR6: 4, DOT: 5, RUNE: 6, RUNE7: 7, COMPASS: 8, CROSS: 9, NOVA: 10, TWIRL: 11,
+	TWIRL2: 12, TWIRL3: 13, HEART: 14, STAR5: 15, BURST: 16, STREAK: 17,
 };
-const KIND = { SPRITE: 0, RING: 1, SOFTRING: 2, ARC: 3 };   // rings and arcs are read across a ring sprite's band (see the shader)
+const KIND = { SPRITE: 0, RING: 1, SOFTRING: 2 };   // a ring is read across a ring sprite's band at a chosen width (see the shader)
 
-const DEFAULTS = { on: true, click: 'ripple', trail: 'comet', color: '#5fd8ff', size: 1 };
+const DEFAULTS = { on: true, preset: 'frost' };
 const CHOICES_KEY = 'cursorfx.choices';
-const COLORS = [['Ice', '#5fd8ff'], ['Gold', '#ffc94a'], ['Violet', '#b98cff'], ['Emerald', '#5ee6a0'], ['Rose', '#ff7ab6'], ['Ember', '#ff8a3d'], ['White', '#f4f6ff']];
+// The presets: each a click effect, a trail, a size, and a main colour with an accent, chosen to go together.
+const PRESETS = [
+	{ id: 'frost', name: 'Frost', note: 'Calm ripples, a comet of light', click: 'ripple', trail: 'comet', color: '#6fdcff', accent: '#e6fbff', size: 1 },
+	{ id: 'arcane', name: 'Arcane', note: 'A different spell every click, stardust trails', click: 'magic', trail: 'dust', color: '#a98bff', accent: '#ffc6f5', size: 1.2 },
+	{ id: 'festival', name: 'Festival', note: 'Fireworks and golden dust', click: 'firework', trail: 'dust', color: '#ffc443', accent: '#ff6fae', size: 1 },
+	{ id: 'sweetheart', name: 'Sweetheart', note: 'Hearts pop, pink sparkles trail', click: 'hearts', trail: 'dust', color: '#ff6fae', accent: '#ffd0e4', size: 1 },
+	{ id: 'quiet', name: 'Quiet', note: 'A small, soft ripple. No trail', click: 'ripple', trail: 'none', color: '#c3cbe0', accent: '#ffffff', size: 0.75 },
+];
 const MAX_PARTICLES = 1500;
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -66,131 +74,137 @@ function isDarkTheme() {
 
 // ---- Particles -------------------------------------------------------------------------------------------------------------
 // One particle: where it is and how it moves (px, px/s; y down), how long it lives, what it looks like over its life (half-sizes
-// w/h and alpha from start to end), and its sprite. Optional: frames (cells it flicks through at fps), align (turns along its
-// flight; for streaks, which stretch with speed), twinkle, delay, follow (stays on the pointer), and for rings their radius
-// and band width from start to end. An arc (a blade's swing) also has its span (radians), how long its tip takes to sweep it,
-// and when its tail starts to follow.
+// w/h and alpha from start to end), and its sprite. Optional: twinkle, delay, follow (stays on the pointer), for rings their radius
+// and band width from start to end. alt: it takes the preset's accent colour instead of the main one.
 function particle(o) {
 	return {
 		x: 0, y: 0, vx: 0, vy: 0, g: 0, drag: 0, life: 1, t: 0, delay: 0, rot: 0, vr: 0, cell: S.DOT, kind: KIND.SPRITE,
-		w0: 8, w1: 8, h0: null, h1: null, a0: 1, a1: 0, fadeIn: 0.06, ease: easeOut, twinkle: 0, stretch: 0, tint: 1, ...o,
+		w0: 8, w1: 8, h0: null, h1: null, a0: 1, a1: 0, fadeIn: 0.06, ease: easeOut, twinkle: 0, ...o,
 	};
 }
 
 // ---- The effects -----------------------------------------------------------------------------------------------------------
-// A click effect is spawn(at, ctx): at = { x, y, dx, dy } (the pointer's recent direction), ctx = { add(p), k } (k: the size
-// setting). A trail is step(at, ctx), called for each stretch of movement, spaced by its own `every` px.
+// A click effect is spawn(at, ctx): at = { x, y, dx, dy } (the pointer's recent direction), ctx = { add(p), k, next(key, n) } (k:
+// the preset's size; next: the next of n variants, never the one just shown). A trail is step(at, ctx), called for each stretch
+// of movement, spaced by its own `every` px.
+
+// Arcane's spells, one per click (see CLICKS.magic). Each is (x, y, add, k).
+const springy = (t) => 1 - Math.exp(-7 * t) * Math.cos(9 * t);   // grows past its size and settles
+const SPELLS = [
+	(x, y, add, k) => {   // a pentagram, with a vortex under it and stars rising round
+		add(particle({ x, y, cell: S.RUNE, rot: rand(0, 6.28), vr: 2.2, life: 1.0, w0: 4 * k, w1: 34 * k, ease: springy, a0: 1, a1: 0, fadeIn: 0.05 }));
+		add(particle({ x, y, cell: S.TWIRL, rot: rand(0, 6.28), vr: -6, life: 0.7, w0: 10 * k, w1: 30 * k, a0: 0.8, a1: 0 }));
+		add(particle({ x, y, cell: S.GLOW, life: 0.45, w0: 18 * k, w1: 4 * k, rot: rand(0, 6.28), vr: 1.5, a0: 1, a1: 0, alt: true }));
+		for (let i = 0; i < 8; i++) {
+			const a = (i / 8) * 6.28 + rand(-0.2, 0.2);
+			add(particle({ x: x + Math.cos(a) * 22 * k, y: y + Math.sin(a) * 22 * k, vx: Math.cos(a) * 20 * k, vy: -rand(30, 70) * k, cell: S.STAR, twinkle: 1, rot: rand(0, 6.28), vr: rand(-3, 3), delay: rand(0.05, 0.3), life: rand(0.6, 1.0), w0: rand(4, 7) * k, w1: 1.5 * k, alt: i % 2 === 0 }));
+		}
+	},
+	(x, y, add, k) => {   // a heptagram turning the other way, inside a sharp ring
+		add(particle({ x, y, cell: S.RUNE7, rot: rand(0, 6.28), vr: -2.4, life: 1.0, w0: 4 * k, w1: 34 * k, ease: springy, a0: 1, a1: 0, fadeIn: 0.05 }));
+		add(particle({ x, y, kind: KIND.RING, cell: S.RING, rot: rand(0, 6.28), vr: 3, life: 0.9, r0: 10 * k, r1: 40 * k, b0: 2.5 * k, b1: 1.2 * k, a0: 0.9, a1: 0, alt: true }));
+		add(particle({ x, y, cell: S.TWIRL2, rot: rand(0, 6.28), vr: 7, life: 0.6, w0: 12 * k, w1: 28 * k, a0: 0.6, a1: 0 }));
+		add(particle({ x, y, cell: S.DOT, life: 0.3, w0: 14 * k, w1: 3 * k, a0: 1, a1: 0, alt: true }));
+	},
+	(x, y, add, k) => {   // a compass that spins down into place, its four points lighting up
+		add(particle({ x, y, cell: S.COMPASS, rot: rand(0, 6.28), vr: 4, life: 0.9, w0: 56 * k, w1: 28 * k, a0: 1.1, a1: 0, fadeIn: 0.08 }));
+		add(particle({ x, y, kind: KIND.RING, cell: S.RING, rot: rand(0, 6.28), life: 0.7, r0: 6 * k, r1: 36 * k, b0: 3 * k, b1: 1 * k, a0: 0.8, a1: 0 }));
+		for (let i = 0; i < 4; i++) {
+			const a = i * 1.5708;
+			add(particle({ x: x + Math.cos(a) * 34 * k, y: y + Math.sin(a) * 34 * k, cell: S.STAR, rot: 0, delay: 0.12 + i * 0.04, life: 0.6, w0: 2 * k, w1: 9 * k, ease: springy, a0: 1.2, a1: 0, alt: true }));
+		}
+	},
+	(x, y, add, k) => {   // a nova: a soft star bursts, and sparks swirl out from it
+		add(particle({ x, y, cell: S.NOVA, rot: 0.785, life: 0.6, w0: 6 * k, w1: 40 * k, ease: springy, a0: 1.2, a1: 0 }));
+		add(particle({ x, y, cell: S.GLOW, rot: rand(0, 6.28), life: 0.35, w0: 22 * k, w1: 6 * k, a0: 1, a1: 0, alt: true }));
+		for (let i = 0; i < 12; i++) {
+			const a = (i / 12) * 6.28, out = rand(90, 150) * k, round = 140 * k;   // outward and round at once: a swirl
+			add(particle({ x, y, vx: Math.cos(a) * out - Math.sin(a) * round, vy: Math.sin(a) * out + Math.cos(a) * round, drag: 3, cell: S.STAR6, rot: rand(0, 6.28), vr: 6, twinkle: 1, life: rand(0.55, 0.85), w0: rand(6, 8) * k, w1: 1.5 * k, a0: 1.5, alt: i % 3 === 0 }));
+		}
+	},
+	(x, y, add, k) => {   // twin rings turning against each other round a cross of light
+		add(particle({ x, y, kind: KIND.RING, cell: S.RING, rot: rand(0, 6.28), vr: 6, life: 0.85, r0: 12 * k, r1: 22 * k, b0: 2.4 * k, b1: 1.6 * k, a0: 1, a1: 0 }));
+		add(particle({ x, y, kind: KIND.RING, cell: S.RING, rot: rand(0, 6.28), vr: -5, life: 0.85, r0: 18 * k, r1: 32 * k, b0: 2 * k, b1: 1.2 * k, a0: 0.9, a1: 0, alt: true }));
+		add(particle({ x, y, cell: S.CROSS, rot: 0, vr: 1, life: 0.6, w0: 4 * k, w1: 20 * k, ease: springy, a0: 1.1, a1: 0 }));
+		add(particle({ x, y, cell: S.DOT, life: 0.25, w0: 12 * k, w1: 3 * k, a0: 1, a1: 0, alt: true }));
+	},
+	(x, y, add, k) => {   // a vortex: two swirls pull in, stars are drawn after them, and it lets go in a flash
+		add(particle({ x, y, cell: S.TWIRL2, rot: rand(0, 6.28), vr: 10, life: 0.5, w0: 44 * k, w1: 6 * k, ease: (t) => t * t, a0: 1.2, a1: 0.4, fadeIn: 0.06 }));   // slow, then faster in
+		add(particle({ x, y, cell: S.TWIRL3, rot: rand(0, 6.28), vr: -8, life: 0.5, w0: 36 * k, w1: 5 * k, ease: (t) => t * t, a0: 1, a1: 0.4, fadeIn: 0.06 }));
+		for (let i = 0; i < 10; i++) {
+			const a = (i / 10) * 6.28 + rand(-0.2, 0.2), r = rand(38, 48) * k;
+			add(particle({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, vx: -Math.cos(a) * r * 2.4, vy: -Math.sin(a) * r * 2.4, cell: S.STAR, rot: rand(0, 6.28), life: 0.4, w0: 4 * k, w1: 1.5 * k, a0: 1, a1: 0.3, alt: i % 2 === 0 }));
+		}
+		add(particle({ x, y, cell: S.GLOW, rot: rand(0, 6.28), delay: 0.42, life: 0.4, w0: 8 * k, w1: 34 * k, a0: 1.4, a1: 0, fadeIn: 0.01, alt: true }));
+		add(particle({ x, y, kind: KIND.SOFTRING, cell: S.SOFTRING, delay: 0.42, life: 0.4, r0: 4 * k, r1: 40 * k, b0: 6 * k, b1: 8 * k, a0: 0.5, a1: 0 }));
+	},
+	(x, y, add, k) => {   // a sun sigil: a glowing disc in a ring with four marks, stars round it, and sparks left as it fades
+		add(particle({ x, y, cell: S.DOT, life: 0.55, w0: 8 * k, w1: 24 * k, ease: springy, a0: 1.3, a1: 0, fadeIn: 0.02 }));
+		add(particle({ x, y, cell: S.GLOW, rot: rand(0, 6.28), life: 0.5, w0: 30 * k, w1: 38 * k, a0: 0.8, a1: 0, alt: true }));
+		add(particle({ x, y, kind: KIND.RING, cell: S.RING, rot: rand(0, 6.28), vr: 1, life: 1.0, r0: 20 * k, r1: 26 * k, b0: 2.2 * k, b1: 1.2 * k, a0: 1, a1: 0 }));
+		const turn = rand(-0.2, 0.2);
+		for (let i = 0; i < 4; i++) {
+			const a = i * 1.5708 + turn;
+			add(particle({ x: x + Math.cos(a) * 32 * k, y: y + Math.sin(a) * 32 * k, cell: S.STREAK, rot: Math.atan2(-Math.cos(a), Math.sin(a)), life: 0.5, w0: 1.8 * k, w1: 1.2 * k, h0: 7 * k, h1: 5 * k, a0: 1.2, a1: 0 }));
+		}
+		for (let i = 0; i < 6; i++) {
+			const a = rand(0, 6.28), r = rand(32, 42) * k;
+			add(particle({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, cell: S.STAR5, rot: rand(-0.4, 0.4), delay: rand(0.04, 0.16), life: 0.9, w0: 1 * k, w1: 4.5 * k, ease: springy, twinkle: 1, a0: 1.2, a1: 0, alt: true }));
+		}
+		for (let i = 0; i < 2; i++) {   // glints across the disc
+			add(particle({ x: x + rand(-6, 6) * k, y: y + (i ? 6 : -7) * k, cell: S.STREAK, rot: 1.5708 + rand(-0.15, 0.15), delay: 0.05, life: 0.35, w0: 1.4 * k, w1: 1 * k, h0: 14 * k, h1: 10 * k, a0: 1.1, a1: 0, alt: true }));
+		}
+		for (let i = 0; i < 16; i++) {   // the sparks the disc leaves
+			const a = rand(0, 6.28), r = rand(0, 22) * k;
+			add(particle({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, vx: rand(-20, 20) * k, vy: rand(-30, 10) * k, cell: S.DOT, twinkle: 1, delay: rand(0.2, 0.45), life: rand(0.6, 1.1), w0: rand(1.2, 2.4) * k, w1: 0.5 * k, a0: 1.2, a1: 0 }));
+		}
+	},
+];
+
 const CLICKS = {
 	ripple: {
 		label: 'Ripple', icon: '◎',
 		spawn({ x, y }, { add, k }) {
 			add(particle({ x, y, kind: KIND.RING, cell: S.RING, rot: rand(0, 6.28), life: 0.65, r0: 4 * k, r1: 46 * k, b0: 4 * k, b1: 1.6 * k, a0: 1, a1: 0 }));
 			add(particle({ x, y, kind: KIND.SOFTRING, cell: S.SOFTRING, rot: rand(0, 6.28), life: 0.45, r0: 2 * k, r1: 60 * k, b0: 7 * k, b1: 10 * k, a0: 0.3, a1: 0 }));
-			add(particle({ x, y, kind: KIND.RING, cell: S.RING, rot: rand(0, 6.28), life: 0.8, delay: 0.09, r0: 2 * k, r1: 28 * k, b0: 2.5 * k, b1: 1 * k, a0: 0.7, a1: 0 }));
-			add(particle({ x, y, cell: S.DOT, life: 0.22, w0: 12 * k, w1: 2 * k, a0: 0.9, a1: 0 }));
-		},
-	},
-	sparks: {
-		label: 'Spark burst', icon: '✦',
-		spawn({ x, y }, { add, k }) {
-			add(particle({ x, y, cell: S.GLOW, life: 0.28, w0: 30 * k, w1: 6 * k, rot: rand(0, 6.28), a0: 1, a1: 0 }));
-			for (let i = 0; i < 16; i++) {
-				const a = rand(0, 6.28), v = rand(260, 700) * k;
-				add(particle({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, drag: 5, g: 420 * k, cell: S.STREAK, align: true, stretch: 0.045, life: rand(0.35, 0.7), w0: 3.2 * k, w1: 1.4 * k, h0: 8 * k, h1: 3 * k, a0: 1.4, a1: 0 }));
-			}
-			for (let i = 0; i < 7; i++) {
-				const a = rand(0, 6.28), v = rand(80, 240) * k;
-				add(particle({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, drag: 3, g: 160 * k, cell: S.STAR, rot: rand(0, 6.28), vr: rand(-4, 4), twinkle: 1, life: rand(0.5, 0.9), w0: rand(5, 9) * k, w1: 2 * k }));
-			}
+			add(particle({ x, y, kind: KIND.RING, cell: S.RING, rot: rand(0, 6.28), life: 0.8, delay: 0.09, r0: 2 * k, r1: 28 * k, b0: 2.5 * k, b1: 1 * k, a0: 0.7, a1: 0, alt: true }));
+			add(particle({ x, y, cell: S.DOT, life: 0.22, w0: 12 * k, w1: 2 * k, a0: 0.9, a1: 0, alt: true }));
 		},
 	},
 	magic: {
-		label: 'Magic circle', icon: '✡',
-		spawn({ x, y }, { add, k }) {
-			const springy = (t) => 1 - Math.exp(-7 * t) * Math.cos(9 * t);   // grows past its size and settles
-			add(particle({ x, y, cell: pick([S.RUNE, S.RUNE7]), rot: rand(0, 6.28), vr: 2.2, life: 1.0, w0: 4 * k, w1: 34 * k, ease: springy, a0: 1, a1: 0, fadeIn: 0.05 }));
-			add(particle({ x, y, cell: S.TWIRL, rot: rand(0, 6.28), vr: -6, life: 0.7, w0: 10 * k, w1: 30 * k, a0: 0.8, a1: 0 }));
-			add(particle({ x, y, cell: S.GLOW, life: 0.45, w0: 18 * k, w1: 4 * k, rot: rand(0, 6.28), vr: 1.5, a0: 1, a1: 0 }));
-			for (let i = 0; i < 8; i++) {
-				const a = (i / 8) * 6.28 + rand(-0.2, 0.2);
-				add(particle({ x: x + Math.cos(a) * 22 * k, y: y + Math.sin(a) * 22 * k, vx: Math.cos(a) * 20 * k, vy: -rand(30, 70) * k, cell: S.STAR, twinkle: 1, rot: rand(0, 6.28), vr: rand(-3, 3), delay: rand(0.05, 0.3), life: rand(0.6, 1.0), w0: rand(4, 7) * k, w1: 1.5 * k }));
-			}
-		},
-	},
-	zap: {
-		label: 'Electric zap', icon: 'ϟ',
-		spawn({ x, y }, { add, k }) {
-			add(particle({ x, y, cell: S.ZAP, frames: [S.ZAP, S.ZAP + 1, S.ZAP + 2, S.ZAP + 3], fps: 22, jitter: true, life: 0.42, w0: 26 * k, w1: 36 * k, a0: 1.2, a1: 0, fadeIn: 0.02 }));
-			add(particle({ x, y, cell: S.DOT, life: 0.18, w0: 16 * k, w1: 4 * k, a0: 1, a1: 0, fadeIn: 0.01 }));
-			const n = 5;
-			for (let i = 0; i < n; i++) {   // bolts shooting out, pointing away from the click
-				const a = (i / n) * 6.28 + rand(-0.4, 0.4), len = rand(16, 26) * k;
-				add(particle({ x: x + Math.cos(a) * len, y: y + Math.sin(a) * len, cell: S.BOLT, rot: Math.atan2(-Math.cos(a), Math.sin(a)), delay: rand(0, 0.12), life: rand(0.1, 0.2), w0: 5 * k, w1: 4 * k, h0: len, h1: len * 1.2, a0: 1.3, a1: 0.2, fadeIn: 0.01 }));
-			}
-		},
+		label: 'Spells', icon: '✡',
+		spawn({ x, y }, { add, k, next }) { SPELLS[next('spell', SPELLS.length)](x, y, add, k); },
 	},
 	hearts: {
 		label: 'Hearts', icon: '♥',
 		spawn({ x, y }, { add, k }) {
 			for (let i = 0; i < 5; i++) {
 				const a = -1.57 + rand(-0.9, 0.9), v = rand(70, 170) * k, springy = (t) => 1 - Math.exp(-8 * t) * Math.cos(10 * t);
-				add(particle({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, drag: 2.5, g: -30 * k, cell: S.HEART, rot: rand(-0.4, 0.4), vr: rand(-1, 1), delay: i * 0.035, life: rand(0.7, 1.05), w0: 2 * k, w1: rand(10, 14) * k, ease: springy, a0: 1, a1: 0 }));
+				add(particle({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, drag: 2.5, g: -30 * k, cell: S.HEART, rot: rand(-0.4, 0.4), vr: rand(-1, 1), delay: i * 0.035, life: rand(0.7, 1.05), w0: 2 * k, w1: rand(10, 14) * k, ease: springy, a0: 1, a1: 0, alt: i % 2 === 1 }));
 			}
-			add(particle({ x, y, kind: KIND.SOFTRING, cell: S.SOFTRING, life: 0.35, r0: 2 * k, r1: 26 * k, b0: 6 * k, b1: 8 * k, a0: 0.5, a1: 0 }));
-		},
-	},
-	slash: {
-		label: 'Slash', icon: '⟋',
-		spawn({ x, y, dx, dy }, { add, k }) {
-			// A blade's swing across the way the pointer was going: the arc's middle passes through the click, and its tip sweeps
-			// along the movement. ψ is the angle (from the arc's centre) of that middle; screen y is down, so the sweep turns with ψ.
-			if (Math.hypot(dx, dy) < 0.5) { const a = rand(0, 6.28); dx = Math.cos(a); dy = Math.sin(a); }
-			const swing = (r, band, span, delay, a0, tilt) => {
-				const psi = Math.atan2(-dx, dy) + tilt;
-				add(particle({ x: x - Math.cos(psi) * r, y: y - Math.sin(psi) * r, kind: KIND.ARC, cell: S.RING, rot: psi - span / 2, span, sweep: 0.09, tailAt: 0.12, delay, life: 0.34, r0: r, r1: r * 1.08, b0: band, b1: band * 0.6, a0, a1: 0.6, fadeIn: 0 }));
-			};
-			swing(36 * k, 8 * k, 2.3, 0, 1.5, rand(-0.2, 0.2));
-			swing(25 * k, 4.5 * k, 2.0, 0.05, 1.0, rand(0.2, 0.45));   // an echo, a moment later
-			const along = Math.atan2(-dx, dy);   // a thin flash along the cut
-			add(particle({ x, y, cell: S.STREAK, rot: along, life: 0.16, w0: 2.2 * k, w1: 0.6 * k, h0: 40 * k, h1: 58 * k, a0: 1.6, a1: 0, fadeIn: 0.01 }));
-			add(particle({ x, y, cell: S.STAR, rot: along, life: 0.2, w0: 11 * k, w1: 2 * k, a0: 1.2, a1: 0, fadeIn: 0.01 }));
-			for (let i = 0; i < 7; i++) {
-				const b = Math.atan2(dy, dx) + rand(-0.35, 0.35), v = rand(250, 560) * k;
-				add(particle({ x, y, vx: Math.cos(b) * v, vy: Math.sin(b) * v, drag: 6, cell: S.STREAK, align: true, stretch: 0.04, delay: rand(0.02, 0.08), life: rand(0.18, 0.35), w0: 2.4 * k, w1: 0.8 * k, h0: 7 * k, h1: 2 * k, a0: 1.3 }));
-			}
+			add(particle({ x, y, kind: KIND.SOFTRING, cell: S.SOFTRING, life: 0.35, r0: 2 * k, r1: 26 * k, b0: 6 * k, b1: 8 * k, a0: 0.5, a1: 0, alt: true }));
 		},
 	},
 	firework: {
 		label: 'Firework', icon: '✺',
 		spawn({ x, y }, { add, k }) {
-			add(particle({ x, y, cell: S.BURST, rot: rand(0, 6.28), life: 0.3, w0: 14 * k, w1: 36 * k, a0: 1, a1: 0 }));
+			add(particle({ x, y, cell: S.BURST, rot: rand(0, 6.28), life: 0.3, w0: 14 * k, w1: 36 * k, a0: 1, a1: 0, alt: true }));
 			const n = 26;
 			for (let i = 0; i < n; i++) {
-				const a = (i / n) * 6.28 + rand(-0.08, 0.08), v = rand(240, 340) * k, hue = rand(-0.25, 0.25);
-				add(particle({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, drag: 2.6, g: 260 * k, cell: pick([S.STAR, S.STAR6]), rot: rand(0, 6.28), vr: rand(-5, 5), twinkle: 1, hue, life: rand(0.8, 1.25), w0: rand(6, 9) * k, w1: 2 * k, a0: 1.4 }));
+				const a = (i / n) * 6.28 + rand(-0.08, 0.08), v = rand(240, 340) * k, hue = rand(-0.12, 0.12);
+				add(particle({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, drag: 2.6, g: 260 * k, cell: pick([S.STAR, S.STAR6]), rot: rand(0, 6.28), vr: rand(-5, 5), twinkle: 1, hue, life: rand(0.8, 1.25), w0: rand(6, 9) * k, w1: 2 * k, a0: 1.4, alt: i % 3 === 0 }));
 			}
-		},
-	},
-	puff: {
-		label: 'Smoke puff', icon: '☁',
-		spawn({ x, y }, { add, k }) {
-			for (let i = 0; i < 6; i++) {
-				const a = rand(0, 6.28), v = rand(20, 70) * k;
-				add(particle({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 25 * k, drag: 2, cell: S.SMOKE, rot: rand(0, 6.28), vr: rand(-1.5, 1.5), life: rand(0.6, 0.95), w0: 6 * k, w1: rand(18, 26) * k, a0: 0.55, a1: 0, fadeIn: 0.1 }));
-			}
-			add(particle({ x, y, cell: S.DOT, life: 0.2, w0: 10 * k, w1: 3 * k, a0: 0.7, a1: 0 }));
 		},
 	},
 };
-const CLICK_IDS = Object.keys(CLICKS);
 
 const TRAILS = {
 	comet: {
 		label: 'Comet', icon: '☄', every: 2.5,
-		head: (k) => particle({ cell: S.GLOW, w0: 9 * k, w1: 9 * k, a0: 0.95, a1: 0.95, vr: 1.2, follow: true }),
+		head: (k) => particle({ cell: S.GLOW, w0: 9 * k, w1: 9 * k, a0: 0.95, a1: 0.95, vr: 1.2, follow: true, alt: true }),
 		step({ x, y }, { add, k }) {
 			add(particle({ x, y, cell: S.DOT, life: 0.45, w0: 6.5 * k, w1: 0.5 * k, a0: 0.45, a1: 0, fadeIn: 0 }));
-			if (Math.random() < 0.08) add(particle({ x: x + rand(-4, 4), y: y + rand(-4, 4), vx: rand(-20, 20), vy: rand(-20, 20), cell: S.STAR, twinkle: 1, rot: rand(0, 6.28), life: rand(0.3, 0.6), w0: rand(3, 5) * k, w1: 1 * k }));
+			if (Math.random() < 0.08) add(particle({ x: x + rand(-4, 4), y: y + rand(-4, 4), vx: rand(-20, 20), vy: rand(-20, 20), cell: S.STAR, twinkle: 1, rot: rand(0, 6.28), life: rand(0.3, 0.6), w0: rand(3, 5) * k, w1: 1 * k, alt: true }));
 		},
 	},
 	dust: {
@@ -198,36 +212,28 @@ const TRAILS = {
 		step({ x, y }, { add, k }) {
 			const n = Math.random() < 0.5 ? 1 : 2;
 			for (let i = 0; i < n; i++) {
-				add(particle({ x: x + rand(-5, 5), y: y + rand(-5, 5), vx: rand(-25, 25), vy: rand(-10, 20), drag: 1.5, g: 70 * k, cell: pick([S.STAR, S.STAR6, S.DOT]), rot: rand(0, 6.28), vr: rand(-3, 3), twinkle: 1, life: rand(0.7, 1.3), w0: rand(3, 6) * k, w1: 1 * k, a0: 1.4, a1: 0 }));
+				add(particle({ x: x + rand(-5, 5), y: y + rand(-5, 5), vx: rand(-25, 25), vy: rand(-10, 20), drag: 1.5, g: 70 * k, cell: pick([S.STAR, S.STAR6, S.DOT]), rot: rand(0, 6.28), vr: rand(-3, 3), twinkle: 1, life: rand(0.7, 1.3), w0: rand(3, 6) * k, w1: 1 * k, a0: 1.4, a1: 0, alt: Math.random() < 0.4 }));
 			}
 		},
 	},
-	flame: {
-		label: 'Flame', icon: '🔥', every: 7,
-		step({ x, y }, { add, k }) {
-			add(particle({ x: x + rand(-3, 3), y, vx: rand(-15, 15), vy: rand(-90, -50) * k, drag: 1, cell: pick([S.FLAME, S.FLAME_TALL, S.WISP]), rot: rand(-0.25, 0.25), life: rand(0.35, 0.55), w0: rand(6, 9) * k, w1: 2 * k, h0: rand(9, 13) * k, h1: 6 * k, a0: 0.9, a1: 0, fadeIn: 0.05, ease: (t) => t }));
-			if (Math.random() < 0.3) add(particle({ x: x + rand(-4, 4), y, vx: rand(-20, 20), vy: rand(-140, -80) * k, cell: S.DOT, life: rand(0.4, 0.7), w0: 1.6 * k, w1: 0.4 * k, a0: 1, a1: 0, twinkle: 1, tint: 1.2 }));
-		},
-	},
 };
-const TRAIL_IDS = Object.keys(TRAILS);
 
 // ---- The renderer ----------------------------------------------------------------------------------------------------------
 const VERT = `#version 300 es
 in vec2 aQuad;
-in vec2 iPos; in vec2 iHalf; in float iRot; in float iCell; in float iKind; in vec2 iRing; in vec3 iArc; in vec4 iCol;
+in vec2 iPos; in vec2 iHalf; in float iRot; in float iCell; in float iKind; in vec2 iRing; in vec4 iCol;
 uniform vec2 uView;
-out vec2 vUv; out vec2 vRing; out vec3 vArc; out vec4 vCol; flat out float vCell; flat out float vKind;
+out vec2 vUv; out vec2 vRing; out vec4 vCol; flat out float vCell; flat out float vKind;
 void main() {
 	float c = cos(iRot), s = sin(iRot);
 	vec2 q = aQuad * iHalf, w = iPos + vec2(c * q.x - s * q.y, s * q.x + c * q.y);
 	vec2 clip = w / uView * 2.0 - 1.0;
 	gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
-	vUv = aQuad; vRing = iRing; vArc = iArc; vCol = iCol; vCell = iCell; vKind = iKind;
+	vUv = aQuad; vRing = iRing; vCol = iCol; vCell = iCell; vKind = iKind;
 }`;
 const FRAG = `#version 300 es
 precision highp float;
-in vec2 vUv; in vec2 vRing; in vec3 vArc; in vec4 vCol; flat in float vCell; flat in float vKind;
+in vec2 vUv; in vec2 vRing; in vec4 vCol; flat in float vCell; flat in float vKind;
 uniform sampler2D uAtlas, uNoise; uniform float uLight;
 out vec4 o;
 // sprite c at q (its own space, -1 to 1, y down like the screen)
@@ -238,17 +244,7 @@ float cell(float c, vec2 q) {
 }
 void main() {
 	float v;
-	if (vKind < 0.5) v = cell(vCell, vUv);
-	else if (vKind > 2.5) {
-		// a blade's swing: an arc of radius vRing.x over the angles 0 to vArc.z, lit from its tail vArc.y to its tip vArc.x,
-		// brightest at the tip; thickest in the middle and pointed at the ends; read across the sharp ring's band from the
-		// outside in, so the outer edge is a clean cut and the light fades inward
-		float r = length(vUv), a = mod(atan(vUv.y, vUv.x), 6.2832), span = vArc.z;
-		vec2 dir = vUv / max(r, 1e-4);
-		float band = vRing.y * (0.12 + 0.88 * sin(3.1416 * clamp(a / span, 0.0, 1.0)));
-		float lit = step(vArc.y, a) * step(a, vArc.x) * pow(clamp((a - vArc.y) / max(vArc.x - vArc.y, 1e-3), 0.0, 1.0), 1.3);
-		v = cell(vCell, dir * clamp(0.55 + (vRing.x - r) / max(band, 1e-4) * 0.17, 0.0, 0.98)) * lit * step(r, vRing.x + 0.02);
-	} else {
+	if (vKind < 0.5) v = cell(vCell, vUv);	else {
 		// a ring: radius vRing.x and band width vRing.y (in this quad's units); the sprite is read across its band at that width
 		// (the sharp ring's band runs 0.55-0.72 of the sprite, the soft one's 0.58-0.9), broken into arcs by the noise
 		float r = length(vUv), sharp = step(vKind, 1.5);
@@ -264,7 +260,7 @@ void main() {
 	vec3 c = mix(vCol.rgb, vec3(1.0), smoothstep(0.9, 1.8, i) * 0.6) * i;     // added as light, white-hot at its brightest
 	o = vec4(c, min(max(c.r, max(c.g, c.b)), 1.0));
 }`;
-const FLOATS = 16;   // per particle: x, y, half w, half h, rot, cell, kind, ring radius, ring band, arc tip, tail, span, r, g, b, a
+const FLOATS = 13;   // per particle: x, y, half w, half h, rot, cell, kind, ring radius, ring band, r, g, b, a
 
 class Renderer {
 	constructor(canvas) {
@@ -284,7 +280,7 @@ class Renderer {
 		this.data = new Float32Array(MAX_PARTICLES * FLOATS);
 		gl.bufferData(gl.ARRAY_BUFFER, this.data.byteLength, gl.DYNAMIC_DRAW);
 		let off = 0;
-		for (const [name, n] of [['iPos', 2], ['iHalf', 2], ['iRot', 1], ['iCell', 1], ['iKind', 1], ['iRing', 2], ['iArc', 3], ['iCol', 4]]) {
+		for (const [name, n] of [['iPos', 2], ['iHalf', 2], ['iRot', 1], ['iCell', 1], ['iKind', 1], ['iRing', 2], ['iCol', 4]]) {
 			const loc = gl.getAttribLocation(p, name);
 			gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, FLOATS * 4, off * 4); gl.vertexAttribDivisor(loc, 1);
 			off += n;
@@ -341,9 +337,8 @@ class Plugin extends AppPlugin {
 		this.dark = isDarkTheme();
 		fxImages();   // decode the textures now, not at the first click
 
-		this.ui.addCommandPaletteCommand({ label: 'Cursor FX: settings…', icon: 'ti-pointer', onSelected: () => this.dialog() });
-		this.ui.addCommandPaletteCommand({ label: 'Cursor FX: next click effect', icon: 'ti-click', onSelected: () => this.choose({ click: CLICK_IDS.concat('random')[(CLICK_IDS.concat('random').indexOf(this.cfg.click) + 1) % (CLICK_IDS.length + 1)] }, true) });
-		this.ui.addCommandPaletteCommand({ label: 'Cursor FX: next trail', icon: 'ti-route', onSelected: () => this.choose({ trail: TRAIL_IDS.concat('none')[(TRAIL_IDS.concat('none').indexOf(this.cfg.trail) + 1) % (TRAIL_IDS.length + 1)] }, true) });
+		this.ui.addCommandPaletteCommand({ label: 'Cursor FX: choose preset…', icon: 'ti-pointer', onSelected: () => this.dialog() });
+		this.ui.addCommandPaletteCommand({ label: 'Cursor FX: next preset', icon: 'ti-color-swatch', onSelected: () => this.choose({ preset: PRESETS[(PRESETS.indexOf(this.preset) + 1) % PRESETS.length].id, on: true }, true) });
 		this.ui.addCommandPaletteCommand({ label: 'Cursor FX: turn on or off', icon: 'ti-toggle-right', onSelected: () => this.choose({ on: !this.cfg.on }, true) });
 
 		const listen = (target, type, fn, opts) => { target.addEventListener(type, fn, opts); this.cleanup.push(() => target.removeEventListener(type, fn, opts)); };
@@ -377,20 +372,23 @@ class Plugin extends AppPlugin {
 		let mine = {};
 		try { mine = JSON.parse(localStorage.getItem(CHOICES_KEY) || '{}') || {}; } catch (e) { /* none */ }
 		this.cfg = { ...DEFAULTS, ...custom, ...mine };
-		this.rgb = hexRgb(this.cfg.color);
+		this.applyPreset();
+	}
+
+	/** The chosen preset, and its colours as RGB. */
+	applyPreset() {
+		this.preset = PRESETS.find((p) => p.id === this.cfg.preset) || PRESETS[0];
+		this.rgb = hexRgb(this.preset.color); this.accRgb = hexRgb(this.preset.accent);
+		this.head = null;   // the trail's head belongs to the preset it was made for
 	}
 
 	/** Keeps a choice on this device; `say` shows what it is now. */
 	choose(patch, say) {
 		try { localStorage.setItem(CHOICES_KEY, JSON.stringify({ ...JSON.parse(localStorage.getItem(CHOICES_KEY) || '{}'), ...patch })); } catch (e) { /* in memory only */ }
 		this.cfg = { ...this.cfg, ...patch };
-		this.rgb = hexRgb(this.cfg.color);
-		if (!this.cfg.on || this.cfg.trail === 'none') this.head = null;
+		this.applyPreset();
 		this.refreshDialog?.();
-		if (say) {
-			const what = !this.cfg.on ? 'Off' : `Click: ${this.cfg.click === 'random' ? 'Random' : CLICKS[this.cfg.click]?.label || 'None'} · Trail: ${TRAILS[this.cfg.trail]?.label || 'None'}`;
-			this.ui.addToaster({ title: 'Cursor FX', message: what, dismissible: true, autoDestroyTime: 1600 });
-		}
+		if (say) this.ui.addToaster({ title: 'Cursor FX', message: this.cfg.on ? `${this.preset.name}: ${this.preset.note}` : 'Off', dismissible: true, autoDestroyTime: 1800 });
 	}
 
 	get still() { return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; }
@@ -398,9 +396,8 @@ class Plugin extends AppPlugin {
 	// ---- Input -------------------------------------------------------------------------------------------------------------
 
 	click(x, y) {
-		if (!this.cfg.on || this.still || this.cfg.click === 'none') return;
-		const id = this.cfg.click === 'random' ? pick(CLICK_IDS) : this.cfg.click, fx = CLICKS[id];
-		if (!fx) return;
+		const fx = CLICKS[this.preset.click];
+		if (!this.cfg.on || this.still || !fx) return;
 		fx.spawn({ x, y, ...this.dir }, this.ctx());
 		this.wake();
 	}
@@ -411,9 +408,9 @@ class Plugin extends AppPlugin {
 		if (!prev) return;
 		const dx = x - prev.x, dy = y - prev.y, d = Math.hypot(dx, dy);
 		if (d > 0.5) this.dir = { dx: dx / d, dy: dy / d };
-		const trail = this.cfg.on && !this.still ? TRAILS[this.cfg.trail] : null;
+		const trail = this.cfg.on && !this.still ? TRAILS[this.preset.trail] : null;
 		if (!trail || d > 400) return;   // a jump (another window, a new screen) leaves no trail across the gap
-		if (trail.head && !this.head) this.head = trail.head(this.cfg.size);
+		if (trail.head && !this.head) this.head = trail.head(this.preset.size);
 		this.carry += d;
 		const ctx = this.ctx();
 		while (this.carry >= trail.every) {   // steps spaced evenly along the way, however fast it moved
@@ -425,7 +422,18 @@ class Plugin extends AppPlugin {
 	}
 
 	ctx() {
-		return { k: this.cfg.size || 1, add: (p) => { if (this.parts.length < MAX_PARTICLES) this.parts.push(p); } };
+		// each particle keeps the colour of the preset it was made by, should the preset change while it lives
+		return { k: this.preset.size || 1, next: (key, n) => this.next(key, n), add: (p) => { if (this.parts.length < MAX_PARTICLES) { p.rgb = p.alt ? this.accRgb : this.rgb; this.parts.push(p); } } };
+	}
+
+	/** The next of n variants of something (a spell): all of them in a shuffled order, never the same twice running. */
+	next(key, n) {
+		const bags = this.bags || (this.bags = {}), last = this.lastPick || (this.lastPick = {});
+		if (!bags[key] || !bags[key].length) {
+			const b = bags[key] = [...Array(n).keys()].sort(() => Math.random() - 0.5);
+			if (b[0] === last[key] && n > 1) b.push(b.shift());
+		}
+		return (last[key] = bags[key].shift());
 	}
 
 	// ---- The frame loop ----------------------------------------------------------------------------------------------------
@@ -442,7 +450,7 @@ class Plugin extends AppPlugin {
 		if (this.raf) return;
 		this.last = performance.now();
 		const frame = (now) => {
-			const dt = Math.min(0.05, (now - this.last) / 1000);
+			const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));   // a frame's time can be a hair before wake()'s
 			this.last = now;
 			const n = this.step(dt, now);
 			this.renderer.draw(n, !this.dark);
@@ -453,14 +461,13 @@ class Plugin extends AppPlugin {
 
 	/** Moves everything by dt, drops what has died, writes what is left into the renderer's buffer; returns how many. */
 	step(dt, now) {
-		const out = this.renderer.data, base = this.rgb, light = !this.dark;
-		const col = light ? darken(base) : base;
+		const out = this.renderer.data, light = !this.dark;
+		const main = light ? darken(this.rgb) : this.rgb, accent = light ? darken(this.accRgb) : this.accRgb;
 		let n = 0;
-		const put = (p, x, y, hw, hh, rot, cell, a, rgb, ringR, ringB, arc) => {
+		const put = (p, x, y, hw, hh, rot, cell, a, rgb, ringR, ringB) => {
 			const o = n * FLOATS;
 			out[o] = x; out[o + 1] = y; out[o + 2] = hw; out[o + 3] = hh; out[o + 4] = rot; out[o + 5] = cell; out[o + 6] = p.kind;
-			out[o + 7] = ringR; out[o + 8] = ringB; out[o + 9] = arc ? arc[0] : 0; out[o + 10] = arc ? arc[1] : 0; out[o + 11] = arc ? arc[2] : 0;
-			out[o + 12] = rgb[0]; out[o + 13] = rgb[1]; out[o + 14] = rgb[2]; out[o + 15] = a;
+			out[o + 7] = ringR; out[o + 8] = ringB; out[o + 9] = rgb[0]; out[o + 10] = rgb[1]; out[o + 11] = rgb[2]; out[o + 12] = a;
 			n++;
 		};
 		const live = [];
@@ -475,21 +482,13 @@ class Plugin extends AppPlugin {
 			let a = (p.a0 + (p.a1 - p.a0) * f) * Math.min(1, p.fadeIn ? p.t / p.fadeIn : 1);
 			if (p.twinkle) a *= 0.55 + 0.45 * Math.sin(p.t * 26 + p.x * 0.7);
 			const hw = p.w0 + (p.w1 - p.w0) * e;
-			let hh = p.h0 == null ? hw : p.h0 + (p.h1 - p.h0) * e, rot = p.rot;
-			if (p.align) { rot = Math.atan2(-p.vx, p.vy); hh *= 1 + Math.hypot(p.vx, p.vy) * p.stretch * 0.1; }
-			let cell = p.cell;
-			if (p.frames) { const i = Math.floor(p.t * p.fps); cell = p.frames[i % p.frames.length]; if (p.jitter) rot = i * 2.4; }
-			let rgb = col;
-			if (p.hue) rgb = col.map((v, i) => Math.min(1, v * (1 + p.hue * (i - 1))));   // fireworks: a little hue spread
-			if (p.tint !== 1) rgb = rgb.map((v) => Math.min(1, v * p.tint));
-			if (p.kind === KIND.ARC) {   // the tip sweeps the span, then the tail follows it in
-				const r = p.r0 + (p.r1 - p.r0) * e, b = p.b0 + (p.b1 - p.b0) * e, half = r + 4;
-				const tip = easeOut(Math.min(1, p.t / p.sweep)) * p.span, tail = easeOut(Math.max(0, (p.t - p.tailAt) / (p.life - p.tailAt))) * p.span;
-				put(p, p.x, p.y, half, half, rot, cell, a, rgb, r / half, b / half, [tip, tail, p.span]);
-			} else if (p.kind !== KIND.SPRITE) {   // rings: the quad holds the ring and its band
+			const hh = p.h0 == null ? hw : p.h0 + (p.h1 - p.h0) * e;
+			let rgb = light ? (p.drk || (p.drk = darken(p.rgb))) : p.rgb;
+			if (p.hue) rgb = rgb.map((v, i) => Math.min(1, v * (1 + p.hue * (i - 1))));   // fireworks: a little hue spread
+			if (p.kind === KIND.RING || p.kind === KIND.SOFTRING) {   // rings: the quad holds the ring and its band
 				const r = p.r0 + (p.r1 - p.r0) * e, b = p.b0 + (p.b1 - p.b0) * e, half = r + b * 2 + 2;
-				put(p, p.x, p.y, half, half, rot, cell, a, rgb, r / half, b / half);
-			} else put(p, p.x, p.y, hw, hh, rot, cell, a, rgb, 0, 0);
+				put(p, p.x, p.y, half, half, p.rot, p.cell, a, rgb, r / half, b / half);
+			} else put(p, p.x, p.y, hw, hh, p.rot, p.cell, a, rgb, 0, 0);
 			if (n >= MAX_PARTICLES) break;
 		}
 		this.parts = live;
@@ -497,7 +496,7 @@ class Plugin extends AppPlugin {
 		if (this.head && this.pointer && n < MAX_PARTICLES) {
 			const h = this.head, idle = (now - this.pointer.t) / 1000, a = h.a0 * Math.max(0, 1 - Math.max(0, idle - 0.12) / 0.35);
 			h.rot += h.vr * dt;
-			if (a > 0.01) put(h, this.pointer.x, this.pointer.y, h.w0, h.w0, h.rot, h.cell, a * (0.85 + 0.15 * Math.sin(now / 90)), col, 0, 0);
+			if (a > 0.01) put(h, this.pointer.x, this.pointer.y, h.w0, h.w0, h.rot, h.cell, a * (0.85 + 0.15 * Math.sin(now / 90)), h.alt ? accent : main, 0, 0);
 		}
 		return n;
 	}
@@ -510,7 +509,7 @@ class Plugin extends AppPlugin {
 		this.dlg?.remove(); this.dlg = null;
 	}
 
-	/** Pick a click effect, a trail and a colour. Picking one plays it there and then (clicking is the preview). */
+	/** The presets as cards. Picking one plays its click effect there and then (clicking is the preview); moving shows its trail. */
 	dialog() {
 		this.closeDialog();
 		const cs = getComputedStyle(document.body);
@@ -518,33 +517,22 @@ class Plugin extends AppPlugin {
 		ov.className = 'cufx-ov';
 		ov.innerHTML = `<div class="cufx-box"><div class="cufx-head"><div class="cufx-title">Cursor FX</div><button class="cufx-x" aria-label="Close">✕</button></div>
 			<button class="cufx-opt cufx-on" role="switch"><span>Effects on</span><span class="cufx-sw"></span></button>
-			<div class="cufx-label">Click</div><div class="cufx-grid" data-k="click"></div>
-			<div class="cufx-label">Trail</div><div class="cufx-grid" data-k="trail"></div>
-			<div class="cufx-label">Colour</div><div class="cufx-colors"></div>
-			<div class="cufx-label">Size</div><div class="cufx-grid cufx-sizes" data-k="size"></div>
-			<div class="cufx-note">Click anywhere in here to try it.</div></div>`;
+			<div class="cufx-presets"></div>
+			<div class="cufx-note">Pick one to try it, then move the pointer.</div></div>`;
 		const box = ov.querySelector('.cufx-box');
 		box.style.color = cs.color;
 		box.style.background = cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : 'Canvas';
-		const fill = (k, items) => {
-			const grid = ov.querySelector(`[data-k="${k}"]`);
-			for (const [id, icon, label] of items) {
-				const b = document.createElement('button');
-				b.className = 'cufx-pick'; b.dataset.v = id;
-				b.innerHTML = '<i></i><span></span>'; b.firstChild.textContent = icon; b.lastChild.textContent = label;
-				b.onclick = () => this.choose({ [k]: k === 'size' ? Number(id) : id });
-				grid.appendChild(b);
-			}
-		};
-		fill('click', [...CLICK_IDS.map((id) => [id, CLICKS[id].icon, CLICKS[id].label]), ['random', '⚄', 'Random'], ['none', '∅', 'None']]);
-		fill('trail', [...TRAIL_IDS.map((id) => [id, TRAILS[id].icon, TRAILS[id].label]), ['none', '∅', 'None']]);
-		fill('size', [['0.75', 'S', 'Small'], ['1', 'M', 'Medium'], ['1.4', 'L', 'Large']]);
-		const colors = ov.querySelector('.cufx-colors');
-		for (const [name, hex] of COLORS) {
+		const list = ov.querySelector('.cufx-presets');
+		for (const p of PRESETS) {
 			const b = document.createElement('button');
-			b.className = 'cufx-color'; b.title = name; b.dataset.v = hex; b.style.background = hex;
-			b.onclick = () => this.choose({ color: hex });
-			colors.appendChild(b);
+			b.className = 'cufx-preset'; b.dataset.v = p.id;
+			b.style.setProperty('--pc', p.color); b.style.setProperty('--pa', p.accent);
+			b.innerHTML = '<i></i><span><b></b><small></small></span><em></em>';
+			b.querySelector('b').textContent = p.name;
+			b.querySelector('small').textContent = p.note;
+			b.querySelector('em').textContent = CLICKS[p.click].icon + (TRAILS[p.trail] ? ' ' + TRAILS[p.trail].icon : '');
+			b.onclick = () => this.choose({ preset: p.id, on: true });
+			list.appendChild(b);
 		}
 		ov.querySelector('.cufx-on').onclick = () => this.choose({ on: !this.cfg.on });
 		ov.querySelector('.cufx-x').onclick = () => this.closeDialog();
@@ -553,9 +541,8 @@ class Plugin extends AppPlugin {
 		document.addEventListener('keydown', this.dlgKey, true);
 		this.refreshDialog = () => {
 			ov.querySelector('.cufx-on').setAttribute('aria-checked', String(!!this.cfg.on));
-			for (const k of ['click', 'trail', 'size']) ov.querySelectorAll(`[data-k="${k}"] .cufx-pick`).forEach((b) => b.classList.toggle('on', b.dataset.v === String(this.cfg[k])));
-			ov.querySelectorAll('.cufx-color').forEach((b) => b.classList.toggle('on', b.dataset.v === this.cfg.color));
-			box.style.setProperty('--c', this.cfg.color);
+			ov.querySelectorAll('.cufx-preset').forEach((b) => b.classList.toggle('on', b.dataset.v === this.preset.id));
+			box.style.setProperty('--c', this.preset.color);
 		};
 		this.refreshDialog();
 		document.body.appendChild(ov);

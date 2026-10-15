@@ -607,7 +607,14 @@ class Plugin extends AppPlugin {
 		const ok = r && r.width > 20 && r.height > 100, mini = !!ok && r.width < 150;
 		w.classList.toggle('ach-mini', mini);
 		this.takeOver(r, ok && !mini);
-		const row = this.native.tasks && this.native.tasks.isConnected ? this.native.tasks.getBoundingClientRect() : null;
+		// the card lines up with the sidebar's rows: the inside of the box Tasks sits in (Tasks itself may share its line, see Home)
+		const tasks = this.native.tasks && this.native.tasks.isConnected ? this.native.tasks : null;
+		let row = null;
+		if (tasks) {
+			const box = tasks.parentElement, br = box.getBoundingClientRect(), cs = getComputedStyle(box);
+			const l = br.left + parseFloat(cs.paddingLeft || 0), r = br.right - parseFloat(cs.paddingRight || 0);
+			row = { left: l, width: r - l };
+		}
 		const width = mini ? 46 : row && row.width > 100 ? Math.round(row.width) : ok ? Math.max(150, Math.min(230, r.width - 20)) : 124;
 		if (!mini && w.style.width !== width + 'px') w.style.width = width + 'px'; else if (mini) w.style.width = '';
 		const left = ok ? (row && !mini ? Math.round(row.left) : r.left + 10) : 12, top = ok ? r.top + 8 : 46;

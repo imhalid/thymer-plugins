@@ -87,6 +87,14 @@ ACHIEVEMENTS.push({ id: 'all', name: 'Super Sonic', desc: 'Unlock every other ac
 const tier = (a) => (a.rings <= 10 ? 'Easy' : a.rings <= 40 ? 'Medium' : a.rings <= 150 ? 'Hard' : 'Legendary');
 
 // ---- Small helpers -------------------------------------------------------------------------------------------------------
+/**
+ * Thymer on a phone or tablet: the plugin stays off there (the card, the WebGL and the listeners are too much for it). Thymer
+ * marks the device on <html data-device="mobile|desktop">; without that, the user agent decides.
+ */
+const onMobile = () => {
+	const d = document.documentElement.dataset.device;
+	return d ? d === 'mobile' : /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+};
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const ease = (t) => 1 - Math.pow(1 - t, 3);
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
@@ -402,6 +410,7 @@ class Plugin extends AppPlugin {
 	native = {};   // Thymer's own sidebar rows the card takes over: search, jump, and the workspace row
 
 	onLoad() {
+		if (onMobile()) { this.off = true; return; }
 		this.st = this.load();
 		fxImages();   // decode the unlock effect's textures now, not when something unlocks
 		this.lineWords = new Map();
@@ -443,6 +452,7 @@ class Plugin extends AppPlugin {
 	}
 
 	onUnload() {
+		if (this.off) return;
 		cancelAnimationFrame(this.raf);
 		this.cleanup.forEach((f) => { try { f(); } catch (e) { /* ignore */ } });
 		this.cleanup = [];

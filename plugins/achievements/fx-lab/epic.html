@@ -29,144 +29,117 @@ precision highp float;
 uniform vec2 uRes; uniform float uDpr; uniform int uN;
 uniform vec2 uC[${N}]; uniform float uR[${N}], uT[${N}], uSeed[${N}], uTier[${N}]; uniform vec3 uCol[${N}];
 out vec4 o;
-const float B = 1.0, TAU = 6.2831853;   // B: when the charge ends and it breaks
-float SD = 0.0;
-float hash2(vec2 p) { p += vec2(SD * 13.17, SD * 7.31); p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-vec2 hash22(vec2 p) { float n = hash2(p); return vec2(n, hash2(p + n + 17.7)); }
-float h11(float n) { return hash2(vec2(n, n * 0.37 + 1.3)); }
-float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-	return mix(mix(hash2(i), hash2(i + vec2(1, 0)), f.x), mix(hash2(i + vec2(0, 1)), hash2(i + vec2(1, 1)), f.x), f.y); }
-float fbm(vec2 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++) { s += a * vnoise(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }
-float angn(float ang, float k, float z) { return fbm(vec2(cos(ang), sin(ang)) * k + z); }   // noise round a circle, with no seam
-vec3 pal(float x) { return 0.5 + 0.5 * cos(TAU * (x + vec3(0.0, 0.33, 0.67))); }
+// A game-style unlock: made of clean shapes, not noise. A short wind-up, a hit (flash + flare), then a shock ring, a sunburst,
+// confetti and sparkles thrown out, a shine across the badge. The tier decides how much of it there is.
+const float B = 0.7, TAU = 6.2831853;
+float SD = 0.0, AA = 0.02;
+float h(float n) { return fract(sin((n + SD) * 127.1) * 43758.5453); }
 mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }
-// Voronoi: x = distance to the nearest point, y = distance to the nearest edge (F2 - F1), z = the cell's random value
-vec3 vor(vec2 p) {
-	vec2 g = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0; vec2 id = vec2(0.0);
-	for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
-		vec2 b = vec2(float(i), float(j)); vec2 r = b + hash22(g + b) - f; float d = dot(r, r);
-		if (d < d1) { d2 = d1; d1 = d; id = g + b; } else if (d < d2) d2 = d;
-	}
-	return vec3(sqrt(d1), sqrt(d2) - sqrt(d1), hash2(id + 3.3));
-}
 float ease(float x) { x = clamp(x, 0.0, 1.0); return 1.0 - pow(1.0 - x, 3.0); }
+float sparkle(vec2 q, float s) {   // a four-point star with concave sides
+	q = abs(q); float f = sqrt(q.x) + sqrt(q.y), k = sqrt(max(s, 1e-4));
+	return 1.0 - smoothstep(k * (1.0 - 0.07), k, f);
+}
+float diamond(vec2 q, vec2 ab) { return 1.0 - smoothstep(1.0 - 0.12, 1.0, abs(q.x) / ab.x + abs(q.y) / ab.y); }
+float ring(float r, float R, float w) { return 1.0 - smoothstep(w - AA, w + AA, abs(r - R)); }
 
-// The light at p (in the badge's radii, y up), t seconds into the sequence, for tier tr (0 Easy .. 3 Legendary).
-vec3 fx(vec2 p, float t, float tr, vec3 base, out float occ) {
-	occ = 0.0;
+vec3 fx(vec2 p, float t, float tr, vec3 base) {
 	float r = length(p), ang = atan(p.y, p.x), after = t - B;
+	float scale = 0.7 + 0.35 * tr, dirA = h(3.0) < 0.5 ? -1.0 : 1.0;
+	vec3 c0 = base, c1 = mix(base, vec3(1.0), 0.6), c2 = mix(base.brg, vec3(1.0, 0.88, 0.55), 0.45), white = vec3(1.0);
 	vec3 e = vec3(0.0);
-	// what each tier is made of
-	float wBloom = tr < 0.5 ? 1.0 : tr > 2.5 ? 0.5 : 0.0;
-	float wCrack = tr < 0.5 ? 0.0 : tr < 1.5 ? 1.0 : tr < 2.5 ? 0.7 : 1.0;
-	float wDisk  = tr < 1.5 ? 0.0 : tr < 2.5 ? 1.0 : 1.25;
-	float wRays  = tr < 0.5 ? 0.0 : tr < 1.5 ? 0.5 : tr < 2.5 ? 1.0 : 1.4;
-	float wJet   = tr < 1.5 ? 0.0 : tr < 2.5 ? 0.35 : 1.0;
-	float wStreak = tr < 1.5 ? 0.0 : tr < 2.5 ? 0.5 : 1.0;
-	float wShock = tr < 0.5 ? 0.3 : tr < 1.5 ? 1.0 : tr < 2.5 ? 1.2 : 1.6;
-	float wDust  = tr < 0.5 ? 1.0 : tr < 1.5 ? 0.5 : tr < 2.5 ? 0.6 : 1.0;
-	float scale = 0.75 + 0.3 * tr;                         // how far it reaches
-	float dirA = h11(3.0) < 0.5 ? -1.0 : 1.0, tilt = (h11(5.0) - 0.5) * 0.9;
-	vec3 c1 = base, c2 = mix(base, pal(h11(12.0)), 0.5), hot = mix(base, vec3(1.0), 0.75);
 
-	// ---- charge: the light is drawn in -----------------------------------------------------------------------------------
-	float charge = smoothstep(0.0, B, t), gone = 1.0 - smoothstep(B, B + 0.15, t);
-	if (t < B + 0.2) {
-		for (int L = 0; L < 2; L++) {   // streaks falling into the badge, one to each slice of the sky
-			float cells = L == 0 ? 36.0 : 64.0, u = (ang / TAU + 0.5) * cells, cell = floor(u), id = cell + 31.0 * float(L);
-			float lat = abs(fract(u) - (0.2 + 0.6 * h11(id * 1.3))) / cells * TAU * r;
-			float ph = fract(h11(id) + t * (0.5 + 0.45 * h11(id + 2.0))), rm = mix(3.0 + 1.2 * tr + float(L), 0.95, ph * ph);
-			float d = r - rm, trail = step(0.0, d) * exp(-d / (0.25 + 1.4 * ph)) * smoothstep(0.0, 0.05, d + 0.05);
-			e += mix(c2, hot, ph) * exp(-pow(lat / (0.014 + 0.008 * float(L)), 2.0)) * trail * ph * (0.5 + 0.35 * tr) * charge * gone;
+	// ---- wind-up: a ring closes in, sparkles are drawn in, the badge glows ---------------------------------------------
+	if (t < B + 0.03) {
+		float k = ease(t / B), fade = 1.0 - smoothstep(B - 0.05, B + 0.03, t);
+		e += c1 * ring(r, mix(2.4, 1.08, k), 0.025 + 0.02 * k) * (0.35 + 0.65 * k) * fade;
+		for (int i = 0; i < 10; i++) {
+			float a = (float(i) + h(float(i))) / 10.0 * TAU + h(60.0) * 6.0, d = mix(2.6 + h(float(i) + 5.0), 1.1, pow(k, 1.6));
+			e += mix(c1, white, k) * sparkle(rot(-a) * (p - vec2(cos(a), sin(a)) * d), 0.13 + 0.1 * k) * smoothstep(0.0, 0.25, t) * fade;
 		}
-		float pulse = 0.8 + 0.2 * sin(t * 18.0);
-		e += hot * exp(-r * r * 3.5) * pow(charge, 2.0) * (0.5 + 0.25 * tr) * pulse * gone;
-		float Rr = mix(2.6, 1.0, ease(t / B)); e += c2 * exp(-pow((r - Rr) / 0.035, 2.0)) * charge * 0.55 * gone;
-		if (wDisk > 0.0) {   // a black hole: a tilted, flowing disk with a bright rim, and its shadow
-			vec2 q = rot(tilt) * p; vec2 qd = vec2(q.x, q.y * 3.4); float rd = length(qd), ad = atan(qd.y, qd.x);
-			float flow = fbm(vec2(cos(ad + dirA * t * 1.4), sin(ad + dirA * t * 1.4)) * 1.9 + vec2(rd * 4.0, 1.0));
-			float doppler = 0.5 + 0.5 * cos(ad - 0.7);
-			float amp = smoothstep(0.05, 0.75, t) * (1.0 - smoothstep(B + 0.05, B + 1.5, t));
-			e += mix(c1, hot, flow) * exp(-pow((rd - 1.4) / 0.26, 2.0)) * (0.3 + 1.7 * flow) * doppler * amp * wDisk;
-			float lens = exp(-pow((r - 1.14) / 0.04, 2.0)) * (0.35 + 0.65 * pow(0.5 + 0.5 * cos(ang - 0.7 + dirA * t * 0.8), 2.0));
-			e += hot * lens * amp * wDisk * 1.3;
-			occ = smoothstep(1.02, 0.86, r) * smoothstep(0.1, 0.5, t) * (1.0 - smoothstep(B, B + 0.3, t)) * 0.92;
-		}
+		e += c0 * exp(-r * r * 2.2) * k * k * 0.5 * fade;
 	}
 
-	// ---- the break --------------------------------------------------------------------------------------------------------
-	if (after > -0.15) {
-		float ac = max(after, 0.0), flash = exp(-ac * 5.5) * smoothstep(-0.12, 0.0, after);
-		e += hot * exp(-r * r * 1.1) * flash * 2.2 + c2 * exp(-r * 0.9) * flash * 0.45;
-		if (wCrack > 0.0) {   // the light finds its way out through cracks that run out from the middle, then the web comes apart
-			float front = (after + 0.15) * 7.0 * scale;
-			float mask = 1.0 - smoothstep(front - 0.6, front, r);
-			vec3 v = vor(p / (1.0 + ac * 0.7) * 1.05 + vec2(SD));
-			float crack = exp(-v.y * 22.0) * (0.55 + 0.45 * vnoise(p * 3.0 + vec2(SD)));
-			float alive = 1.0 - smoothstep(0.12 + v.z * 0.5, 0.45 + v.z * 0.9, ac);
-			float shard = (0.02 + 0.11 * v.z) * smoothstep(0.0, 0.5, v.y) * (0.6 + 0.4 * cos(v.x * 9.0 + ac * 4.0));
-			vec3 tint = mix(c2, hot, exp(-ac * 3.0));
-			e += tint * (crack * 1.4 + shard) * alive * mask * wCrack * smoothstep(0.7, 1.3, r) * exp(-ac * 1.2) * exp(-r * 0.22);
-		}
-		for (int j = 0; j < 3; j++) {   // shock rings, split into colours at the edge, like glass
-			if (float(j) >= (tr < 1.5 ? 1.0 : tr < 2.5 ? 2.0 : 3.0)) break;
-			float aj = after - 0.17 * float(j);
+	if (after > 0.0) {
+		// ---- the hit: a flash, and a flare ------------------------------------------------------------------------------
+		float flashT = exp(-after * 16.0);
+		e += white * (1.0 - smoothstep(0.9 + after * 10.0, 1.2 + after * 10.0, r)) * flashT;
+		float fs = (2.2 + 1.2 * scale) * (0.4 + 0.6 * ease(after * 6.0)) * exp(-after * 2.6);
+		e += mix(c1, white, 0.5) * (sparkle(p, fs) + 0.6 * sparkle(rot(0.7854) * p, fs * 0.55));
+		e += c0 * exp(-r * r * 0.6) * exp(-after * 5.0) * 0.5;
+
+		// ---- the shock ring (Hard and Legendary: two, one behind the other) ---------------------------------------------
+		for (int j = 0; j < 2; j++) {
+			if (j == 1 && tr < 1.5) break;
+			float aj = after - 0.13 * float(j);
 			if (aj <= 0.0) continue;
-			float Rj = 0.9 + 3.1 * scale * (1.0 - exp(-aj * 2.4)), wd = 0.045 + 0.06 * aj;
-			float rr = r + (angn(ang, 1.6, aj * 0.5 + float(j) * 4.0) - 0.5) * 0.35 * min(1.0, aj * 3.0);
-			vec3 sp = vec3(exp(-pow((rr - Rj) / wd, 2.0)), exp(-pow((rr - Rj * 0.975) / wd, 2.0)), exp(-pow((rr - Rj * 0.95) / wd, 2.0)));
-			e += mix(sp, base * dot(sp, vec3(0.333)), 0.4) * exp(-aj * 1.6) * wShock * (1.0 - 0.22 * float(j)) * 1.6;
+			float kj = ease(aj * 1.9);
+			e += (j == 0 ? c1 : c0) * ring(r, 1.0 + (2.3 + 0.9 * scale) * kj, 0.16 * (1.0 - kj) + 0.025) * (1.0 - smoothstep(0.35, 1.0, kj) * 0.85) * exp(-aj * 1.3);
 		}
-		if (wRays > 0.0) {   // rays out of the middle
-			float a1 = angn(ang, 2.2, t * 0.12), a2 = angn(ang, 6.5, t * 0.3 + 4.0);
-			float ray = pow(smoothstep(0.32, 0.9, a1), 2.0) * (0.45 + 0.55 * a2);
-			e += mix(c2, hot, 0.3) * ray * exp(-r * 0.55 / scale) * smoothstep(0.7, 1.3, r) * exp(-ac * 1.5) * smoothstep(0.0, 0.08, after) * wRays * 1.4;
+
+		// ---- the sunburst: wedges turning slowly behind everything (not Easy) --------------------------------------------
+		if (tr > 0.5) {
+			float K = tr < 1.5 ? 10.0 : tr < 2.5 ? 14.0 : 18.0, x = fract(ang * K / TAU + dirA * after * 0.06);
+			float wedge = 1.0 - smoothstep(0.23, 0.27, abs(x - 0.5));
+			float reach = 2.6 + 1.3 * scale, rr = smoothstep(1.1, 1.4, r) * (1.0 - smoothstep(reach * 0.3, reach, r));
+			e += mix(c0, c1, 0.4) * wedge * rr * (1.0 - exp(-after * 14.0)) * exp(-after * 1.7) * 0.8;
 		}
-		if (wJet > 0.0) {   // two jets along the axis
-			vec2 pj = rot(tilt * 1.4) * p; float len = (1.0 - exp(-ac * 4.5)) * (3.0 + 4.0 * wJet) * scale / 1.3, ay = abs(pj.y);
-			float w = 0.05 + 0.07 * ay, fl = 0.7 + 0.3 * vnoise(vec2(ay * 3.0 - t * 10.0, 3.0));
-			float body = exp(-pow(pj.x / w, 2.0)) * smoothstep(len, len * 0.4, ay) * smoothstep(0.7, 1.05, ay) * fl;
-			e += (c2 * body + hot * body * body * 0.8) * exp(-ac * 1.3) * wJet * 1.8 * smoothstep(0.0, 0.05, after);
-		}
-		if (wStreak > 0.0) {   // the anamorphic streak
-			float s = exp(-abs(p.y) * 16.0) * exp(-abs(p.x) * 0.26 / scale) + 0.4 * exp(-abs(p.y) * 55.0) * exp(-abs(p.x) * 0.12 / scale);
-			e += mix(vec3(0.55, 0.8, 1.0), base, 0.45) * s * exp(-ac * 2.4) * smoothstep(0.0, 0.03, after) * wStreak * 1.5;
-		}
-		if (wBloom > 0.0) {   // petals unfolding, three turns of them
-			for (int L = 0; L < 3; L++) {
-				float k = 5.0 + float(L) + floor(h11(20.0 + float(L)) * 3.0), spin = dirA * (L == 1 ? -1.0 : 1.0) * 0.35 * ac + h11(30.0 + float(L)) * TAU;
-				float Rb = (1.05 + 0.5 * float(L)) * (0.35 + 0.65 * ease(ac * 0.9)) * (0.9 + 0.15 * scale);
-				float Rang = Rb * (0.5 + 0.5 * pow(abs(cos(k * (ang + spin) * 0.5)), 1.4));
-				float line = exp(-pow((r - Rang) / (0.03 + 0.012 * float(L)), 2.0)), fill = smoothstep(Rang, Rang * 0.25, r) * 0.07;
-				e += mix(c1, pal(h11(40.0 + float(L)) + float(L) * 0.12), 0.5) * (line * 1.1 + fill) * exp(-ac * 0.7) * smoothstep(0.0, 0.2, after) * wBloom;
+
+		// ---- the shine, drawn across the badge itself ---------------------------------------------------------------------
+		float sp = mix(-1.9, 1.9, ease((after - 0.06) / 0.45)), sd = dot(p, vec2(0.8, 0.6));
+		e += white * (1.0 - smoothstep(0.0, 0.22, abs(sd - sp))) * (1.0 - smoothstep(0.95, 1.08, r)) * 0.8 * step(0.0, after - 0.06) * (1.0 - smoothstep(0.5, 0.56, after));
+
+		// ---- runes: a turning ring of ticks round it (Hard and Legendary) ------------------------------------------------
+		if (tr > 1.5) {
+			for (int j = 0; j < 2; j++) {
+				if (j == 1 && tr < 2.5) break;
+				float n = j == 0 ? 28.0 : 14.0, R0 = j == 0 ? 1.62 : 2.15, sc = ease(after * 3.0 - 0.1 * float(j));
+				float x = fract(ang * n / TAU + (j == 0 ? 1.0 : -1.0) * dirA * after * 0.35), tick = 1.0 - smoothstep(0.18, 0.26, abs(x - 0.5) * (j == 0 ? 1.0 : 0.6));
+				float band = (1.0 - smoothstep(0.045, 0.06, abs(r - R0 * (0.7 + 0.3 * sc)))) * tick + ring(r, R0 * (0.7 + 0.3 * sc) + 0.1, 0.012) * 0.9 + ring(r, R0 * (0.7 + 0.3 * sc) - 0.1, 0.012) * 0.9;
+				e += mix(c1, white, 0.3) * band * sc * (1.0 - smoothstep(0.7, 1.7, after)) * (j == 0 ? 0.9 : 0.75);
 			}
 		}
-		if (wDust > 0.0) {   // lights that stay and drift: fireflies, two depths
-			for (int L = 0; L < 2; L++) {
-				vec2 q = p * (2.1 + 1.3 * float(L)) + vec2(float(L) * 7.7, -ac * (0.5 + 0.3 * float(L))), g = floor(q); vec2 hp = hash22(g + float(L) * 9.0);
-				vec2 c = g + 0.5 + 0.36 * vec2(sin(t * 0.9 + hp.x * TAU), cos(t * 0.7 + hp.y * TAU)); float d = length(q - c);
-				float reach = (1.2 + ac * 3.4) * scale, life = 1.0 - smoothstep(1.4 + hp.x * 1.6, 3.4 + hp.x * 1.6, ac);
-				float tw = 0.55 + 0.45 * sin(t * (2.0 + 5.0 * hp.x) + hp.y * TAU);
-				e += mix(hot, c2, hp.x) * exp(-d * d * (85.0 + 70.0 * float(L))) * tw * life * smoothstep(reach, reach - 1.0, r) * smoothstep(0.9, 1.3, r) * step(hp.y, 0.38 * wDust) * 1.5;
-			}
+
+		// ---- Legendary: a beam of light through it, across and up -------------------------------------------------------
+		if (tr > 2.5) {
+			float g = exp(-after * 2.4) * smoothstep(0.0, 0.05, after);
+			e += mix(c1, white, 0.4) * ((1.0 - smoothstep(0.015, 0.06, abs(p.y))) * (1.0 - smoothstep(0.0, 5.5, abs(p.x))) + (1.0 - smoothstep(0.015, 0.05, abs(p.x))) * (1.0 - smoothstep(0.0, 3.0, abs(p.y))) * 0.8) * g;
+		}
+
+		// ---- what is thrown out: sparkles, confetti, dots -----------------------------------------------------------------
+		float N = tr < 0.5 ? 9.0 : tr < 1.5 ? 15.0 : tr < 2.5 ? 22.0 : 30.0;
+		for (int i = 0; i < 30; i++) {
+			float fi = float(i);
+			if (fi >= N) break;
+			float a = (fi + h(fi + 1.0) * 0.8) / N * TAU + h(50.0) * TAU, sp0 = (1.4 + 2.6 * h(fi + 9.0)) * scale, life = 0.8 + 1.0 * h(fi + 19.0);
+			float a2 = after - 0.03 * h(fi + 29.0);
+			if (a2 < 0.0 || a2 > life) continue;
+			float k = a2 / life, fade = 1.0 - smoothstep(0.7, 1.0, k);
+			vec2 pos = vec2(cos(a), sin(a)) * (1.15 + sp0 * (1.0 - exp(-a2 * 4.2))) + vec2(0.0, (tr < 0.5 ? 0.5 : -1.5) * a2 * a2 * (0.5 + h(fi + 33.0)));
+			vec2 q = p - pos; float type = mod(fi, 3.0), pick = h(fi + 41.0);
+			vec3 col = pick < 0.34 ? c0 : pick < 0.62 ? c1 : pick < 0.86 ? c2 : white;
+			float v;
+			if (type < 0.5) v = sparkle(rot(a2 * 1.5) * q, (0.07 + 0.13 * h(fi + 7.0)) * (1.0 - 0.6 * k) * (0.75 + 0.25 * sin(a2 * 22.0 + fi)));
+			else if (type < 1.5) v = diamond(rot(a2 * (3.0 + 5.0 * h(fi + 12.0)) + fi) * q, vec2(0.05 + 0.04 * h(fi + 3.0), 0.12 + 0.06 * h(fi + 4.0)) * (1.0 - 0.3 * k)) * (0.6 + 0.4 * abs(cos(a2 * 9.0 + fi)));
+			else v = 1.0 - smoothstep(0.03, 0.05, length(q));
+			e += col * v * fade;
 		}
 	}
 	return e;
 }
 void main() {
 	vec2 px = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uDpr;
-	vec3 col = vec3(0.0); float occ = 0.0;
+	vec3 col = vec3(0.0);
 	for (int i = 0; i < ${N}; i++) {
 		if (i >= uN) break;
 		vec2 p = (px - uC[i]) / uR[i];
-		float tr = uTier[i], lim = 4.6 + 1.5 * tr, r = length(p);
-		if (uT[i] < 0.0 || uT[i] > 6.0 || r > lim) continue;
-		SD = uSeed[i];
-		float o1; vec3 e = fx(vec2(p.x, -p.y), uT[i], tr, uCol[i], o1) * smoothstep(lim, lim * 0.7, r);
-		col += e; occ = max(occ, o1);
+		float tr = uTier[i], lim = 4.4 + 1.5 * tr, r = length(p);
+		if (uT[i] < 0.0 || uT[i] > 4.0 || r > lim) continue;
+		SD = uSeed[i]; AA = 1.0 / (uR[i] * uDpr);
+		col += fx(vec2(p.x, -p.y), uT[i], tr, uCol[i]) * smoothstep(lim, lim * 0.8, r);
 	}
-	col = 1.0 - exp(-col * 1.25);            // a soft shoulder: the brightest light goes white, never clips flat
-	o = vec4(col, clamp(max(max(col.r, col.g), col.b) + occ, 0.0, 1.0));
+	col = min(col, vec3(1.0));
+	o = vec4(col, max(max(col.r, col.g), col.b));
 }`;
 
 const c = document.getElementById('c'), gl = c.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
@@ -208,7 +181,7 @@ function frame(now) {
 		const el = document.getElementById('b' + i), r = el.getBoundingClientRect(), cr = c.getBoundingClientRect();
 		C[i * 2] = r.left + r.width / 2 - cr.left; C[i * 2 + 1] = r.top + r.height / 2 - cr.top; Rr[i] = R;
 		const t = frozen != null ? frozen : (now - s.at) / 1000; T[i] = t; S[i] = s.seed; Tr[i] = i; K.set(s.rgb, i * 3);
-		el.style.setProperty('--s', t < 1 ? String(0.55 + 0.1 * Math.max(0, t)) : String(1 + 0.25 * Math.exp(-(t - 1) * 7) * Math.sin((t - 1) * 14 + 1.2) + 0.0));
+		el.style.setProperty('--s', String(t < 0 ? 1 : t < 0.7 ? 1 - 0.18 * Math.sin((t / 0.7) * Math.PI / 2) : 1 + 0.38 * Math.exp(-(t - 0.7) * 6.5) * Math.cos((t - 0.7) * 11)));
 		el.style.opacity = t < 0 ? 1 : '1';
 	});
 	if (frozen != null) tt.textContent = `t = ${frozen.toFixed(1)}s`; else tt.textContent = '';

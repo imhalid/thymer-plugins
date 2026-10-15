@@ -2,7 +2,7 @@
  * Achievements
  *
  * Trophies for writing, and a character card in the top-left corner: a window onto the mascot's head, looking out at you (it
- * follows the pointer, nods while you type, and spins with a banner when something unlocks), with its name, level, an
+ * follows the pointer, nods while you type, and spins when something unlocks), with its name, level, an
  * achievement progress bar and three buttons below - search, jump to, and the full list. The head is a low-poly model
  * drawn with plain WebGL (no libraries, no network); everything else is HTML and CSS.
  *
@@ -20,49 +20,101 @@ const STREAK_MIN_WORDS = 30;   // a day counts toward the streak from this many 
 // stat: what is measured; target: where it unlocks; rings: what it pays.
 const ACHIEVEMENTS = [
 	{ id: 'w1', name: 'First Ring', desc: 'Write your first word', stat: 'words', target: 1, rings: 5, icon: '💍' },
+	{ id: 'w25', name: 'Warm Up', desc: 'Write 25 words', stat: 'words', target: 25, rings: 5, icon: '🏃' },
 	{ id: 'w100', name: 'Ring Collector', desc: 'Write 100 words', stat: 'words', target: 100, rings: 10, icon: '💍' },
 	{ id: 'w500', name: 'Gold Rush', desc: 'Write 500 words', stat: 'words', target: 500, rings: 20, icon: '🥇' },
 	{ id: 'w1000', name: 'Ring Master', desc: 'Write 1,000 words', stat: 'words', target: 1000, rings: 40, icon: '🏅' },
 	{ id: 'w5000', name: 'Rings Everywhere', desc: 'Write 5,000 words', stat: 'words', target: 5000, rings: 80, icon: '🌟' },
 	{ id: 'w10000', name: 'Super Rings', desc: 'Write 10,000 words', stat: 'words', target: 10000, rings: 150, icon: '👑' },
+	{ id: 'w25000', name: 'Hyper Rings', desc: 'Write 25,000 words', stat: 'words', target: 25000, rings: 300, icon: '💫' },
+	{ id: 'w50000', name: 'Hyper Form', desc: 'Write 50,000 words', stat: 'words', target: 50000, rings: 500, icon: '🌈' },
+	{ id: 'w100000', name: 'Ultimate Life Form', desc: 'Write 100,000 words', stat: 'words', target: 100000, rings: 1000, icon: '🖤' },
 	{ id: 'd250', name: 'Spin Dash', desc: 'Write 250 words in one day', stat: 'bestDay', target: 250, rings: 15, icon: '🌀' },
 	{ id: 'd1000', name: 'Boost', desc: 'Write 1,000 words in one day', stat: 'bestDay', target: 1000, rings: 50, icon: '🚀' },
 	{ id: 'd2500', name: 'Super Form', desc: 'Write 2,500 words in one day', stat: 'bestDay', target: 2500, rings: 120, icon: '✨' },
+	{ id: 'd5000', name: 'Sonic Boom', desc: 'Write 5,000 words in one day', stat: 'bestDay', target: 5000, rings: 250, icon: '💥' },
+	{ id: 'm1000', name: 'Speed Highway', desc: 'Write 1,000 words without a 10-minute break', stat: 'bestSession', target: 1000, rings: 60, icon: '🛣️' },
+	{ id: 'm3000', name: 'Final Rush', desc: 'Write 3,000 words without a 10-minute break', stat: 'bestSession', target: 3000, rings: 180, icon: '☄️' },
 	{ id: 'p25', name: 'Fast Enough', desc: '25 words in a minute', stat: 'peak', target: 25, rings: 10, icon: '👟' },
 	{ id: 'p40', name: 'Gotta Go Fast', desc: '40 words in a minute', stat: 'peak', target: 40, rings: 30, icon: '⚡' },
 	{ id: 'p60', name: 'Faster Than Sound', desc: '60 words in a minute', stat: 'peak', target: 60, rings: 80, icon: '💨' },
+	{ id: 'p80', name: 'Light Speed', desc: '80 words in a minute', stat: 'peak', target: 80, rings: 150, icon: '🌠' },
+	{ id: 'ln50', name: 'Rail Grind', desc: 'Write 50 words in a single line', stat: 'longLine', target: 50, rings: 10, icon: '🛤️' },
+	{ id: 'ln200', name: 'Rail Canyon', desc: 'Write 200 words in a single line', stat: 'longLine', target: 200, rings: 50, icon: '🚂' },
+	{ id: 'l10', name: 'Spring', desc: 'Add 10 lines', stat: 'lines', target: 10, rings: 5, icon: '🦘' },
+	{ id: 'l1000', name: 'Loop-de-Loop', desc: 'Add 1,000 lines', stat: 'lines', target: 1000, rings: 60, icon: '➰' },
+	{ id: 'l5000', name: 'Carnival Night', desc: 'Add 5,000 lines', stat: 'lines', target: 5000, rings: 200, icon: '🎡' },
 	{ id: 's3', name: 'First Emerald', desc: 'Write 3 days in a row', stat: 'bestStreak', target: 3, rings: 15, icon: '💚' },
 	{ id: 's7', name: 'Seven Emeralds', desc: 'Write 7 days in a row', stat: 'bestStreak', target: 7, rings: 50, icon: '💎' },
 	{ id: 's14', name: 'Master Emerald', desc: 'Write 14 days in a row', stat: 'bestStreak', target: 14, rings: 100, icon: '🔷' },
 	{ id: 's30', name: 'Chaos Control', desc: 'Write 30 days in a row', stat: 'bestStreak', target: 30, rings: 250, icon: '🌌' },
+	{ id: 's60', name: 'Angel Island', desc: 'Write 60 days in a row', stat: 'bestStreak', target: 60, rings: 400, icon: '🏝️' },
+	{ id: 's100', name: 'Hidden Palace', desc: 'Write 100 days in a row', stat: 'bestStreak', target: 100, rings: 600, icon: '🏛️' },
+	{ id: 's365', name: 'Super Emeralds', desc: 'Write 365 days in a row', stat: 'bestStreak', target: 365, rings: 2000, icon: '🔮' },
 	{ id: 't1', name: 'Checkpoint', desc: 'Finish a task', stat: 'tasks', target: 1, rings: 5, icon: '🚩' },
+	{ id: 't5', name: 'Starpost', desc: 'Finish 5 tasks', stat: 'tasks', target: 5, rings: 10, icon: '📍' },
 	{ id: 't10', name: 'Zone Clear', desc: 'Finish 10 tasks', stat: 'tasks', target: 10, rings: 20, icon: '✅' },
 	{ id: 't50', name: 'Act Complete', desc: 'Finish 50 tasks', stat: 'tasks', target: 50, rings: 60, icon: '🏁' },
 	{ id: 't100', name: 'Time Attack', desc: 'Finish 100 tasks', stat: 'tasks', target: 100, rings: 120, icon: '⏱️' },
+	{ id: 't250', name: 'Badnik Buster', desc: 'Finish 250 tasks', stat: 'tasks', target: 250, rings: 200, icon: '🤖' },
+	{ id: 't1000', name: 'Death Egg Down', desc: 'Finish 1,000 tasks', stat: 'tasks', target: 1000, rings: 700, icon: '💣' },
+	{ id: 'td5', name: 'Combo', desc: 'Finish 5 tasks in one day', stat: 'bestTaskDay', target: 5, rings: 15, icon: '🔗' },
+	{ id: 'td20', name: 'Boss Rush', desc: 'Finish 20 tasks in one day', stat: 'bestTaskDay', target: 20, rings: 80, icon: '⚔️' },
 	{ id: 'night', name: 'Night Owl', desc: 'Write 100 words between 22:00 and 04:00', stat: 'night', target: 100, rings: 25, icon: '🌙' },
+	{ id: 'night1k', name: 'Mystic Cave', desc: 'Write 1,000 words between 22:00 and 04:00', stat: 'night', target: 1000, rings: 80, icon: '🦇' },
 	{ id: 'early', name: 'Early Bird', desc: 'Write 100 words between 04:00 and 08:00', stat: 'early', target: 100, rings: 25, icon: '🌅' },
+	{ id: 'early1k', name: 'Sky Sanctuary', desc: 'Write 1,000 words between 04:00 and 08:00', stat: 'early', target: 1000, rings: 80, icon: '☀️' },
+	{ id: 'midnight', name: 'Werehog', desc: 'Write a word at midnight sharp (00:00)', stat: 'midnight', target: 1, rings: 40, icon: '🐺' },
+	{ id: 'h12', name: 'Sunset Hill', desc: 'Write in 12 different hours of the day', stat: 'hours', target: 12, rings: 40, icon: '🌇' },
+	{ id: 'h24', name: 'Day and Night', desc: 'Write in every hour of the day, 00 to 23', stat: 'hours', target: 24, rings: 200, icon: '🌗' },
+	{ id: 'wkend', name: 'Casino Night', desc: 'Write 500 words on weekends', stat: 'weekend', target: 500, rings: 25, icon: '🎰' },
+	{ id: 'wk7', name: 'Zone Tour', desc: 'Write on every day of the week, Monday to Sunday', stat: 'weekdays', target: 7, rings: 30, icon: '📅' },
+	{ id: 'ny', name: 'New Game', desc: "Write on New Year's Day", stat: 'newYear', target: 1, rings: 30, icon: '🎆' },
+	{ id: 'back', name: 'Extra Life', desc: 'Come back and write after 7 or more days away', stat: 'comeback', target: 7, rings: 20, icon: '🆙' },
+	{ id: 'a3', name: 'Emerald Coast', desc: 'Write on 3 different days', stat: 'daysActive', target: 3, rings: 10, icon: '🏖️' },
 	{ id: 'a10', name: 'Green Hill', desc: 'Write on 10 different days', stat: 'daysActive', target: 10, rings: 30, icon: '🌿' },
 	{ id: 'a30', name: 'Chemical Plant', desc: 'Write on 30 different days', stat: 'daysActive', target: 30, rings: 90, icon: '🧪' },
 	{ id: 'a100', name: 'Final Egg', desc: 'Write on 100 different days', stat: 'daysActive', target: 100, rings: 300, icon: '🥚' },
+	{ id: 'a200', name: 'Station Square', desc: 'Write on 200 different days', stat: 'daysActive', target: 200, rings: 500, icon: '🏙️' },
+	{ id: 'a365', name: 'Space Colony ARK', desc: 'Write on 365 different days', stat: 'daysActive', target: 365, rings: 1000, icon: '🛰️' },
+	{ id: 'peek', name: 'Ring Box', desc: 'Open the achievements list', stat: 'opens', target: 1, rings: 2, icon: '📦' },
+	{ id: 'got10', name: 'Chao Garden', desc: 'Unlock 10 achievements', stat: 'got', target: 10, rings: 30, icon: '🐣' },
+	{ id: 'got30', name: 'Emblem Hunter', desc: 'Unlock 30 achievements', stat: 'got', target: 30, rings: 150, icon: '🎖️' },
 ];
+ACHIEVEMENTS.push({ id: 'all', name: 'Super Sonic', desc: 'Unlock every other achievement', stat: 'got', target: ACHIEVEMENTS.length, rings: 1500, icon: '🦔' });
+
+/** How hard an achievement is, read from what it pays. */
+const tier = (a) => (a.rings <= 10 ? 'Easy' : a.rings <= 40 ? 'Medium' : a.rings <= 150 ? 'Hard' : 'Legendary');
 
 // ---- Small helpers -------------------------------------------------------------------------------------------------------
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const ease = (t) => 1 - Math.pow(1 - t, 3);
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 
-function freshState() { return { words: 0, tasks: 0, lines: 0, peak: 0, night: 0, early: 0, days: {}, unlocked: {}, doneGuids: [] }; }
+function freshState() {
+	return { words: 0, tasks: 0, lines: 0, peak: 0, night: 0, early: 0, midnight: 0, longLine: 0, session: 0, bestSession: 0, lastWordAt: 0, opens: 0, days: {}, taskDays: {}, hours: {}, unlocked: {}, doneGuids: [] };
+}
 
 /** The measures the list is checked against, from the saved state. Pure (apart from today's date). */
 function measures(st) {
+	const day = (k) => new Date(k + 'T00:00:00');
 	const keys = Object.keys(st.days).filter((k) => st.days[k] >= STREAK_MIN_WORDS).sort();
 	let best = 0, run = 0, prev = null;
 	for (const k of keys) {
-		const d = new Date(k + 'T00:00:00');
+		const d = day(k);
 		run = prev && Math.round((d - prev) / 86400000) === 1 ? run + 1 : 1;
 		best = Math.max(best, run); prev = d;
 	}
-	return { words: st.words, tasks: st.tasks, peak: st.peak, night: st.night, early: st.early, bestDay: Math.max(0, ...Object.values(st.days)), daysActive: Object.keys(st.days).filter((k) => st.days[k] > 0).length, bestStreak: best };
+	const active = Object.keys(st.days).filter((k) => st.days[k] > 0).sort();
+	let away = 0;   // the longest stretch of days without writing that ended in writing again
+	for (let i = 1; i < active.length; i++) away = Math.max(away, Math.round((day(active[i]) - day(active[i - 1])) / 86400000) - 1);
+	const weekend = active.reduce((n, k) => n + ([0, 6].includes(day(k).getDay()) ? st.days[k] : 0), 0);
+	return {
+		words: st.words, tasks: st.tasks, lines: st.lines, peak: st.peak, night: st.night, early: st.early, midnight: st.midnight, longLine: st.longLine, bestSession: st.bestSession, opens: st.opens,
+		bestDay: Math.max(0, ...Object.values(st.days)), bestTaskDay: Math.max(0, ...Object.values(st.taskDays)), daysActive: active.length, bestStreak: best,
+		hours: Object.keys(st.hours).length, weekdays: new Set(active.map((k) => day(k).getDay())).size, weekend, comeback: away, newYear: active.some((k) => k.endsWith('-01-01')) ? 1 : 0,
+		got: ACHIEVEMENTS.filter((a) => st.unlocked[a.id]).length,
+	};
 }
 
 // ---- The mascot: a tiny WebGL renderer for the baked model -----------------------------------------------------------------
@@ -175,9 +227,131 @@ class Mascot {
 	destroy() { try { this.gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { /* ignore */ } }
 }
 
+// ---- The unlock effect: one fragment shader over every badge of the notification ---------------------------------------
+// Round each badge, energy gathers as a ring of flame (sparks are drawn in) while the icon waits small, bursts at BURST_MS into a
+// broken shockwave, a flash and a spray of sparks as the icon springs open, and leaves embers drifting up. Coordinates are in
+// badge radii; the colour and the size of each burst come from its achievement's tier. One canvas (one WebGL context) covers
+// the whole stack, so any number of unlocks costs the same.
+const BURST_MS = 800;
+const FX_MAX = 6;            // badges in one notification; more are summed up in a line
+const FX_REACH = 130;        // how far (CSS px) an effect reaches from its badge
+const FX_STAGGER_MS = 160;   // between one row's opening and the next
+const GLOW_BELOW = 100;     // how far (px) the notification's glow reaches below its last row
+const TIER_FX = { Easy: ['#5ee6a0', 0.5], Medium: ['#4fd8ff', 1], Hard: ['#b98cff', 1.4], Legendary: ['#ffb347', 2] };
+const FX_VERT = `#version 300 es
+in vec2 aPos;
+void main() { gl_Position = vec4(aPos, 0.0, 1.0); }`;
+const FX_FRAG = `#version 300 es
+precision highp float;
+uniform vec2 uRes; uniform float uDpr; uniform int uN;
+uniform vec2 uC[${FX_MAX}]; uniform float uR[${FX_MAX}], uT[${FX_MAX}], uPow[${FX_MAX}]; uniform vec3 uCol[${FX_MAX}];
+out vec4 o;
+float h11(float n) { return fract(sin(n * 127.1) * 43758.5453); }
+float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 4; i++) { s += a * noise(p); p = p * 2.03 + 17.1; a *= 0.5; } return s; }
+// the light of one badge at p (in its radii, y up), t seconds into its sequence
+float fx(vec2 p, float t, float pw) {
+	float r = length(p), after = t - ${(BURST_MS / 1000).toFixed(2)}, e = 0.0;
+	vec2 dir = p / max(r, 1e-4);
+	// gathering: flame licks further out round the rim as it charges, and sparks are drawn in
+	float charge = smoothstep(0.1, ${(BURST_MS / 1000).toFixed(2)}, t) * (1.0 - smoothstep(0.0, 0.18, after));
+	if (charge > 0.0) {
+		float n = fbm(p * 2.2 - dir * t * 2.5), n2 = fbm(p * 5.0 - dir * t * 4.0 + 7.0);   // noise flowing outward, like flame
+		float edge = r - 1.0, reach = 0.05 + charge * 0.5 * smoothstep(0.3, 0.8, n);
+		float flame = smoothstep(-0.08, 0.0, edge) * exp(-max(edge, 0.0) / reach) * (0.35 + 1.3 * smoothstep(0.3, 0.7, n2));
+		float rim = exp(-pow((r - 1.03) / 0.04, 2.0)) * (0.6 + n2);
+		e += (flame * 3.2 + rim * 1.2) * pow(charge, 1.5) * (0.8 + 0.2 * sin(t * 47.0 + n * 11.0));
+		for (int i = 0; i < 20; i++) {
+			float s = float(i) + 100.0, a = h11(s) * 6.2832, ph = fract(t * 0.9 + h11(s + 1.3));
+			float d = length(p - vec2(cos(a), sin(a)) * (2.6 - 1.5 * ph * ph));
+			e += smoothstep(0.04, 0.0, d) * sin(ph * 3.1416) * charge;
+		}
+	}
+	if (after > 0.0) {
+		e += 1.3 * exp(-after * 7.0) * exp(-r * r * 0.5);   // the flash
+		float k = 1.0 - exp(-after * 3.0), rw = 1.0 + k * (1.6 + 0.9 * pw), wid = 0.04 + 0.16 * k;   // the shockwave, broken into arcs
+		e += exp(-pow((r - rw) / wid, 2.0)) * smoothstep(0.42, 0.62, noise(dir * 2.6 + 5.3)) * (0.6 + 0.6 * fbm(dir * 6.0 + after)) * 1.4 * exp(-after * 1.6);
+		float rw2 = 1.0 + (1.0 - exp(-after * 5.0)) * (2.4 + pw);   // and a faster, thinner one
+		e += exp(-pow((r - rw2) / 0.03, 2.0)) * smoothstep(0.5, 0.7, noise(dir * 4.0 + 1.7)) * exp(-after * 3.0);
+		e += 0.35 * smoothstep(0.92, 1.05, r) * exp(-max(r - 1.0, 0.0) * 3.5) * exp(-after * 0.7);   // the glow it leaves
+		for (int i = 0; i < 84; i++) {   // sparks, streaked along their flight; every fourth is a slow ember
+			float s = float(i);
+			if (s >= 24.0 + 30.0 * pw) break;
+			bool ember = mod(s, 4.0) < 0.5;
+			float a = h11(s + 0.3) * 6.2832, spd = ember ? 0.15 + 0.4 * h11(s + 3.1) : 0.6 + 2.6 * h11(s + 3.1);
+			float life = ember ? 2.0 + 1.5 * h11(s + 7.7) : 0.5 + 1.4 * h11(s + 7.7), rise = ember ? 0.12 : 0.35;
+			float tt = after - 0.05 * h11(s + 9.2);
+			if (tt < 0.0 || tt > life) continue;
+			float f = tt / life;
+			vec2 v = vec2(cos(a), sin(a)), q = p - v * (1.0 + spd * (1.0 - exp(-tt * 3.0)) * 0.8) - vec2(0.0, rise * tt * tt);
+			vec2 vel = normalize(v * spd * 2.4 * exp(-tt * 3.0) + vec2(0.0, 2.0 * rise * tt) + 1e-4);
+			float stretch = 1.0 + 4.0 * exp(-tt * 3.0), d = length(vec2(dot(q, vel) / stretch, dot(q, vec2(-vel.y, vel.x))));
+			float sz = 0.06 * (1.0 - f) + 0.012;
+			e += (smoothstep(sz, 0.0, d) * 1.4 + 0.3 * exp(-d * d / (sz * sz * 10.0))) * (1.0 - f * f);
+		}
+	}
+	return e;
+}
+void main() {
+	vec2 px = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uDpr;   // CSS px from the canvas's top left
+	vec3 col = vec3(0.0);
+	for (int i = 0; i < ${FX_MAX}; i++) {
+		if (i >= uN) break;
+		vec2 p = (px - uC[i]) / uR[i];
+		float lim = ${FX_REACH.toFixed(1)} / uR[i], r = length(p);
+		if (uT[i] < 0.0 || r > lim) continue;
+		float e = fx(vec2(p.x, -p.y), uT[i], uPow[i]) * smoothstep(lim, lim * 0.75, r);   // fades out before its reach ends
+		col += uCol[i] * e + vec3(0.8) * smoothstep(1.2, 3.0, e);   // white-hot where it is brightest
+	}
+	col = min(col, vec3(1.0));
+	o = vec4(col, max(col.r, max(col.g, col.b)));
+}`;
+
+/** Draws FX_FRAG for a list of badges: [{ el, color, power, at }] (at: when its sequence starts, in performance.now() ms). */
+class Burst {
+	constructor(canvas, badges) {
+		this.canvas = canvas;
+		this.badges = badges.slice(0, FX_MAX).map((b) => ({ ...b, rgb: [1, 3, 5].map((i) => parseInt(b.color.slice(i, i + 2), 16) / 255) }));
+		const gl = this.gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
+		this.ok = !!gl;
+		if (!this.ok) return;
+		const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+		const p = this.prog = gl.createProgram();
+		gl.attachShader(p, sh(gl.VERTEX_SHADER, FX_VERT)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FX_FRAG)); gl.linkProgram(p);
+		if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { this.ok = false; return; }
+		this.u = Object.fromEntries(['uRes', 'uDpr', 'uN', 'uC', 'uR', 'uT', 'uPow', 'uCol'].map((n) => [n, gl.getUniformLocation(p, n)]));
+		this.vao = gl.createVertexArray(); gl.bindVertexArray(this.vao);
+		gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+		const loc = gl.getAttribLocation(p, 'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+		gl.bindVertexArray(null);
+	}
+
+	draw(now) {
+		if (!this.ok) return;
+		const gl = this.gl, c = this.canvas, dpr = Math.min(2, window.devicePixelRatio || 1), w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
+		if (w && (c.width !== w || c.height !== h)) { c.width = w; c.height = h; }
+		// badge centres relative to the canvas; both move together, and a badge's scale does not move its centre
+		const cr = c.getBoundingClientRect(), n = this.badges.length, C = new Float32Array(FX_MAX * 2), R = new Float32Array(FX_MAX), T = new Float32Array(FX_MAX), P = new Float32Array(FX_MAX), K = new Float32Array(FX_MAX * 3);
+		this.badges.forEach((b, i) => {
+			const r = b.el.getBoundingClientRect();
+			C[i * 2] = r.left + r.width / 2 - cr.left; C[i * 2 + 1] = r.top + r.height / 2 - cr.top;
+			R[i] = b.el.offsetWidth / 2 || 26; T[i] = (now - b.at) / 1000; P[i] = b.power; K.set(b.rgb, i * 3);
+		});
+		gl.viewport(0, 0, c.width, c.height);
+		gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+		gl.useProgram(this.prog);
+		gl.uniform2f(this.u.uRes, c.width, c.height); gl.uniform1f(this.u.uDpr, c.width / (c.clientWidth || 1)); gl.uniform1i(this.u.uN, n);
+		gl.uniform2fv(this.u.uC, C); gl.uniform1fv(this.u.uR, R); gl.uniform1fv(this.u.uT, T); gl.uniform1fv(this.u.uPow, P); gl.uniform3fv(this.u.uCol, K);
+		gl.bindVertexArray(this.vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
+	}
+
+	destroy() { try { this.gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { /* ignore */ } }
+}
+
 class Plugin extends AppPlugin {
 	cleanup = [];
-	toastT = 0;
+	toastT = [];
 	native = {};   // Thymer's own sidebar rows the card takes over: search, jump, and the workspace row
 
 	onLoad() {
@@ -189,6 +363,10 @@ class Plugin extends AppPlugin {
 
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: open', icon: 'trophy', onSelected: () => this.openPanel() });
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: show or hide the mascot', icon: 'eye', onSelected: () => this.toggleWidget() });
+		this.ui.addCommandPaletteCommand({ label: 'Achievements: replay the last unlock', icon: 'sparkles', onSelected: () => {
+			const last = ACHIEVEMENTS.filter((a) => this.st.unlocked[a.id]).sort((a, b) => this.st.unlocked[b.id] - this.st.unlocked[a.id])[0];
+			this.celebrate([last || ACHIEVEMENTS[0]]);
+		} });
 
 		const on = (target, type, fn, opts) => { target.addEventListener(type, fn, opts); this.cleanup.push(() => target.removeEventListener(type, fn, opts)); };
 		on(document, 'input', () => requestAnimationFrame(() => this.countLive()), true);
@@ -200,13 +378,13 @@ class Plugin extends AppPlugin {
 			if (!ev.source.isLocal) return;
 			let changed = false;
 			if (isCreate) { this.st.lines++; changed = true; }
-			if (ev.status === 'done' && !this.st.doneGuids.includes(ev.lineItemGuid)) { this.st.doneGuids.push(ev.lineItemGuid); if (this.st.doneGuids.length > 3000) this.st.doneGuids.shift(); this.st.tasks++; changed = true; }
+			if (ev.status === 'done' && !this.st.doneGuids.includes(ev.lineItemGuid)) { this.st.doneGuids.push(ev.lineItemGuid); if (this.st.doneGuids.length > 3000) this.st.doneGuids.shift(); this.st.tasks++; this.st.taskDays[dayKey()] = (this.st.taskDays[dayKey()] || 0) + 1; changed = true; }
 			const segs = ev.getSegments();
 			if (segs) {
 				const now = segs.reduce((n, s) => n + (s && typeof s.text === 'string' ? s.text.trim().split(/\s+/).filter(Boolean).length : 0), 0);
 				const known = this.lineWords.has(ev.lineItemGuid), prev = known ? this.lineWords.get(ev.lineItemGuid) : (isCreate ? 0 : now);
 				this.lineWords.set(ev.lineItemGuid, now);
-				if (now > prev) { this.addWords(now - prev); changed = true; }
+				if (now > prev) { this.addWords(now - prev, now); changed = true; }
 			}
 			if (changed) this.changed();
 		};
@@ -223,7 +401,7 @@ class Plugin extends AppPlugin {
 		this.closePanel();
 		this.unmountWidget();
 		this.padStyle?.remove();
-		this.banner?.remove();
+		this.endToast();
 	}
 
 	// ---- State -------------------------------------------------------------------------------------------------------------
@@ -234,11 +412,16 @@ class Plugin extends AppPlugin {
 
 	save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(this.st)); } catch (e) { /* keep in memory */ } }
 
-	/** `n` more words, written now. */
-	addWords(n) {
+	/** `n` more words, written now, into a line that now holds `lineWords`. */
+	addWords(n, lineWords = 0) {
 		const st = this.st, now = new Date(), h = now.getHours(), t = now.getTime();
 		st.words += n; st.days[dayKey(now)] = (st.days[dayKey(now)] || 0) + n;
 		if (h >= 22 || h < 4) st.night += n; else if (h >= 4 && h < 8) st.early += n;
+		if (h === 0 && now.getMinutes() === 0) st.midnight += n;
+		st.hours[h] = (st.hours[h] || 0) + n;
+		st.longLine = Math.max(st.longLine, lineWords);
+		if (t - st.lastWordAt > 10 * 60000) st.session = 0;   // a 10-minute pause ends a session
+		st.session += n; st.lastWordAt = t; st.bestSession = Math.max(st.bestSession, st.session);
 		for (let i = 0; i < n; i++) this.wordTimes.push(t);
 		this.wordTimes = this.wordTimes.filter((x) => t - x < 60000);
 		st.peak = Math.max(st.peak, this.wordTimes.length);
@@ -256,14 +439,18 @@ class Plugin extends AppPlugin {
 			const now = text.trim().split(/\s+/).filter(Boolean).length;
 			const prev = this.lineWords.has(guid) ? this.lineWords.get(guid) : (now <= 1 ? 0 : now);
 			this.lineWords.set(guid, now);
-			if (now > prev) { this.addWords(now - prev); this.changed(); }
+			if (now > prev) { this.addWords(now - prev, now); this.changed(); }
 		} catch (e) { /* the saved-line events still count */ }
 	}
 
 	/** Something moved: save, check the list, refresh what is shown. */
 	changed() {
-		const m = measures(this.st), fresh = [];
-		for (const a of ACHIEVEMENTS) if (!this.st.unlocked[a.id] && m[a.stat] >= a.target) { this.st.unlocked[a.id] = Date.now(); fresh.push(a); }
+		const fresh = [];
+		for (let more = true; more;) {   // again after anything unlocks: some count the others
+			const m = measures(this.st);
+			more = false;
+			for (const a of ACHIEVEMENTS) if (!this.st.unlocked[a.id] && m[a.stat] >= a.target) { this.st.unlocked[a.id] = Date.now(); fresh.push(a); more = true; }
+		}
 		clearTimeout(this.saveT);
 		this.saveT = setTimeout(() => this.save(), 600);
 		if (fresh.length) { this.save(); this.celebrate(fresh); }
@@ -273,7 +460,7 @@ class Plugin extends AppPlugin {
 	rings() { return ACHIEVEMENTS.reduce((n, a) => n + (this.st.unlocked[a.id] ? a.rings : 0), 0); }
 	unlockedCount() { return ACHIEVEMENTS.filter((a) => this.st.unlocked[a.id]).length; }
 
-	// ---- The mascot and the banner ---------------------------------------------------------------------------------------
+	// ---- The mascot and the notification ---------------------------------------------------------------------------------------
 
 	mountWidget() {
 		if (this.widget) return;
@@ -356,7 +543,6 @@ class Plugin extends AppPlugin {
 			if (!this.padStyle) { this.padStyle = document.createElement('style'); document.head.appendChild(this.padStyle); }
 			this.padStyle.textContent = pad ? `.panels-grid-sidebar > .sidebar { padding-top: ${pad}px !important; box-sizing: border-box; }` : '';
 		}
-		if (this.banner) this.banner.style.left = `${w.getBoundingClientRect().right + 12}px`;
 	}
 
 	/**
@@ -500,19 +686,81 @@ class Plugin extends AppPlugin {
 		});
 	}
 
-	/** New achievements: the head spins and a banner says what for. */
+	/**
+	 * New achievements: a notification at the top centre of the screen, on a black radial glow (no box) that fades in, drifts
+	 * down and grows a little. Then each achievement opens, one row under the other, staggered: its badge charges up with the
+	 * icon small and bursts (the Burst shader, in the tier's colour) as the icon springs open and the words bounce in. It stays a
+	 * short while and leaves fading upward. Without WebGL, or with reduced motion, there is no shader and the rows open at once.
+	 */
 	celebrate(list) {
-		this.mascot?.celebrate(performance.now());
-		const a = list[0], extra = list.length > 1 ? ` (+${list.length - 1} more)` : '';
-		this.banner?.remove();
-		const b = this.banner = document.createElement('div');
-		b.className = 'ach-banner';
-		b.innerHTML = `<i>${a.icon}</i><div><small>Achievement unlocked</small><b></b><div class="ach-bd"></div><em></em></div>`;
-		b.querySelector('b').textContent = a.name + extra; b.querySelector('.ach-bd').textContent = a.desc; b.querySelector('em').textContent = `+${list.reduce((n, x) => n + x.rings, 0)} rings`;
-		document.body.appendChild(b);
-		requestAnimationFrame(() => b.classList.add('on'));
-		clearTimeout(this.toastT);
-		this.toastT = setTimeout(() => { b.classList.remove('on'); setTimeout(() => b.remove(), 400); }, 4500);
+		this.endToast();
+		const shown = list.slice(0, FX_MAX), more = list.length - shown.length;
+		const t = this.toast = document.createElement('div');
+		t.className = 'ach-toast';
+		t.innerHTML = '<div class="ach-glow"></div><div class="ach-stack"><canvas class="ach-fx"></canvas></div>';
+		const stack = t.querySelector('.ach-stack');
+		const rows = shown.map((a) => {
+			const row = document.createElement('div');
+			row.className = 'ach-row';
+			row.style.setProperty('--ach-fx', TIER_FX[tier(a)][0]);
+			row.innerHTML = '<div class="ach-badge"><i></i></div><div class="ach-tx"><small></small><b></b><div class="ach-bd"></div><em></em></div>';
+			row.querySelector('i').textContent = a.icon;
+			row.querySelector('small').textContent = `Achievement unlocked · ${tier(a)}`;
+			const words = a.name.split(' ');   // the name comes in word by word
+			row.querySelector('b').append(...words.map((w, i) => { const s = document.createElement('span'); s.className = 'ach-w'; s.textContent = w; s.style.setProperty('--i', i + 1); return s; }));
+			row.querySelector('.ach-bd').textContent = a.desc;
+			row.querySelector('.ach-bd').style.setProperty('--i', words.length + 1);
+			row.querySelector('em').style.setProperty('--i', words.length + 2);
+			row.querySelector('em').textContent = '+0 rings';
+			stack.appendChild(row);
+			return { a, row };
+		});
+		if (more > 0) { const m = document.createElement('div'); m.className = 'ach-more'; m.textContent = `+${more} more`; stack.appendChild(m); rows[rows.length - 1].more = m; }
+		document.body.appendChild(t);
+		// The glow is a huge ellipse hanging from above the screen: only its bottom quarter shows, reaching a little below the
+		// stack, about 80% of the window wide (wider for a tall stack, so it stays a shallow arc). Its soft edge is kept ~90px deep
+		// whatever its size (--f, as a share of its radius), so the dark part covers all of the text.
+		const glow = t.querySelector('.ach-glow'), shows = t.offsetTop + stack.offsetHeight + GLOW_BELOW, gh = shows * 4;
+		glow.style.width = `${Math.round(Math.max(760, window.innerWidth * 0.82, gh * 1.15))}px`;
+		glow.style.height = `${Math.round(gh)}px`;
+		glow.style.bottom = `${-GLOW_BELOW}px`;
+		glow.style.setProperty('--f', `${((90 / (gh / 2)) * 100).toFixed(2)}%`);
+		t.getBoundingClientRect();   // its starting place, so that 'on' animates from it
+		t.classList.add('on');
+
+		const now = performance.now(), arrive = 380;   // the glow first, then the rows
+		const still = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+		const fx = still ? null : new Burst(t.querySelector('canvas'), rows.map((r, i) => ({ el: r.row.querySelector('.ach-badge'), color: TIER_FX[tier(r.a)][0], power: TIER_FX[tier(r.a)][1], at: now + arrive + i * FX_STAGGER_MS })));
+		const animated = !!(fx && fx.ok);
+		if (animated) {
+			this.toastFx = fx;
+			const tick = (ts) => { if (this.toast !== t) return; this.toastRaf = requestAnimationFrame(tick); fx.draw(ts); };
+			this.toastRaf = requestAnimationFrame(tick);
+		} else { fx?.destroy(); t.querySelector('canvas').remove(); }
+
+		const count = (em, total, t1) => (ts) => { if (this.toast !== t) return; const f = Math.min(1, (ts - t1) / 650); em.textContent = `+${fmt(total * ease(f))} rings`; if (f < 1) requestAnimationFrame(count(em, total, t1)); };
+		const at = (ms, fn) => this.toastT.push(setTimeout(fn, ms));
+		let last = 0;
+		rows.forEach(({ a, row, more: m }, i) => {
+			const open = arrive + i * FX_STAGGER_MS, lit = open + (animated ? BURST_MS : 0);
+			last = lit;
+			at(open, () => row.classList.add('in'));
+			at(lit, () => {
+				row.classList.add('lit'); m?.classList.add('lit');
+				if (i === 0) this.mascot?.celebrate(performance.now());
+				requestAnimationFrame(count(row.querySelector('em'), a.rings, performance.now()));
+			});
+		});
+		const stay = 2600 + Math.min(4, rows.length - 1) * 350;   // a little longer when there is more to read
+		at(last + stay, () => t.classList.add('out'));
+		at(last + stay + 600, () => this.endToast());
+	}
+
+	endToast() {
+		this.toastT.forEach(clearTimeout); this.toastT = [];
+		cancelAnimationFrame(this.toastRaf);
+		this.toastFx?.destroy(); this.toastFx = null;
+		this.toast?.remove(); this.toast = null;
 	}
 
 	// ---- The list ----------------------------------------------------------------------------------------------------------
@@ -534,7 +782,8 @@ class Plugin extends AppPlugin {
 		this.panel = ov;
 		this.panelMascot = new Mascot(ov.querySelector('canvas'));
 		if (!this.widget) { this.loopPanel(); }
-		this.renderPanel();
+		this.st.opens++;
+		this.changed();   // which draws the list
 	}
 
 	/** The panel animates its own mascot when the corner one is hidden. */
@@ -564,11 +813,14 @@ class Plugin extends AppPlugin {
 			const on = !!this.st.unlocked[a.id], pr = Math.min(1, m[a.stat] / a.target);
 			const c = document.createElement('div');
 			c.className = 'ach-card2 ' + (on ? 'got' : 'lock');
+			c.dataset.tier = tier(a).toLowerCase();
 			c.innerHTML = '<div class="ach-ic"></div><div style="flex:1;min-width:0"><div class="ach-cn"></div><div class="ach-ds"></div><div class="ach-rw"></div><div class="ach-pr"><i></i></div></div>';
 			c.querySelector('.ach-ic').textContent = a.icon;
 			c.querySelector('.ach-cn').textContent = a.name;
 			c.querySelector('.ach-ds').textContent = on ? a.desc : '???';   // locked ones keep their task and target secret, so they are found rather than speedrun
-			c.querySelector('.ach-rw').textContent = on ? `◎ +${a.rings} · ${new Date(this.st.unlocked[a.id]).toLocaleDateString()}` : `◎ +${a.rings}`;
+			c.querySelector('.ach-rw').innerHTML = '<span></span><b class="ach-tier"></b>';
+			c.querySelector('.ach-rw span').textContent = on ? `◎ +${a.rings} · ${new Date(this.st.unlocked[a.id]).toLocaleDateString()}` : `◎ +${a.rings}`;
+			c.querySelector('.ach-tier').textContent = tier(a);
 			c.querySelector('.ach-pr i').style.width = `${pr * 100}%`;
 			grid.appendChild(c);
 		}

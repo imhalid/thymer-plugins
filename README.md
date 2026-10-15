@@ -5,7 +5,7 @@ Personal plugins for [Thymer](https://thymer.com).
 | Plugin | What it does |
 | --- | --- |
 | [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning, Holy, Prism, Health, Zephyr, Tide) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
-| [`achievements`](plugins/achievements) | 25 writing achievements (words, speed, streaks, tasks, night owl, ...) that pay rings, with a small 3D mascot drawn in plain WebGL in the top-left corner: it spins, runs faster while you type, and hops with a banner when something unlocks |
+| [`achievements`](plugins/achievements) | 62 writing achievements, from easy to legendary (words, speed, streaks, tasks, night owl, ...) that pay rings, with a small 3D mascot drawn in plain WebGL in the top-left corner: it spins, runs faster while you type, and hops with a banner when something unlocks |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 
 ## Install a plugin
@@ -17,9 +17,9 @@ Personal plugins for [Thymer](https://thymer.com).
 
 ## Achievements
 
-A character card at the top of the sidebar and 25 achievements for writing: total words, words in a day, words in a minute, day streaks, finished tasks, night and early writing, and days written. Each pays rings.
+A character card at the top of the sidebar and 62 achievements for writing: total words, words in a day, in a minute and in one sitting, long lines, lines added, day streaks, finished tasks (in total and in a day), night, early and midnight writing, hours of the day, weekends, days written, comebacks, and unlocking the others. Each pays rings, and each is marked Easy, Medium, Hard or Legendary by what it pays.
 
-The card is a window onto the mascot's head (low-poly, drawn with plain WebGL, looking at the pointer, nodding while you type). Below it sits Thymer's own workspace row, and the card's Search and Jump to buttons press Thymer's own Search and Jump To rows (hidden while the card is on); the sidebar's content is pushed down to make room. Click the portrait (or run `Achievements: open`) for the full list; `Achievements: show or hide the mascot` hides the card. Progress is kept per device in the app's local storage.
+The card is a window onto the mascot's head (low-poly, drawn with plain WebGL, looking at the pointer, nodding while you type). Below it sits Thymer's own workspace row, and the card's Search and Jump to buttons press Thymer's own Search and Jump To rows (hidden while the card is on); the sidebar's content is pushed down to make room. Click the portrait (or run `Achievements: open`) for the full list; `Achievements: show or hide the mascot` hides the card. When something unlocks, a notification drops in at the top centre of the screen on a black radial glow: each badge gathers a ring of energy in its tier's colour while the icon waits small, then bursts into a shockwave and sparks as the icon springs open and the words bounce in (a WebGL fragment shader; skipped with reduced motion). Several unlocks at once open as a staggered stack, top to bottom. `Achievements: replay the last unlock` plays it again. Progress is kept per device in the app's local storage.
 
 To install: paste `achievements.js` (the built plugin, model included) into a new global plugin's code tab and `plugin.css` into its CSS tab. To rebuild after editing `achievements.src.js`: `node build.mjs` (it embeds `sonic.json`). The model is a ripped Sonic Adventure asset; see `model/LICENSE.md` for its credits and for what to remove before this repository is ever made public.
 

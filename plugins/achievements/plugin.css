@@ -26,9 +26,36 @@
 /* Lists scroll in Thymer's own <div-scrollable>, as its dialogs do, so the scrollbar is Thymer's. It needs a definite height:
    its box is a grid whose row is capped by the box's max-height. It pads its content 20px right and bottom. */
 .ach-scroll { display: block; min-height: 0; }
-.ach-banner { position: fixed; left: 148px; top: 58px; z-index: 600; display: flex; align-items: center; gap: 10px; max-width: 280px; padding: 9px 14px 9px 10px; border-radius: 14px; background: linear-gradient(135deg, #1b3a8c, #0f1f55); color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.18); font: 12px/1.35 system-ui, sans-serif; transform: translateX(-24px); opacity: 0; transition: transform .35s cubic-bezier(.2,1.2,.4,1), opacity .25s; pointer-events: none; }
-.ach-banner.on { transform: none; opacity: 1; }
-.ach-banner i { font-style: normal; font-size: 26px; } .ach-banner small { display: block; opacity: .7; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; } .ach-banner b { font-size: 13px; } .ach-banner em { font-style: normal; color: #ffd64a; }
+/* The unlock notification: top centre, on a black radial glow instead of a box - a huge ellipse above the screen, of which
+   only the bottom shows (sized in JS) (the page behind it is blurred too, under the
+   same radial fade, so what is written there does not show through). The glow fades in, drifts down and grows a
+   little; then each row opens (staggered from JS): the badge waits small while the shader charges, springs open as it bursts,
+   and the words bounce in one after another. It leaves fading upward. */
+.ach-toast { position: fixed; z-index: 9995; top: 30px; left: 50%; width: max-content; max-width: min(440px, 90vw); transform: translate(-50%, -26px); pointer-events: none; color: #fff; font: 12px/1.35 system-ui, sans-serif; text-shadow: 0 1px 3px rgba(0,0,0,.7); transition: transform .8s cubic-bezier(.2,.9,.3,1); }
+/* the glow and the stack are separate layers: the shader's blending stays inside the stack (isolate), so the glow still sees the page to blur */
+.ach-glow { position: absolute; left: 50%; background: rgba(0,0,0,.85); backdrop-filter: blur(6px); -webkit-mask-image: radial-gradient(closest-side, #000 calc(100% - var(--f, 20%)), rgba(0,0,0,.6) calc(100% - var(--f, 20%) * .45), transparent); mask-image: radial-gradient(closest-side, #000 calc(100% - var(--f, 20%)), rgba(0,0,0,.6) calc(100% - var(--f, 20%) * .45), transparent); opacity: 0; transform: translateX(-50%) scale(.92); transform-origin: 50% 0; transition: opacity .45s ease-out, transform 1s cubic-bezier(.2,.9,.3,1); }
+.ach-stack { position: relative; isolation: isolate; display: grid; gap: 14px; padding: 22px 44px 28px; }
+.ach-toast.on { transform: translate(-50%, 0); } .ach-toast.on .ach-glow { opacity: 1; transform: translateX(-50%); }
+.ach-toast.out { transform: translate(-50%, -20px); transition: transform .55s ease-in; } .ach-toast.out .ach-glow, .ach-toast.out .ach-stack { opacity: 0; transition: opacity .45s ease-in; }
+/* the shader's canvas reaches FX_REACH (130px) past the stack on every side; it adds light to what is under it in the stack */
+.ach-fx { position: absolute; z-index: 2; inset: -130px; width: calc(100% + 260px); height: calc(100% + 260px); pointer-events: none; mix-blend-mode: plus-lighter; }
+.ach-row { --ach-fx: #4fd8ff; display: grid; grid-template-columns: 52px minmax(0, 320px); column-gap: 16px; align-items: center; }
+.ach-badge { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #26386a, #0a1230 72%); box-shadow: inset 0 0 0 2px #c9a35a, inset 0 0 0 3.5px rgba(0,0,0,.55), 0 0 0 1px rgba(255,220,150,.22); opacity: 0; transform: scale(.2); transition: opacity .3s, transform .45s cubic-bezier(.34,1.56,.64,1); }
+.ach-badge i { font-style: normal; font-size: 26px; line-height: 1; filter: grayscale(1) brightness(.5); text-shadow: none; }
+.ach-row.in .ach-badge { opacity: 1; transform: scale(.45); }
+.ach-row.lit .ach-badge { transform: none; animation: ach-spring .85s linear; box-shadow: inset 0 0 0 2px #e4c27a, inset 0 0 0 3.5px rgba(0,0,0,.55), 0 0 18px -2px var(--ach-fx); }
+.ach-row.lit .ach-badge i { filter: none; animation: ach-lit 1.2s ease-out; }
+@keyframes ach-spring { 0% { transform: scale(.45); } 22% { transform: scale(1.2); } 40% { transform: scale(.9); } 57% { transform: scale(1.06); } 74% { transform: scale(.975); } 88% { transform: scale(1.01); } 100% { transform: none; } }
+@keyframes ach-lit { 0% { filter: brightness(3) saturate(0) drop-shadow(0 0 10px var(--ach-fx)); } 45% { filter: brightness(1.4) drop-shadow(0 0 8px var(--ach-fx)); } 100% { filter: brightness(1) drop-shadow(0 0 0 transparent); } }
+.ach-tx small { display: block; color: var(--ach-fx); font-size: 10px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; }
+.ach-tx b { display: block; font-size: 15px; font-weight: 700; } .ach-w { display: inline-block; margin-right: .28em; }
+.ach-tx .ach-bd { opacity: .8; } .ach-tx em { display: block; margin-top: 1px; font-style: normal; font-weight: 600; color: #ffd64a; font-variant-numeric: tabular-nums; }
+.ach-more { justify-self: center; opacity: .7; font-size: 11px; letter-spacing: .04em; }
+/* the words: hidden until the burst, then each rises and overshoots a little, one after another (--i) */
+.ach-tx small, .ach-w, .ach-tx .ach-bd, .ach-tx em, .ach-more { opacity: 0; }
+.ach-row.lit .ach-tx small, .ach-row.lit .ach-w, .ach-row.lit .ach-tx .ach-bd, .ach-row.lit .ach-tx em, .ach-more.lit { animation: ach-rise .6s cubic-bezier(.34,1.56,.64,1) calc(var(--i, 0) * 65ms + 40ms) both; }
+.ach-row.lit .ach-tx .ach-bd { --to: .8; } .ach-more.lit { --to: .7; --i: 8; }
+@keyframes ach-rise { from { opacity: 0; transform: translateY(12px) scale(.92); filter: blur(3px); } to { opacity: var(--to, 1); transform: none; filter: none; } }
 .ach-ov { position: fixed; inset: 0; z-index: 9990; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); animation: ach-in .15s ease-out; }
 @keyframes ach-in { from { opacity: 0; } to { opacity: 1; } }
 .ach-box { width: min(760px, 94vw); max-height: 88vh; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; border-radius: 18px; border: 1px solid rgba(127,127,127,.28); box-shadow: 0 28px 80px rgba(0,0,0,.5); font: 13px/1.4 system-ui, sans-serif; }
@@ -42,3 +69,6 @@
 .ach-card2.lock .ach-ic { filter: grayscale(1); opacity: .35; } .ach-card2.got { border-color: rgba(255,200,40,.55); background: rgba(255,200,40,.09); }
 .ach-ic { font-size: 28px; line-height: 1; flex: none; width: 34px; text-align: center; } .ach-cn { font-weight: 650; } .ach-ds { opacity: .65; font-size: 12px; } .ach-rw { color: #e0a800; font-size: 11px; margin-top: 3px; }
 .ach-pr { height: 4px; border-radius: 2px; background: rgba(127,127,127,.25); margin-top: 6px; overflow: hidden; } .ach-pr i { display: block; height: 100%; background: #4f8cff; } .ach-card2.got .ach-pr i { background: #e0a800; }
+.ach-rw { display: flex; align-items: center; gap: 6px; } .ach-tier { margin-left: auto; padding: 0 6px; border-radius: 99px; font-size: 9.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; line-height: 16px; }
+[data-tier="easy"] .ach-tier { color: #3fae6a; background: rgba(63,174,106,.14); } [data-tier="medium"] .ach-tier { color: #4f8cff; background: rgba(79,140,255,.14); }
+[data-tier="hard"] .ach-tier { color: #c46cff; background: rgba(196,108,255,.14); } [data-tier="legendary"] .ach-tier { color: #ff8a3d; background: rgba(255,138,61,.15); }

@@ -7,9 +7,9 @@
  * data being sent. The sky has three shapes, picked in its corner:
  *
  *   - Nebula: close in front of a cloud of glowing gas in layers, dark dust before its bright hearts, sliding slowly along
- *     it; the days are young stars in it, on a stream that winds through it from the oldest to today.
+ *     it; no dots.
  *   - Neural: a living field of glowing filaments, like a nervous system, across the whole sky (the shader by zozuar - see
- *     BG.neural); the days are points scattered over it, the oldest at the left, which light up as filaments pass them.
+ *     BG.neural); no dots.
  *   - Star atlas: a flat chart with a grid, the ecliptic and drifting gas, every week a labelled constellation, panning slowly.
  *
  * and six biomes (Nebula, Ember, Aurora, Ice, Gold, Abyss), the colours any shape is drawn in. Under the sky: the last 30
@@ -767,6 +767,7 @@ class Plugin extends AppPlugin {
 		};
 		v.screen = [];
 		if (!v.stars.length) return 0;
+		if (v.shape === 'nebula' || v.shape === 'neural') return 0;   // these two skies are the gas and the field alone: no dots
 		if (v.shape === 'neural') {   // each day drifts about its place with the field, and fires when a filament passes it
 			const k = neuralK(v.stars.length), amp = H * (0.07 + 0.05 * k);
 			for (const s of v.stars) {

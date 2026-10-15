@@ -95,6 +95,8 @@ const onMobile = () => {
 	const d = document.documentElement.dataset.device;
 	return d ? d === 'mobile' : /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 };
+/** Thymer's focus mode (body.focusmode): the card stays out of sight then, and what unlocks waits until it is over. */
+const inFocusMode = () => document.body.classList.contains('focusmode');
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const ease = (t) => 1 - Math.pow(1 - t, 3);
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
@@ -407,6 +409,7 @@ class Burst {
 class Plugin extends AppPlugin {
 	cleanup = [];
 	toastT = [];
+	held = [];   // what unlocked in focus mode, to be shown when it ends
 	native = {};   // Thymer's own sidebar rows the card takes over: search, jump, and the workspace row
 
 	onLoad() {
@@ -429,6 +432,17 @@ class Plugin extends AppPlugin {
 		on(document, 'input', () => requestAnimationFrame(() => this.countLive()), true);
 		on(document, 'keydown', () => { this.lastType = performance.now(); }, true);
 		on(document, 'mousemove', (e) => { this.pointer = { x: e.clientX, y: e.clientY }; }, { passive: true });
+		// Into focus mode: a notification on screen goes. Out of it: what unlocked meanwhile is shown, all together.
+		let focus = inFocusMode();
+		const watch = new MutationObserver(() => {
+			if (inFocusMode() === focus) return;
+			focus = !focus;
+			this.layout();   // the card goes or comes back now, not at the next frame
+			if (focus) this.endToast();
+			else if (this.held.length) { const list = this.held; this.held = []; this.celebrate(list); }
+		});
+		watch.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+		this.cleanup.push(() => watch.disconnect());
 
 		// Words are also counted as they are typed; the saved-line events below add what the typing missed (a paste, another device).
 		const track = (ev, isCreate) => {
@@ -511,7 +525,7 @@ class Plugin extends AppPlugin {
 		}
 		clearTimeout(this.saveT);
 		this.saveT = setTimeout(() => this.save(), 600);
-		if (fresh.length) { this.save(); this.celebrate(fresh); }
+		if (fresh.length) { this.save(); if (inFocusMode()) this.held.push(...fresh); else this.celebrate(fresh); }
 		this.refreshUi();
 	}
 
@@ -551,6 +565,7 @@ class Plugin extends AppPlugin {
 			this.lastFrame = now;
 			const typing = Math.max(0, 1 - (performance.now() - this.lastType) / 1500);
 			this.layout();
+			if (inFocusMode()) return;   // out of sight: nothing to draw
 			if (this.pointer && this.mascot) {   // it looks at the pointer
 				const r = this.widget.querySelector('.ach-por').getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height * 0.4;
 				this.mascot.look.x = Math.max(-1, Math.min(1, (this.pointer.x - cx) / 420)); this.mascot.look.y = Math.max(-1, Math.min(1, (this.pointer.y - cy) / 320));
@@ -585,6 +600,9 @@ class Plugin extends AppPlugin {
 	layout() {
 		const w = this.widget;
 		if (!w) return;
+		const away = inFocusMode();   // the card hides, and Thymer's rows and sidebar are as they were
+		w.classList.toggle('ach-away', away);
+		if (away) { this.takeOver(null, false); this.setPad(0); return; }
 		const sb = document.querySelector('.panels-grid-sidebar > .sidebar') || document.querySelector('.sidebar'), r = sb && sb.getBoundingClientRect();
 		const ok = r && r.width > 20 && r.height > 100, mini = !!ok && r.width < 150;
 		w.classList.toggle('ach-mini', mini);
@@ -595,12 +613,15 @@ class Plugin extends AppPlugin {
 		const left = ok ? (row && !mini ? Math.round(row.left) : r.left + 10) : 12, top = ok ? r.top + 8 : 46;
 		if (w.style.left !== left + 'px') w.style.left = left + 'px';
 		if (w.style.top !== top + 'px') w.style.top = top + 'px';
-		const pad = ok ? Math.round(w.getBoundingClientRect().height + 14) : 0;
-		if (pad !== this.pad) {
-			this.pad = pad;
-			if (!this.padStyle) { this.padStyle = document.createElement('style'); document.head.appendChild(this.padStyle); }
-			this.padStyle.textContent = pad ? `.panels-grid-sidebar > .sidebar { padding-top: ${pad}px !important; box-sizing: border-box; }` : '';
-		}
+		this.setPad(ok ? Math.round(w.getBoundingClientRect().height + 14) : 0);
+	}
+
+	/** The room made for the card at the top of the sidebar (0: none). */
+	setPad(pad) {
+		if (pad === this.pad) return;
+		this.pad = pad;
+		if (!this.padStyle) { this.padStyle = document.createElement('style'); document.head.appendChild(this.padStyle); }
+		this.padStyle.textContent = pad ? `.panels-grid-sidebar > .sidebar { padding-top: ${pad}px !important; box-sizing: border-box; }` : '';
 	}
 
 	/**

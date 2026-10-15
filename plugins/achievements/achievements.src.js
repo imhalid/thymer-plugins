@@ -228,54 +228,80 @@ class Mascot {
 }
 
 // ---- The unlock effect: one fragment shader over every badge of the notification ---------------------------------------
-// Round each badge, energy gathers as a ring of flame (sparks are drawn in) while the icon waits small, bursts at BURST_MS into a
-// broken shockwave, a flash and a spray of sparks as the icon springs open, and leaves embers drifting up. Coordinates are in
-// badge radii; the colour and the size of each burst come from its achievement's tier. One canvas (one WebGL context) covers
-// the whole stack, so any number of unlocks costs the same.
+// Round each badge, while the icon waits small, energy gathers: a vortex turns, a ring of flame licks outward and electricity
+// crackles round it, and stars are drawn in. At BURST_MS it bursts: a flash, a shockwave broken into arcs, a softer faster
+// ring, and a spray of streaking sparks and twinkling embers, as the icon springs open. It is drawn from small grayscale
+// textures (see fx/LICENSE.md): a sprite atlas and a tiling noise, tinted with the tier's colour. Coordinates are in badge
+// radii; one canvas (one WebGL context) covers the whole stack, so any number of unlocks costs the same.
+const FX = __FX__;   // { atlas, noise } as data URLs, baked in by build.mjs
 const BURST_MS = 800;
 const FX_MAX = 6;            // badges in one notification; more are summed up in a line
 const FX_REACH = 130;        // how far (CSS px) an effect reaches from its badge
 const FX_STAGGER_MS = 160;   // between one row's opening and the next
 const GLOW_BELOW = 100;     // how far (px) the notification's glow reaches below its last row
 const TIER_FX = { Easy: ['#5ee6a0', 0.5], Medium: ['#4fd8ff', 1], Hard: ['#b98cff', 1.4], Legendary: ['#ffb347', 2] };
+let fxImgs = null;
+/** The textures as images, decoded once and kept, so they are ready when something unlocks. */
+const fxImages = () => fxImgs || (fxImgs = Object.fromEntries(Object.entries(FX).map(([k, src]) => { const i = new Image(); i.src = src; return [k, i]; })));
 const FX_VERT = `#version 300 es
 in vec2 aPos;
 void main() { gl_Position = vec4(aPos, 0.0, 1.0); }`;
 const FX_FRAG = `#version 300 es
 precision highp float;
-uniform vec2 uRes; uniform float uDpr; uniform int uN;
+uniform vec2 uRes; uniform float uDpr; uniform int uN; uniform sampler2D uAtlas, uNoise;
 uniform vec2 uC[${FX_MAX}]; uniform float uR[${FX_MAX}], uT[${FX_MAX}], uPow[${FX_MAX}]; uniform vec3 uCol[${FX_MAX}];
 out vec4 o;
+const float B = ${(BURST_MS / 1000).toFixed(2)};
+// the atlas, 4 x 3 cells: 0-3 electricity, 4 vortex, 5 sharp ring, 6 soft ring, 7 four-point star, 8 streak, 9 burst, 10 six-point star, 11 glow star
+const float ZAP = 0.0, VORTEX = 4.0, RING = 5.0, SOFTRING = 6.0, STAR = 7.0, STREAK = 8.0, BURST = 9.0, STAR6 = 10.0, GLOW = 11.0;
 float h11(float n) { return fract(sin(n * 127.1) * 43758.5453); }
-float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
-float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 4; i++) { s += a * noise(p); p = p * 2.03 + 17.1; a *= 0.5; } return s; }
-// the light of one badge at p (in its radii, y up), t seconds into its sequence
-float fx(vec2 p, float t, float pw) {
-	float r = length(p), after = t - ${(BURST_MS / 1000).toFixed(2)}, e = 0.0;
-	vec2 dir = p / max(r, 1e-4);
-	// gathering: flame licks further out round the rim as it charges, and sparks are drawn in
-	float charge = smoothstep(0.1, ${(BURST_MS / 1000).toFixed(2)}, t) * (1.0 - smoothstep(0.0, 0.18, after));
+mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }
+float nz(vec2 uv) { return textureLod(uNoise, uv, 0.0).r; }
+// sprite c at q (its own space, -1 to 1, y up), size its half-width in radii; pxr is device px per radius, for the mip level
+float spr(float c, vec2 q, float size, float pxr) {
+	if (abs(q.x) >= 1.0 || abs(q.y) >= 1.0) return 0.0;
+	vec2 uv = (vec2(mod(c, 4.0), floor(c / 4.0)) + 0.5 + vec2(q.x, -q.y) * 0.49) / vec2(4.0, 3.0);
+	return textureLod(uAtlas, uv, clamp(log2(64.0 / max(size * pxr, 1.0)), 0.0, 4.0)).r;
+}
+// the light of one badge at p (in its radii, y up), t seconds into its sequence; pw is how big its tier makes it
+float fx(vec2 p, float t, float pw, float pxr) {
+	float r = length(p), ang = atan(p.y, p.x), after = t - B, e = 0.0;
+	float charge = smoothstep(0.05, B, t) * (1.0 - smoothstep(0.0, 0.15, after));
 	if (charge > 0.0) {
-		float n = fbm(p * 2.2 - dir * t * 2.5), n2 = fbm(p * 5.0 - dir * t * 4.0 + 7.0);   // noise flowing outward, like flame
-		float edge = r - 1.0, reach = 0.05 + charge * 0.5 * smoothstep(0.3, 0.8, n);
-		float flame = smoothstep(-0.08, 0.0, edge) * exp(-max(edge, 0.0) / reach) * (0.35 + 1.3 * smoothstep(0.3, 0.7, n2));
-		float rim = exp(-pow((r - 1.03) / 0.04, 2.0)) * (0.6 + n2);
-		e += (flame * 3.2 + rim * 1.2) * pow(charge, 1.5) * (0.8 + 0.2 * sin(t * 47.0 + n * 11.0));
-		for (int i = 0; i < 20; i++) {
+		float c15 = pow(charge, 1.5);
+		e += spr(VORTEX, rot(t * 5.0) * p / 2.3, 2.3, pxr) * 0.3 * charge;   // the vortex, turning faster as it charges
+		// flame: the noise wrapped round the ring (3 times, so it meets itself) and flowing outward
+		float u = ang / 6.2832 * 3.0, edge = r - 1.0;
+		float n = nz(vec2(u, edge * 0.9 - t * 1.4)), n2 = nz(vec2(u * 2.0 + 0.37, edge * 1.7 - t * 2.3)), fl = n * n2 * 2.0;
+		float flame = smoothstep(-0.08, 0.0, edge) * exp(-max(edge, 0.0) / (0.05 + 0.6 * charge * fl)) * (0.25 + fl);
+		float rim = exp(-pow((r - 1.03) / 0.04, 2.0)) * (0.45 + n);
+		e += (flame * 2.4 + rim * 1.1) * c15;
+		for (int k = 0; k < 3; k++) {   // electricity: three crackles going round, flicking through the four frames
+			float fk = float(k), a = fk * 2.094 + t * (1.4 + 0.5 * fk), tick = floor(t * 16.0 + fk * 5.0), frame = mod(tick + fk, 4.0);
+			vec2 q = rot(-a + 1.5708 + tick * 1.7) * (p - vec2(cos(a), sin(a)) * 1.2) / 0.8;
+			e += spr(ZAP + frame, q, 0.8, pxr) * 1.5 * c15 * step(0.3, h11(tick * 3.1 + fk));
+		}
+		for (int i = 0; i < 14; i++) {   // stars drawn in
 			float s = float(i) + 100.0, a = h11(s) * 6.2832, ph = fract(t * 0.9 + h11(s + 1.3));
-			float d = length(p - vec2(cos(a), sin(a)) * (2.6 - 1.5 * ph * ph));
-			e += smoothstep(0.04, 0.0, d) * sin(ph * 3.1416) * charge;
+			vec2 q = rot(ph * 3.0) * (p - vec2(cos(a), sin(a)) * (2.6 - 1.5 * ph * ph)) / 0.16;
+			e += spr(STAR, q, 0.16, pxr) * sin(ph * 3.1416) * charge;
 		}
 	}
 	if (after > 0.0) {
-		e += 1.3 * exp(-after * 7.0) * exp(-r * r * 0.5);   // the flash
-		float k = 1.0 - exp(-after * 3.0), rw = 1.0 + k * (1.6 + 0.9 * pw), wid = 0.04 + 0.16 * k;   // the shockwave, broken into arcs
-		e += exp(-pow((r - rw) / wid, 2.0)) * smoothstep(0.42, 0.62, noise(dir * 2.6 + 5.3)) * (0.6 + 0.6 * fbm(dir * 6.0 + after)) * 1.4 * exp(-after * 1.6);
-		float rw2 = 1.0 + (1.0 - exp(-after * 5.0)) * (2.4 + pw);   // and a faster, thinner one
-		e += exp(-pow((r - rw2) / 0.03, 2.0)) * smoothstep(0.5, 0.7, noise(dir * 4.0 + 1.7)) * exp(-after * 3.0);
+		float flash = exp(-after * 6.0);   // the flash: a burst and a glowing star
+		e += spr(BURST, rot(after * 1.2) * p / 2.7, 2.7, pxr) * 1.7 * flash;
+		float gs = 1.7 + after * 2.0;
+		e += spr(GLOW, rot(-after * 0.8) * p / gs, gs, pxr) * 1.3 * exp(-after * 4.0);
+		// the shockwave, broken into arcs by the noise. The ring sprites are read across their band at a chosen width (the
+		// sharp ring's band runs 0.55-0.72 of the sprite, the soft one's 0.58-0.9), so they stay thin as they grow.
+		vec2 dir = p / max(r, 1e-4);
+		float k = 1.0 - exp(-after * 3.0), rw = 1.0 + k * (1.6 + 0.9 * pw), w1 = 0.06 + 0.12 * k;
+		float arcs = smoothstep(0.3, 0.7, nz(vec2(ang / 6.2832 * 2.0, 0.5 + after * 0.25)));
+		e += spr(RING, dir * (0.55 + (r - rw) / w1 * 0.17), w1 / 0.17, pxr) * (0.1 + 1.3 * arcs) * 1.5 * exp(-after * 1.7);
+		float rw2 = 1.0 + (1.0 - exp(-after * 5.0)) * (2.4 + pw), w2 = 0.18;   // and a softer, faster one
+		e += spr(SOFTRING, dir * (0.58 + (r - rw2) / w2 * 0.32), w2 / 0.32, pxr) * 0.5 * exp(-after * 3.5);
 		e += 0.35 * smoothstep(0.92, 1.05, r) * exp(-max(r - 1.0, 0.0) * 3.5) * exp(-after * 0.7);   // the glow it leaves
-		for (int i = 0; i < 84; i++) {   // sparks, streaked along their flight; every fourth is a slow ember
+		for (int i = 0; i < 84; i++) {   // sparks: streaks along their flight; every fourth is a slow, twinkling ember
 			float s = float(i);
 			if (s >= 24.0 + 30.0 * pw) break;
 			bool ember = mod(s, 4.0) < 0.5;
@@ -283,12 +309,17 @@ float fx(vec2 p, float t, float pw) {
 			float life = ember ? 2.0 + 1.5 * h11(s + 7.7) : 0.5 + 1.4 * h11(s + 7.7), rise = ember ? 0.12 : 0.35;
 			float tt = after - 0.05 * h11(s + 9.2);
 			if (tt < 0.0 || tt > life) continue;
-			float f = tt / life;
-			vec2 v = vec2(cos(a), sin(a)), q = p - v * (1.0 + spd * (1.0 - exp(-tt * 3.0)) * 0.8) - vec2(0.0, rise * tt * tt);
-			vec2 vel = normalize(v * spd * 2.4 * exp(-tt * 3.0) + vec2(0.0, 2.0 * rise * tt) + 1e-4);
-			float stretch = 1.0 + 4.0 * exp(-tt * 3.0), d = length(vec2(dot(q, vel) / stretch, dot(q, vec2(-vel.y, vel.x))));
-			float sz = 0.06 * (1.0 - f) + 0.012;
-			e += (smoothstep(sz, 0.0, d) * 1.4 + 0.3 * exp(-d * d / (sz * sz * 10.0))) * (1.0 - f * f);
+			float f = tt / life, fade = 1.0 - f * f;
+			vec2 v = vec2(cos(a), sin(a)), d = p - v * (1.0 + spd * (1.0 - exp(-tt * 3.0)) * 0.8) - vec2(0.0, rise * tt * tt);
+			if (ember) {
+				float sz = 0.13 * (1.0 - 0.5 * f);
+				e += spr(h11(s + 5.0) < 0.5 ? STAR : STAR6, rot(tt * 2.0 + s) * d / sz, sz, pxr) * fade * (1.0 + 0.5 * sin(tt * 18.0 + s));
+			} else {
+				vec2 vel = normalize(v * spd * 2.4 * exp(-tt * 3.0) + vec2(0.0, 2.0 * rise * tt) + 1e-4);
+				float w = 0.07 * (1.0 - f) + 0.02, len = w * (2.0 + 6.0 * exp(-tt * 3.0));   // longer while it is fast
+				vec2 q = vec2(dot(d, vec2(vel.y, -vel.x)) / w, dot(d, vel) / len);
+				e += spr(STREAK, q, len, pxr) * 2.6 * fade;
+			}
 		}
 	}
 	return e;
@@ -301,7 +332,7 @@ void main() {
 		vec2 p = (px - uC[i]) / uR[i];
 		float lim = ${FX_REACH.toFixed(1)} / uR[i], r = length(p);
 		if (uT[i] < 0.0 || r > lim) continue;
-		float e = fx(vec2(p.x, -p.y), uT[i], uPow[i]) * smoothstep(lim, lim * 0.75, r);   // fades out before its reach ends
+		float e = fx(vec2(p.x, -p.y), uT[i], uPow[i], uR[i] * uDpr) * smoothstep(lim, lim * 0.75, r);   // fades out before its reach ends
 		col += uCol[i] * e + vec3(0.8) * smoothstep(1.2, 3.0, e);   // white-hot where it is brightest
 	}
 	col = min(col, vec3(1.0));
@@ -320,7 +351,21 @@ class Burst {
 		const p = this.prog = gl.createProgram();
 		gl.attachShader(p, sh(gl.VERTEX_SHADER, FX_VERT)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FX_FRAG)); gl.linkProgram(p);
 		if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { this.ok = false; return; }
-		this.u = Object.fromEntries(['uRes', 'uDpr', 'uN', 'uC', 'uR', 'uT', 'uPow', 'uCol'].map((n) => [n, gl.getUniformLocation(p, n)]));
+		this.u = Object.fromEntries(['uRes', 'uDpr', 'uN', 'uC', 'uR', 'uT', 'uPow', 'uCol', 'uAtlas', 'uNoise'].map((n) => [n, gl.getUniformLocation(p, n)]));
+		// the textures, black until their images are decoded (they normally are by now: fxImages() runs when the plugin loads)
+		const imgs = fxImages(), texture = (img, repeat) => {
+			const t = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1, 1, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array([0]));
+			const upload = () => {
+				gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, gl.RED, gl.UNSIGNED_BYTE, img); gl.generateMipmap(gl.TEXTURE_2D);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+				const wrap = repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
+			};
+			if (img.complete && img.naturalWidth) upload(); else img.addEventListener('load', upload, { once: true });
+			return t;
+		};
+		this.atlas = texture(imgs.atlas, false); this.noise = texture(imgs.noise, true);
 		this.vao = gl.createVertexArray(); gl.bindVertexArray(this.vao);
 		gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
 		const loc = gl.getAttribLocation(p, 'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
@@ -343,6 +388,8 @@ class Burst {
 		gl.useProgram(this.prog);
 		gl.uniform2f(this.u.uRes, c.width, c.height); gl.uniform1f(this.u.uDpr, c.width / (c.clientWidth || 1)); gl.uniform1i(this.u.uN, n);
 		gl.uniform2fv(this.u.uC, C); gl.uniform1fv(this.u.uR, R); gl.uniform1fv(this.u.uT, T); gl.uniform1fv(this.u.uPow, P); gl.uniform3fv(this.u.uCol, K);
+		gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.atlas); gl.uniform1i(this.u.uAtlas, 0);
+		gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.noise); gl.uniform1i(this.u.uNoise, 1);
 		gl.bindVertexArray(this.vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
 	}
 
@@ -356,6 +403,7 @@ class Plugin extends AppPlugin {
 
 	onLoad() {
 		this.st = this.load();
+		fxImages();   // decode the unlock effect's textures now, not when something unlocks
 		this.lineWords = new Map();
 		this.wordTimes = [];
 		this.lastType = 0;

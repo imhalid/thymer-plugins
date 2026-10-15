@@ -856,12 +856,13 @@ class Plugin extends AppPlugin {
 		const cs = getComputedStyle(document.body);
 		const ov = document.createElement('div');
 		ov.className = 'ach-ov';
-		ov.innerHTML = '<div class="ach-box"><div-scrollable class="ach-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="ach-in"><div class="ach-head"><div class="ach-por"><canvas></canvas></div><div><div class="ach-title">Achievements</div><div class="ach-sub"></div></div><button class="ach-x" aria-label="Close">✕</button></div><div class="ach-pbar"><i></i></div><div class="ach-grid"></div></div></div-scrollable></div>';
+		ov.innerHTML = '<div class="ach-box"><div-scrollable class="ach-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="ach-in"><div class="ach-head"><div class="ach-por"><canvas></canvas></div><div><div class="ach-title">Achievements</div><div class="ach-sub"></div></div><button class="ach-x" aria-label="Close">✕</button></div><div class="ach-test"><span>Test</span><button data-t="one">Notify</button><button data-t="three">Notify x3</button><button data-t="unlock">Unlock next</button><button data-t="relock">Re-lock last</button></div><div class="ach-pbar"><i></i></div><div class="ach-grid"></div></div></div-scrollable></div>';
 		const box = ov.querySelector('.ach-box');
 		box.style.color = cs.color;
 		box.style.background = cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : 'Canvas';
 		ov.addEventListener('mousedown', (e) => { if (e.target === ov) this.closePanel(); });
 		ov.querySelector('.ach-x').onclick = () => this.closePanel();
+		ov.querySelector('.ach-test').onclick = (e) => { const t = e.target.closest('button')?.dataset.t; if (t) this.test(t); };
 		this.panelKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.closePanel(); } };
 		document.addEventListener('keydown', this.panelKey, true);
 		document.body.appendChild(ov);
@@ -870,6 +871,22 @@ class Plugin extends AppPlugin {
 		if (!this.widget) { this.loopPanel(); }
 		this.st.opens++;
 		this.changed();   // which draws the list
+	}
+
+	/** The panel's test buttons: show the notification without changing anything, or really unlock (and re-lock) one. */
+	test(what) {
+		const pick = (n) => [...ACHIEVEMENTS].sort(() => Math.random() - 0.5).slice(0, n);
+		if (what === 'one') this.celebrate(pick(1));
+		else if (what === 'three') this.celebrate(pick(3));
+		else if (what === 'unlock') {
+			const a = ACHIEVEMENTS.find((x) => !this.st.unlocked[x.id]);
+			if (!a) return;
+			this.st.unlocked[a.id] = Date.now(); this.save(); this.celebrate([a]); this.refreshUi();
+		} else if (what === 'relock') {
+			const last = ACHIEVEMENTS.filter((x) => this.st.unlocked[x.id]).sort((x, y) => this.st.unlocked[y.id] - this.st.unlocked[x.id])[0];
+			if (!last) return;
+			delete this.st.unlocked[last.id]; this.save(); this.refreshUi();
+		}
 	}
 
 	/** The panel animates its own mascot when the corner one is hidden. */

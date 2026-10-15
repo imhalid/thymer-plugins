@@ -73,3 +73,5 @@
 .ach-rw { display: flex; align-items: center; gap: 6px; } .ach-tier { margin-left: auto; padding: 0 6px; border-radius: 99px; font-size: 9.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; line-height: 16px; }
 [data-tier="easy"] .ach-tier { color: #3fae6a; background: rgba(63,174,106,.14); } [data-tier="medium"] .ach-tier { color: #4f8cff; background: rgba(79,140,255,.14); }
 [data-tier="hard"] .ach-tier { color: #c46cff; background: rgba(196,108,255,.14); } [data-tier="legendary"] .ach-tier { color: #ff8a3d; background: rgba(255,138,61,.15); }
+
+.ach-test { display: flex; align-items: center; gap: 6px; margin: 0 0 12px; flex-wrap: wrap; } .ach-test span { font-size: 11px; opacity: .5; text-transform: uppercase; letter-spacing: .06em; margin-right: 4px; } .ach-test button { all: unset; cursor: pointer; font-size: 12px; padding: 4px 10px; border-radius: 8px; background: rgba(127,127,127,.16); } .ach-test button:hover { background: rgba(127,127,127,.3); }

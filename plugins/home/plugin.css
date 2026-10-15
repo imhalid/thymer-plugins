@@ -1,0 +1,104 @@
+/* Home - loaded by Thymer from the plugin's CSS tab (while the plugin is on). */
+
+/* The Home button beside Tasks: their parent becomes a two-column grid in which every row but these two spans both columns,
+   so the sidebar's top block looks as before and Tasks and Home share a line. (--home-row-gap: the gap it had, from the code.)
+   In a collapsed sidebar (data-home-stack, set from the code) there is one column, and they stack. */
+[data-home-grid] { display: grid !important; grid-template-columns: 1fr 1fr; column-gap: 2px; row-gap: var(--home-row-gap, 0px); }
+[data-home-grid] > * { grid-column: 1 / -1; }
+[data-home-grid] > [data-home-half] { grid-column: auto; min-width: 0; }
+[data-home-grid][data-home-stack] { grid-template-columns: 1fr; }
+[data-home-grid][data-home-stack] > [data-home-half] { grid-column: 1 / -1; }
+[data-home-grid] > [data-home-half] .sidebar-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A panel showing Home has no title bar: the sky starts at its top (data-home-panel, set from the code while Home is shown) */
+.panel[data-home-panel] .panel-bar { display: none !important; }
+
+/* The page: the sky across the whole top, then the rest in a column of its own; it rises a little over the sky's faded foot */
+.home-scroll { display: block; }
+.home { --home-bg: #17181c; --accent: #7c8cff; position: relative; min-height: 100%; font: 13px/1.45 system-ui, sans-serif; container: home / inline-size; }   /* laid out by the panel's width, not the window's */
+
+.home-sky { position: relative; height: 340px; overflow: hidden; background: #05060d; }
+.home-sky canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.home-sky::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+	background: radial-gradient(90% 80% at 0% 100%, rgba(3,4,10,.65), transparent 60%), linear-gradient(to bottom, transparent 62%, var(--home-bg) 100%); }
+.home-hello { position: absolute; z-index: 1; left: max(28px, calc((100% - 1080px) / 2)); bottom: 74px; color: #eef1ff; pointer-events: none; text-shadow: 0 2px 14px rgba(0,0,0,.8); }
+.home-hello h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+.home-hello p { margin: 6px 0 0; font-size: 14px; opacity: .72; }
+.home-tip { position: absolute; z-index: 2; transform: translate(-50%, -100%); padding: 4px 9px; border-radius: 8px; background: rgba(10,14,32,.88); color: #e8ecff; font-size: 11.5px; white-space: nowrap; pointer-events: none; box-shadow: 0 0 0 1px rgba(140,180,255,.25); opacity: 0; transition: opacity .12s; }
+.home-tip.on { opacity: 1; }
+.home-quiet { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; color: rgba(220,228,255,.55); font-size: 13px; pointer-events: none; }
+.home-quiet.on { display: flex; }
+/* the sky's tools, top right: the look (shape and biome) */
+.home-tools { position: absolute; z-index: 3; top: 16px; right: 18px; display: flex; gap: 6px; }
+.home-look { all: unset; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px 5px 10px; border-radius: 99px; cursor: pointer; font-size: 11.5px; font-weight: 600; color: rgba(225,232,255,.85); background: rgba(10,14,32,.45); box-shadow: inset 0 0 0 1px rgba(160,180,255,.18); backdrop-filter: blur(4px); }
+.home-look:hover { color: #fff; background: rgba(20,26,56,.7); } .home-look:focus-visible { outline: 2px solid var(--accent); }
+.home-look i { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
+.home-pick { position: absolute; z-index: 4; top: 50px; right: 18px; width: 252px; padding: 12px; border-radius: 14px; background: rgba(9,12,28,.88); box-shadow: 0 0 0 1px rgba(160,180,255,.18), 0 18px 40px rgba(0,0,0,.5); backdrop-filter: blur(10px); color: #e6eaff; display: none; }
+.home-pick.on { display: block; animation: home-pop .14s ease-out; }
+@keyframes home-pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.home-pick-label { font-size: 10.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; opacity: .5; margin: 2px 2px 7px; }
+.home-pick-label + .home-shapes { margin-bottom: 12px; }
+.home-shapes { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.home-shape { all: unset; display: flex; align-items: center; gap: 7px; padding: 7px 9px; border-radius: 9px; cursor: pointer; font-size: 12px; box-shadow: inset 0 0 0 1px rgba(160,180,255,.14); }
+.home-shape:hover { background: rgba(140,160,255,.1); } .home-shape .ti { font-size: 15px; opacity: .8; }
+.home-shape.on { background: color-mix(in srgb, var(--sky-mid) 24%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky-mid) 60%, transparent); }
+.home-biomes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.home-biome { all: unset; position: relative; aspect-ratio: 1; border-radius: 50%; cursor: pointer; box-shadow: 0 0 0 1px rgba(255,255,255,.2); transition: transform .12s; }
+.home-biome:hover { transform: scale(1.08); } .home-biome.on { box-shadow: 0 0 0 2px #fff, 0 0 12px -2px var(--sky-hot); }
+.home-biome span { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 3px; font-size: 9.5px; opacity: .55; white-space: nowrap; }
+.home-biomes { padding-bottom: 14px; }
+/* the star atlas's labels, under each week's constellation (placed from the code) */
+.home-labels { position: absolute; inset: 0; pointer-events: none; display: none; overflow: hidden; }
+.home-labels.on { display: block; }
+.home-labels span { position: absolute; left: 0; top: 0; font: 600 9.5px/1 Georgia, 'Times New Roman', serif; letter-spacing: .14em; text-transform: uppercase; color: var(--sky-hot); opacity: .7; white-space: nowrap; transition: opacity .3s; text-shadow: 0 1px 6px rgba(0,0,0,.8); }
+
+.home-body { position: relative; z-index: 1; box-sizing: border-box; max-width: 1080px; margin: -44px auto 0; padding: 0 28px 48px; display: grid; gap: 12px; }
+
+.home-card { border-radius: 16px; border: 1px solid rgba(127,127,127,.16); background: color-mix(in srgb, var(--home-bg) 92%, rgba(127,127,127,1)); padding: 16px 18px; box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px -18px rgba(0,0,0,.45); }
+.home-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.home-label { font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; opacity: .55; }
+.home-meta { font-size: 12px; opacity: .55; font-variant-numeric: tabular-nums; }
+
+/* journal and the last 30 days */
+.home-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); gap: 12px; }
+@container home (max-width: 860px) { .home-row { grid-template-columns: 1fr; } }
+.home-journal { display: flex; flex-direction: column; }
+.home-day { display: flex; align-items: center; gap: 12px; margin-top: 2px; }
+.home-day b { font-size: 44px; font-weight: 700; letter-spacing: -.03em; line-height: 1; color: var(--accent); }
+.home-day span { display: grid; } .home-day strong { font-size: 15px; font-weight: 650; } .home-day small { font-size: 12px; opacity: .55; }
+.home-journal-count { opacity: .6; margin: 8px 0 16px; }
+.home-go { all: unset; box-sizing: border-box; align-self: flex-start; margin-top: auto; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 11px; cursor: pointer; font-weight: 600; background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent); transition: background .12s; }
+.home-go:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); } .home-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.home-go .ti-arrow-right { opacity: .6; transition: transform .12s; } .home-go:hover .ti-arrow-right { transform: translateX(2px); }
+.home-bars { display: flex; align-items: flex-end; gap: 3px; height: 112px; }
+.home-bars i { flex: 1; min-width: 0; border-radius: 4px 4px 2px 2px; background: linear-gradient(to top, color-mix(in srgb, var(--accent) 55%, transparent), var(--accent)); opacity: .8; transition: opacity .12s, transform .12s; transform-origin: bottom; }
+.home-bars i:hover { opacity: 1; transform: scaleY(1.04); }
+.home-bars i.none { background: rgba(127,127,127,.22); opacity: 1; }
+.home-bars i.today { background: linear-gradient(to top, #4fc6ff, #b8ecff); opacity: 1; box-shadow: 0 0 12px -2px #4fc6ff; }
+.home-axis { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; opacity: .45; }
+
+/* recently edited */
+.home-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 0 -8px; }
+@container home (max-width: 760px) { .home-list { grid-template-columns: 1fr; } }
+.home-item { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 10px; cursor: pointer; min-width: 0; }
+.home-item:hover { background: rgba(127,127,127,.1); } .home-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.home-ico { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; font-size: 16px; background: rgba(127,127,127,.12); opacity: .85; }
+.home-item-text { flex: 1; min-width: 0; }
+.home-item b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-item small { display: block; opacity: .5; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-item em { flex: none; font-style: normal; opacity: .45; font-size: 11.5px; }
+.home-empty { padding: 6px 8px; opacity: .5; }
+
+/* A narrow panel: a slightly shorter sky with the sphere in the middle (see camera()), a smaller greeting closer to the edge,
+   the cards closer together */
+@container home (max-width: 640px) {
+	.home-sky { height: 320px; }
+	.home-hello { left: 18px; bottom: 54px; }
+	.home-hello h1 { font-size: 25px; }
+	.home-hello p { font-size: 12.5px; }
+	.home-body { margin-top: -34px; padding: 0 14px 32px; gap: 10px; }
+	.home-card { padding: 14px; }
+	.home-tools { top: 12px; right: 12px; }
+	.home-look span:nth-child(2) { display: none; }
+	.home-pick { top: 44px; right: 12px; }
+}

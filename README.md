@@ -8,6 +8,7 @@ Personal plugins for [Thymer](https://thymer.com).
 | [`achievements`](plugins/achievements) | 62 writing achievements, from easy to legendary (words, speed, streaks, tasks, night owl, ...) that pay rings, with a small 3D mascot drawn in plain WebGL in the top-left corner: it spins, runs faster while you type, and hops with a banner when something unlocks |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 | [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
+| [`home`](plugins/home) | A dashboard opened from a Home button beside Tasks: a full-width WebGL sky (a nebula, a neural field or a star atlas, in one of six biomes) in which every day you changed something is a star, brighter the more changed, days in a row joined by lines that pass light along; then the last 30 days, today's journal and recently edited pages |
 
 ## Install a plugin
 
@@ -143,3 +144,19 @@ Effects for the mouse, in presets made to go together: each puts a click effect,
 Everything is drawn from small grayscale CC0 textures (Kenney's Particle Pack and a Screaming Brain Studios noise, see `fx/LICENSE.md`) as instanced WebGL particles on one canvas that clicks pass through; it draws only while something is alive. On a dark theme the light adds up; on a light theme the colour is darkened and painted. It stays off on phones and tablets and with reduced motion.
 
 To install: paste `cursor-fx.js` (the built plugin, textures included) into a new global plugin's code tab and `plugin.css` into its CSS tab. To rebuild after editing `cursor-fx.src.js`: `node build.mjs`.
+
+## Home
+
+A dashboard of your own. A Home button sits beside Tasks in the sidebar (a copy of Thymer's Tasks row, so it looks the same; the two share the line, and stack when the sidebar is collapsed), and `Home: open` works from the command palette. Home opens in the panel you are working in, without the panel's title bar (it comes back when the panel shows something else).
+
+Its header, across the whole top of the panel, is deep space drawn with WebGL, in which every day on which something changed in the workspace is a star, bigger and brighter the more changed that day, the brightest with four diffraction spikes; days in a row are joined by soft lines along which pulses of light run from the older day to the newer, like data being sent. Today's star has a ring that breathes; pointing at a star tells its date and how much changed. A picker in the sky's corner chooses its shape:
+
+- **Nebula** – close in front of a cloud of glowing gas in layers at different depths, bright ionised hearts, dark dust drifting in front; the camera slides slowly along it (the near layers pass the far ones), from today's end to the oldest and back. The days are young stars on a stream that winds through it.
+- **Neural** – a living field of glowing filaments, like a nervous system, across the whole sky (a port of [zozuar's shader](https://twitter.com/zozuar/status/1625182758745128981), on Shadertoy as [mlBXRK](https://www.shadertoy.com/view/mlBXRK)), in the biome's colours; the days are points scattered over it, the oldest at the left, and each lights up as a filament passes it.
+- **Star atlas** – a flat chart on deep blue paper, gas drifting behind it, with a fine grid and the dashed ecliptic; every week is a constellation labelled with its number and month. It pans slowly from today to the oldest week and back.
+
+and its biome, the colours any shape is drawn in: Nebula, Ember, Aurora, Ice, Gold or Abyss. The page follows the panel's width (not the window's): in a narrow panel the sky's centrepiece moves to the middle and the cards stack. Under the header: a bar for each of the last 30 days, today's journal, and the pages edited last. `Home: next sky shape` and `Home: next biome` work from the command palette; the shape and the biome are kept per device.
+
+What changed when is read from the workspace when Home opens (again after two minutes): a page counts on the day it was made, a line on the day it was written and the day it was last changed. Lines written while Home is open brighten today's star. Off on phones and tablets.
+
+To install: paste `plugin.js` into a new global plugin's code tab and `plugin.css` into its CSS tab.

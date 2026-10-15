@@ -183,7 +183,6 @@ class Plugin extends AppPlugin {
 		// Words written before the collection existed still count.
 		this.state.total = Math.max(this.state.total, this.state.words);
 		this.checkUnlocks(true);
-		this.ui.injectCSS(CSS);
 
 		this.statusItem = this.ui.addStatusBarItem({
 			icon: 'plant',
@@ -450,46 +449,3 @@ class Plugin extends AppPlugin {
 		this.seen = { leaves: Math.floor(growth * 9), flowers: Math.min(s.tasks, 14) };
 	}
 }
-
-const CSS = /* css */`
-	.dg { padding: 8px 10px 6px; }
-	.dg-svg { width: 100%; height: auto; display: block; overflow: visible; }
-	.dg-soil { fill: currentColor; opacity: .12; }
-	.dg-stem { fill: none; stroke: #5fae6a; stroke-width: 3.2; stroke-linecap: round; transition: d .6s ease; }
-	.dg-stalk { stroke-width: 1.8; }
-	.dg-leaf { fill: #6fc47a; opacity: .92; transform-box: fill-box; transform-origin: 0 100%; animation: dg-leaf .7s cubic-bezier(.34,1.56,.64,1) both; }
-	.dg-flower { animation: dg-pop .6s cubic-bezier(.34,1.56,.64,1) both; }
-	.dg-core { fill: #fff3b0; }
-	.dg-firefly { fill: #fff3b0; animation: dg-glow 2.4s ease-in-out infinite; }
-	.dg-bar { height: 4px; border-radius: 2px; margin-top: 6px; position: relative; overflow: hidden; }
-	.dg-bar::before { content: ""; position: absolute; inset: 0; background: currentColor; opacity: .12; }
-	.dg-fill { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: #5fae6a; transition: width .5s ease; }
-	.dg-meta { display: flex; justify-content: space-between; font-size: 11px; opacity: .7; margin-top: 6px; }
-	.dg-legend { filter: drop-shadow(0 0 4px #ffb929); }
-	.dg-overlay { position: fixed; inset: 0; z-index: 2147483100; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 24px; }
-	.dg-modal { width: min(760px, 100%); max-height: 86vh; overflow: auto; border-radius: 14px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.45); border: 1px solid rgba(127,127,127,.25); }
-	.dg-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
-	.dg-title { font-size: 18px; font-weight: 600; }
-	.dg-sub { font-size: 12px; opacity: .65; margin-top: 2px; }
-	.dg-x { background: none; border: none; color: inherit; font-size: 16px; cursor: pointer; opacity: .6; }
-	.dg-x:hover { opacity: 1; }
-	.dg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-	.dg-card { position: relative; border: 1px solid color-mix(in srgb, var(--rc) 55%, transparent); border-radius: 12px; padding: 12px; background: color-mix(in srgb, var(--rc) 8%, transparent); cursor: pointer; text-align: center; transition: transform .15s ease, box-shadow .15s ease; }
-	.dg-card:hover { transform: translateY(-2px); }
-	.dg-card.dg-sel { box-shadow: 0 0 0 2px var(--rc); }
-	.dg-card.dg-legend { box-shadow: 0 0 18px color-mix(in srgb, var(--rc) 55%, transparent); }
-	.dg-card.dg-locked { cursor: default; border-style: dashed; }
-	.dg-card.dg-locked:hover { transform: none; }
-	.dg-card.dg-locked .dg-cardsvg { filter: brightness(0) opacity(.22); }
-	.dg-rarity { position: absolute; top: 8px; left: 8px; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--rc); }
-	.dg-cardsvg { width: 84px; height: 84px; margin: 14px auto 6px; display: block; overflow: visible; }
-	.dg-name { font-weight: 600; font-size: 14px; }
-	.dg-desc { font-size: 11px; opacity: .65; margin: 4px 0 8px; min-height: 28px; }
-	.dg-foot { font-size: 11px; opacity: .8; }
-	.dg-prog { height: 4px; border-radius: 2px; background: rgba(127,127,127,.2); overflow: hidden; margin-bottom: 6px; }
-	.dg-prog > div { height: 100%; background: var(--rc); }
-	@keyframes dg-leaf { from { transform: scale(0); } to { transform: scale(1); } }
-	@keyframes dg-pop { from { transform: scale(0) rotate(-90deg); } to { transform: scale(1) rotate(0); } }
-	@keyframes dg-glow { 0%,100% { opacity: .1; } 50% { opacity: 1; } }
-	@media (prefers-reduced-motion: reduce) { .dg-leaf, .dg-flower, .dg-firefly { animation: none; } }
-`;

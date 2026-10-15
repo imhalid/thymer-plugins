@@ -12,7 +12,8 @@ Personal plugins for [Thymer](https://thymer.com).
 
 1. In Thymer, create a new **global plugin** (Plugins → New → Global plugin).
 2. Open **Edit Code** and paste the contents of the plugin's `plugin.js` into the code tab.
-3. Paste the plugin's `plugin.json` into the **Configuration** tab and save.
+3. Paste the plugin's `plugin.css` into the **CSS** tab.
+4. Paste the plugin's `plugin.json` into the **Configuration** tab and save.
 
 ## Achievements
 
@@ -20,7 +21,7 @@ A character card at the top of the sidebar and 25 achievements for writing: tota
 
 The card is a window onto the mascot's head (low-poly, drawn with plain WebGL, looking at the pointer, nodding while you type). Below it sits Thymer's own workspace row, and the card's Search and Jump to buttons press Thymer's own Search and Jump To rows (hidden while the card is on); the sidebar's content is pushed down to make room. Click the portrait (or run `Achievements: open`) for the full list; `Achievements: show or hide the mascot` hides the card. Progress is kept per device in the app's local storage.
 
-To install: paste `achievements.js` (the built plugin, model included) into a new global plugin. To rebuild after editing `achievements.src.js`: `node build.mjs` (it embeds `sonic.json`). The model is a ripped Sonic Adventure asset; see `model/LICENSE.md` for its credits and for what to remove before this repository is ever made public.
+To install: paste `achievements.js` (the built plugin, model included) into a new global plugin's code tab and `plugin.css` into its CSS tab. To rebuild after editing `achievements.src.js`: `node build.mjs` (it embeds `sonic.json`). The model is a ripped Sonic Adventure asset; see `model/LICENSE.md` for its credits and for what to remove before this repository is ever made public.
 
 ## Digital Garden
 

@@ -175,53 +175,6 @@ class Mascot {
 	destroy() { try { this.gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { /* ignore */ } }
 }
 
-// ---- Styles --------------------------------------------------------------------------------------------------------------
-const CSS = `
-.ach-card { position: fixed; left: 12px; top: 46px; z-index: 600; width: 124px; font: 12px/1.3 system-ui, sans-serif; color: var(--side-fg-color, #e6e8ee); user-select: none; --ach-r: var(--radius-normal, 8px); }
-.ach-por { position: relative; height: 118px; border-radius: calc(var(--ach-r) + 2px); overflow: hidden; cursor: pointer; background: radial-gradient(120% 95% at 50% 10%, #3f7bff 0%, #1d3ea8 58%, #0c1a52 100%); isolation: isolate; }
-.ach-por::before { content: ''; position: absolute; inset: 0; z-index: 0; background: repeating-linear-gradient(115deg, rgba(255,255,255,.06) 0 6px, transparent 6px 14px); }
-.ach-por canvas { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; transition: transform .2s; transform-origin: 50% 60%; }
-.ach-por:hover canvas { transform: scale(1.04); }
-.ach-por::after { content: ''; position: absolute; inset: 0; z-index: 3; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.55), inset 0 -26px 24px -14px rgba(4,10,40,.5); }
-.ach-rg { position: absolute; z-index: 4; padding: 2px 7px; border-radius: 99px; background: rgba(10,16,48,.72); font-size: 10.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.ach-rg { right: 8px; bottom: 8px; color: #ffd64a; }
-.ach-mini { width: 46px; } .ach-mini .ach-por { height: 46px; } .ach-mini .ach-nm, .ach-mini .ach-btns, .ach-mini .ach-rg { display: none; }
-.ach-nm { margin-top: 4px; }
-.ach-slot { height: 30px; }
-.ach-hosted { transform: none !important; position: fixed !important; z-index: 601 !important; margin: 0 !important; box-sizing: border-box !important; height: 30px !important; }
-[data-ach-hide] { display: none !important; }
-.ach-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-top: 4px; }
-.ach-btn { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 8px; border-radius: var(--ach-r); cursor: pointer; color: var(--side-fg-color, inherit); }
-.ach-btn:hover { background: var(--sidebar-bg-hover, rgba(127,127,127,.18)); color: var(--sidebar-fg-hover, inherit); } .ach-btn:active { background: var(--side-bg-focus, rgba(127,127,127,.28)); transform: scale(.98); } .ach-btn:focus-visible { outline: 2px solid var(--sidebar-heading, #8fb4ff); outline-offset: -2px; }
-.ach-btn svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .85; } .ach-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ach-pop { position: fixed; z-index: 9000; width: 320px; max-height: 420px; display: grid; grid-template-rows: auto minmax(0, 1fr); border-radius: 14px; border: 1px solid rgba(127,127,127,.3); box-shadow: 0 18px 50px rgba(0,0,0,.5); overflow: hidden; font: 13px/1.35 system-ui, sans-serif; animation: ach-pop .14s ease-out; }
-@keyframes ach-pop { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
-.ach-pop input { all: unset; box-sizing: border-box; padding: 11px 14px; border-bottom: 1px solid rgba(127,127,127,.25); font-size: 14px; }
-.ach-res { padding: 4px; margin: 0 -16px -16px 0; } .ach-lab { padding: 6px 10px 3px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; opacity: .5; }
-.ach-it { display: block; width: 100%; box-sizing: border-box; padding: 6px 10px; border-radius: 8px; cursor: pointer; } .ach-it.on, .ach-it:hover { background: rgba(80,130,255,.22); }
-.ach-it span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ach-it small { display: block; opacity: .55; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ach-empty { padding: 14px; opacity: .55; text-align: center; }
-/* Lists scroll in Thymer's own <div-scrollable>, as its dialogs do, so the scrollbar is Thymer's. It needs a definite height:
-   its box is a grid whose row is capped by the box's max-height. It pads its content 20px right and bottom. */
-.ach-scroll { display: block; min-height: 0; }
-.ach-banner { position: fixed; left: 148px; top: 58px; z-index: 600; display: flex; align-items: center; gap: 10px; max-width: 280px; padding: 9px 14px 9px 10px; border-radius: 14px; background: linear-gradient(135deg, #1b3a8c, #0f1f55); color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.18); font: 12px/1.35 system-ui, sans-serif; transform: translateX(-24px); opacity: 0; transition: transform .35s cubic-bezier(.2,1.2,.4,1), opacity .25s; pointer-events: none; }
-.ach-banner.on { transform: none; opacity: 1; }
-.ach-banner i { font-style: normal; font-size: 26px; } .ach-banner small { display: block; opacity: .7; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; } .ach-banner b { font-size: 13px; } .ach-banner em { font-style: normal; color: #ffd64a; }
-.ach-ov { position: fixed; inset: 0; z-index: 9990; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); animation: ach-in .15s ease-out; }
-@keyframes ach-in { from { opacity: 0; } to { opacity: 1; } }
-.ach-box { width: min(760px, 94vw); max-height: 88vh; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; border-radius: 18px; border: 1px solid rgba(127,127,127,.28); box-shadow: 0 28px 80px rgba(0,0,0,.5); font: 13px/1.4 system-ui, sans-serif; }
-.ach-in { padding: 20px 0 0 20px; }
-.ach-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; } .ach-head .ach-por { width: 84px; height: 84px; flex: none; border-radius: 16px; cursor: default; } .ach-head .ach-por canvas { transition: none; }
-.ach-title { font-size: 18px; font-weight: 700; } .ach-sub { opacity: .65; margin-top: 2px; } .ach-sub span { color: #e0a800; font-weight: 600; }
-.ach-x { all: unset; margin-left: auto; cursor: pointer; opacity: .55; padding: 4px 8px; border-radius: 8px; } .ach-x:hover { opacity: 1; background: rgba(127,127,127,.18); }
-.ach-pbar { height: 6px; border-radius: 3px; background: rgba(127,127,127,.25); overflow: hidden; margin-bottom: 14px; } .ach-pbar i { display: block; height: 100%; background: linear-gradient(90deg, #2a63ff, #5ee1ff); }
-.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
-.ach-card2 { display: flex; gap: 10px; padding: 10px; border-radius: 12px; border: 1px solid rgba(127,127,127,.22); background: rgba(127,127,127,.07); }
-.ach-card2.lock .ach-ic { filter: grayscale(1); opacity: .35; } .ach-card2.got { border-color: rgba(255,200,40,.55); background: rgba(255,200,40,.09); }
-.ach-ic { font-size: 28px; line-height: 1; flex: none; width: 34px; text-align: center; } .ach-cn { font-weight: 650; } .ach-ds { opacity: .65; font-size: 12px; } .ach-rw { color: #e0a800; font-size: 11px; margin-top: 3px; }
-.ach-pr { height: 4px; border-radius: 2px; background: rgba(127,127,127,.25); margin-top: 6px; overflow: hidden; } .ach-pr i { display: block; height: 100%; background: #4f8cff; } .ach-card2.got .ach-pr i { background: #e0a800; }
-`;
-
 class Plugin extends AppPlugin {
 	cleanup = [];
 	toastT = 0;
@@ -232,7 +185,6 @@ class Plugin extends AppPlugin {
 		this.lineWords = new Map();
 		this.wordTimes = [];
 		this.lastType = 0;
-		this.mountStyle();
 		if (localStorage.getItem(HIDE_KEY) !== '1') this.mountWidget();
 
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: open', icon: 'trophy', onSelected: () => this.openPanel() });
@@ -270,7 +222,6 @@ class Plugin extends AppPlugin {
 		this.cleanup = [];
 		this.closePanel();
 		this.unmountWidget();
-		this.styleEl?.remove();
 		this.padStyle?.remove();
 		this.banner?.remove();
 	}
@@ -323,8 +274,6 @@ class Plugin extends AppPlugin {
 	unlockedCount() { return ACHIEVEMENTS.filter((a) => this.st.unlocked[a.id]).length; }
 
 	// ---- The mascot and the banner ---------------------------------------------------------------------------------------
-
-	mountStyle() { this.styleEl = document.createElement('style'); this.styleEl.textContent = CSS; document.head.appendChild(this.styleEl); }
 
 	mountWidget() {
 		if (this.widget) return;

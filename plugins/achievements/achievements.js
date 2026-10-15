@@ -194,19 +194,23 @@ const CSS = `
 .ach-btn { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 8px; border-radius: var(--ach-r); cursor: pointer; color: var(--side-fg-color, inherit); }
 .ach-btn:hover { background: var(--sidebar-bg-hover, rgba(127,127,127,.18)); color: var(--sidebar-fg-hover, inherit); } .ach-btn:active { background: var(--side-bg-focus, rgba(127,127,127,.28)); transform: scale(.98); } .ach-btn:focus-visible { outline: 2px solid var(--sidebar-heading, #8fb4ff); outline-offset: -2px; }
 .ach-btn svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .85; } .ach-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ach-pop { position: fixed; z-index: 9000; width: 320px; max-height: 420px; display: flex; flex-direction: column; border-radius: 14px; border: 1px solid rgba(127,127,127,.3); box-shadow: 0 18px 50px rgba(0,0,0,.5); overflow: hidden; font: 13px/1.35 system-ui, sans-serif; animation: ach-pop .14s ease-out; }
+.ach-pop { position: fixed; z-index: 9000; width: 320px; max-height: 420px; display: grid; grid-template-rows: auto minmax(0, 1fr); border-radius: 14px; border: 1px solid rgba(127,127,127,.3); box-shadow: 0 18px 50px rgba(0,0,0,.5); overflow: hidden; font: 13px/1.35 system-ui, sans-serif; animation: ach-pop .14s ease-out; }
 @keyframes ach-pop { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
 .ach-pop input { all: unset; box-sizing: border-box; padding: 11px 14px; border-bottom: 1px solid rgba(127,127,127,.25); font-size: 14px; }
-.ach-res { overflow-y: auto; padding: 4px; } .ach-lab { padding: 6px 10px 3px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; opacity: .5; }
+.ach-res { padding: 4px; margin: 0 -16px -16px 0; } .ach-lab { padding: 6px 10px 3px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; opacity: .5; }
 .ach-it { display: block; width: 100%; box-sizing: border-box; padding: 6px 10px; border-radius: 8px; cursor: pointer; } .ach-it.on, .ach-it:hover { background: rgba(80,130,255,.22); }
 .ach-it span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ach-it small { display: block; opacity: .55; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ach-empty { padding: 14px; opacity: .55; text-align: center; }
+/* Lists scroll in Thymer's own <div-scrollable>, as its dialogs do, so the scrollbar is Thymer's. It needs a definite height:
+   its box is a grid whose row is capped by the box's max-height. It pads its content 20px right and bottom. */
+.ach-scroll { display: block; min-height: 0; }
 .ach-banner { position: fixed; left: 148px; top: 58px; z-index: 600; display: flex; align-items: center; gap: 10px; max-width: 280px; padding: 9px 14px 9px 10px; border-radius: 14px; background: linear-gradient(135deg, #1b3a8c, #0f1f55); color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.18); font: 12px/1.35 system-ui, sans-serif; transform: translateX(-24px); opacity: 0; transition: transform .35s cubic-bezier(.2,1.2,.4,1), opacity .25s; pointer-events: none; }
 .ach-banner.on { transform: none; opacity: 1; }
 .ach-banner i { font-style: normal; font-size: 26px; } .ach-banner small { display: block; opacity: .7; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; } .ach-banner b { font-size: 13px; } .ach-banner em { font-style: normal; color: #ffd64a; }
 .ach-ov { position: fixed; inset: 0; z-index: 9990; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); animation: ach-in .15s ease-out; }
 @keyframes ach-in { from { opacity: 0; } to { opacity: 1; } }
-.ach-box { width: min(760px, 94vw); max-height: 88vh; overflow: auto; padding: 20px; border-radius: 18px; border: 1px solid rgba(127,127,127,.28); box-shadow: 0 28px 80px rgba(0,0,0,.5); font: 13px/1.4 system-ui, sans-serif; }
+.ach-box { width: min(760px, 94vw); max-height: 88vh; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; border-radius: 18px; border: 1px solid rgba(127,127,127,.28); box-shadow: 0 28px 80px rgba(0,0,0,.5); font: 13px/1.4 system-ui, sans-serif; }
+.ach-in { padding: 20px 0 0 20px; }
 .ach-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; } .ach-head .ach-por { width: 84px; height: 84px; flex: none; border-radius: 16px; cursor: default; } .ach-head .ach-por canvas { transition: none; }
 .ach-title { font-size: 18px; font-weight: 700; } .ach-sub { opacity: .65; margin-top: 2px; } .ach-sub span { color: #e0a800; font-weight: 600; }
 .ach-x { all: unset; margin-left: auto; cursor: pointer; opacity: .55; padding: 4px 8px; border-radius: 8px; } .ach-x:hover { opacity: 1; background: rgba(127,127,127,.18); }
@@ -464,7 +468,7 @@ class Plugin extends AppPlugin {
 		pop.className = 'ach-pop';
 		pop.style.color = cs.color; pop.style.background = cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : 'Canvas';
 		pop.style.left = `${r.right + 10}px`; pop.style.top = `${Math.max(8, r.top + 70)}px`;
-		pop.innerHTML = '<input spellcheck="false"><div class="ach-res"></div>';
+		pop.innerHTML = '<input spellcheck="false"><div-scrollable class="ach-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="ach-res"></div></div-scrollable>';
 		document.body.appendChild(pop);
 		this.pop = pop;
 		const input = pop.querySelector('input'), res = pop.querySelector('.ach-res');
@@ -569,7 +573,7 @@ class Plugin extends AppPlugin {
 		const cs = getComputedStyle(document.body);
 		const ov = document.createElement('div');
 		ov.className = 'ach-ov';
-		ov.innerHTML = '<div class="ach-box"><div class="ach-head"><div class="ach-por"><canvas></canvas></div><div><div class="ach-title">Achievements</div><div class="ach-sub"></div></div><button class="ach-x" aria-label="Close">\u{2715}</button></div><div class="ach-pbar"><i></i></div><div class="ach-grid"></div></div>';
+		ov.innerHTML = '<div class="ach-box"><div-scrollable class="ach-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="ach-in"><div class="ach-head"><div class="ach-por"><canvas></canvas></div><div><div class="ach-title">Achievements</div><div class="ach-sub"></div></div><button class="ach-x" aria-label="Close">\u{2715}</button></div><div class="ach-pbar"><i></i></div><div class="ach-grid"></div></div></div-scrollable></div>';
 		const box = ov.querySelector('.ach-box');
 		box.style.color = cs.color;
 		box.style.background = cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : 'Canvas';

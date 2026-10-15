@@ -383,14 +383,17 @@ class Plugin extends AppPlugin {
 					: `<div class="dg-prog"><div style="width:${pct}%"></div></div><div class="dg-foot">${s.total.toLocaleString()} / ${f.at.toLocaleString()} words</div>`}
 			</div>`;
 		}).join('');
-		this.modal.innerHTML = `<div class="dg-modal" style="background:${bg}">
+		const scroller = () => this.modal.querySelector('.dg-scroll')?.shadowRoot?.querySelector('.id--scroll-container-y');
+		const top = scroller()?.scrollTop || 0;   // planting a flower redraws the list: it stays where it was
+		this.modal.innerHTML = `<div class="dg-modal" style="background:${bg}"><div-scrollable class="dg-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="dg-in">
 			<div class="dg-head">
 				<div><div class="dg-title">Flower collection</div>
 				<div class="dg-sub">${s.unlocked.length} / ${FLOWERS.length} discovered · ${s.total.toLocaleString()} words written in total</div></div>
 				<button class="dg-x" aria-label="Close">✕</button>
 			</div>
 			<div class="dg-grid">${cards}</div>
-		</div>`;
+		</div></div-scrollable></div>`;
+		if (top && scroller()) scroller().scrollTop = top;
 		this.modal.querySelector('.dg-x').addEventListener('click', () => this.closeCollection());
 		this.modal.querySelectorAll('.dg-card:not(.dg-locked)').forEach((el) => el.addEventListener('click', () => {
 			this.state.selected = el.dataset.id;

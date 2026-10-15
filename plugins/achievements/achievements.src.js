@@ -438,7 +438,7 @@ class Plugin extends AppPlugin {
 		if (w) {
 			w.querySelector('.ach-rg').textContent = `◎ ${fmt(this.rings())}`;
 			const m = measures(this.st), next = ACHIEVEMENTS.filter((a) => !this.st.unlocked[a.id]).sort((a, b) => m[b.stat] / b.target - m[a.stat] / a.target)[0];
-			w.querySelector('.ach-por').title = `Achievements ${got}/${total}` + (next ? ` - next: ${next.name} ${fmt(Math.min(m[next.stat], next.target))}/${fmt(next.target)}` : '');
+			w.querySelector('.ach-por').title = `Achievements ${got}/${total}` + (next ? ` - next: ${next.name}` : '');   // what it asks for stays secret until it unlocks
 		}
 		if (this.panel) this.renderPanel();
 	}
@@ -614,8 +614,8 @@ class Plugin extends AppPlugin {
 			c.innerHTML = '<div class="ach-ic"></div><div style="flex:1;min-width:0"><div class="ach-cn"></div><div class="ach-ds"></div><div class="ach-rw"></div><div class="ach-pr"><i></i></div></div>';
 			c.querySelector('.ach-ic').textContent = a.icon;
 			c.querySelector('.ach-cn').textContent = a.name;
-			c.querySelector('.ach-ds').textContent = a.desc;
-			c.querySelector('.ach-rw').textContent = on ? `◎ +${a.rings} · ${new Date(this.st.unlocked[a.id]).toLocaleDateString()}` : `◎ +${a.rings} · ${fmt(Math.min(m[a.stat], a.target))} / ${fmt(a.target)}`;
+			c.querySelector('.ach-ds').textContent = on ? a.desc : '???';   // locked ones keep their task and target secret, so they are found rather than speedrun
+			c.querySelector('.ach-rw').textContent = on ? `◎ +${a.rings} · ${new Date(this.st.unlocked[a.id]).toLocaleDateString()}` : `◎ +${a.rings}`;
 			c.querySelector('.ach-pr i').style.width = `${pr * 100}%`;
 			grid.appendChild(c);
 		}

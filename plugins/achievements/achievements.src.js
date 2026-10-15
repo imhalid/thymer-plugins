@@ -259,12 +259,13 @@ void main() { gl_Position = vec4(aPos, 0.0, 1.0); }`;
 const FX_FRAG = `#version 300 es
 precision highp float;
 uniform vec2 uRes; uniform float uDpr; uniform int uN; uniform sampler2D uAtlas, uNoise;
-uniform vec2 uC[${FX_MAX}]; uniform float uR[${FX_MAX}], uT[${FX_MAX}], uPow[${FX_MAX}]; uniform vec3 uCol[${FX_MAX}];
+uniform vec2 uC[${FX_MAX}]; uniform float uR[${FX_MAX}], uT[${FX_MAX}], uPow[${FX_MAX}], uSeed[${FX_MAX}], uTier[${FX_MAX}]; uniform vec3 uCol[${FX_MAX}];
 out vec4 o;
 const float B = ${(BURST_MS / 1000).toFixed(2)};
 // the atlas, 4 x 3 cells: 0-3 electricity, 4 vortex, 5 sharp ring, 6 soft ring, 7 four-point star, 8 streak, 9 burst, 10 six-point star, 11 glow star
 const float ZAP = 0.0, VORTEX = 4.0, RING = 5.0, SOFTRING = 6.0, STAR = 7.0, STREAK = 8.0, BURST = 9.0, STAR6 = 10.0, GLOW = 11.0;
-float h11(float n) { return fract(sin(n * 127.1) * 43758.5453); }
+float SD = 0.0, TR = 1.0;   // this badge's random seed (every unlock is different) and tier (0 Easy ... 3 Legendary: its form)
+float h11(float n) { return fract(sin((n + SD) * 127.1) * 43758.5453); }
 mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }
 float nz(vec2 uv) { return textureLod(uNoise, uv, 0.0).r; }
 // sprite c at q (its own space, -1 to 1, y up), size its half-width in radii; pxr is device px per radius, for the mip level
@@ -276,47 +277,74 @@ float spr(float c, vec2 q, float size, float pxr) {
 // the light of one badge at p (in its radii, y up), t seconds into its sequence; pw is how big its tier makes it
 float fx(vec2 p, float t, float pw, float pxr) {
 	float r = length(p), ang = atan(p.y, p.x), after = t - B, e = 0.0;
+	float dirA = h11(1.0) < 0.5 ? -1.0 : 1.0, dirB = h11(2.0) < 0.5 ? -1.0 : 1.0, nzo = h11(3.0) * 8.0;   // spin directions, noise offset
 	float charge = smoothstep(0.05, B, t) * (1.0 - smoothstep(0.0, 0.15, after));
 	if (charge > 0.0) {
 		float c15 = pow(charge, 1.5);
-		e += spr(VORTEX, rot(t * 5.0) * p / 2.3, 2.3, pxr) * 0.3 * charge;   // the vortex, turning faster as it charges
+		e += spr(VORTEX, rot(dirA * t * 5.0) * p / 2.3, 2.3, pxr) * (0.18 + 0.08 * TR) * charge;   // the vortex, turning faster as it charges
 		// flame: the noise wrapped round the ring (3 times, so it meets itself) and flowing outward
 		float u = ang / 6.2832 * 3.0, edge = r - 1.0;
-		float n = nz(vec2(u, edge * 0.9 - t * 1.4)), n2 = nz(vec2(u * 2.0 + 0.37, edge * 1.7 - t * 2.3)), fl = n * n2 * 2.0;
+		float n = nz(vec2(u + nzo, edge * 0.9 - t * 1.4)), n2 = nz(vec2(u * 2.0 + 0.37 + nzo * 2.0, edge * 1.7 - t * 2.3)), fl = n * n2 * 2.0;
 		float flame = smoothstep(-0.08, 0.0, edge) * exp(-max(edge, 0.0) / (0.05 + 0.6 * charge * fl)) * (0.25 + fl);
 		float rim = exp(-pow((r - 1.03) / 0.04, 2.0)) * (0.45 + n);
-		e += (flame * 2.4 + rim * 1.1) * c15;
-		for (int k = 0; k < 3; k++) {   // electricity: three crackles going round, flicking through the four frames
-			float fk = float(k), a = fk * 2.094 + t * (1.4 + 0.5 * fk), tick = floor(t * 16.0 + fk * 5.0), frame = mod(tick + fk, 4.0);
+		e += (flame * 2.4 + rim * 1.1) * c15 * (0.55 + 0.25 * TR);
+		for (int k = 0; k < 3; k++) {   // electricity: three crackles going round, flicking through the four frames (none for Easy)
+			if (TR < 0.5) break;
+			float fk = float(k), a = h11(fk + 40.0) * 6.2832 + dirB * t * (1.4 + 0.5 * fk), tick = floor(t * 16.0 + fk * 5.0), frame = mod(tick + fk, 4.0);
 			vec2 q = rot(-a + 1.5708 + tick * 1.7) * (p - vec2(cos(a), sin(a)) * 1.2) / 0.8;
 			e += spr(ZAP + frame, q, 0.8, pxr) * 1.5 * c15 * step(0.3, h11(tick * 3.1 + fk));
 		}
 		for (int i = 0; i < 14; i++) {   // stars drawn in
 			float s = float(i) + 100.0, a = h11(s) * 6.2832, ph = fract(t * 0.9 + h11(s + 1.3));
-			vec2 q = rot(ph * 3.0) * (p - vec2(cos(a), sin(a)) * (2.6 - 1.5 * ph * ph)) / 0.16;
+			if (float(i) >= 6.0 + 4.0 * TR) break;
+			vec2 q = rot(dirB * ph * 3.0) * (p - vec2(cos(a), sin(a)) * (2.6 - 1.5 * ph * ph)) / 0.16;
 			e += spr(STAR, q, 0.16, pxr) * sin(ph * 3.1416) * charge;
 		}
 	}
 	if (after > 0.0) {
 		float flash = exp(-after * 6.0);   // the flash: a burst and a glowing star
-		e += spr(BURST, rot(after * 1.2) * p / 2.7, 2.7, pxr) * 1.7 * flash;
+		e += spr(BURST, rot(dirA * after * 1.2 + nzo) * p / (1.8 + 0.3 * TR + 0.3 * pw), 1.8 + 0.3 * TR + 0.3 * pw, pxr) * (0.9 + 0.35 * TR) * flash;
 		float gs = 1.7 + after * 2.0;
-		e += spr(GLOW, rot(-after * 0.8) * p / gs, gs, pxr) * 1.3 * exp(-after * 4.0);
+		e += spr(GLOW, rot(-dirA * after * 0.8) * p / gs, gs, pxr) * (0.8 + 0.2 * TR) * exp(-after * 4.0);
 		// the shockwave, broken into arcs by the noise. The ring sprites are read across their band at a chosen width (the
 		// sharp ring's band runs 0.55-0.72 of the sprite, the soft one's 0.58-0.9), so they stay thin as they grow.
 		vec2 dir = p / max(r, 1e-4);
 		float k = 1.0 - exp(-after * 3.0), rw = 1.0 + k * (1.6 + 0.9 * pw), w1 = 0.06 + 0.12 * k;
-		float arcs = smoothstep(0.3, 0.7, nz(vec2(ang / 6.2832 * 2.0, 0.5 + after * 0.25)));
-		e += spr(RING, dir * (0.55 + (r - rw) / w1 * 0.17), w1 / 0.17, pxr) * (0.1 + 1.3 * arcs) * 1.5 * exp(-after * 1.7);
+		float arcs = smoothstep(0.3, 0.7, nz(vec2(ang / 6.2832 * 2.0 + nzo, 0.5 + after * 0.25 + nzo)));
+		float ringAmt = TR < 0.5 ? 0.25 : 1.0;   // Easy has hardly a shockwave: just the soft ring
+		e += spr(RING, dir * (0.55 + (r - rw) / w1 * 0.17), w1 / 0.17, pxr) * (0.1 + 1.3 * arcs) * 1.5 * exp(-after * 1.7) * ringAmt;
+		if (TR > 1.5) {   // Hard and Legendary: a second shockwave, a beat behind (Legendary: a third)
+			for (int j = 1; j < 3; j++) {
+				if (j == 2 && TR < 2.5) break;
+				float aj = after - 0.14 * float(j);
+				if (aj <= 0.0) continue;
+				float kj = 1.0 - exp(-aj * 3.0), rj = 1.0 + kj * (1.4 + 0.8 * pw), wj = 0.05 + 0.1 * kj;
+				float arcj = smoothstep(0.25, 0.7, nz(vec2(ang / 6.2832 * 3.0 + nzo + float(j) * 1.7, 0.2 + aj * 0.3)));
+				e += spr(RING, dir * (0.55 + (r - rj) / wj * 0.17), wj / 0.17, pxr) * (0.1 + 1.1 * arcj) * 1.2 * exp(-aj * 1.9);
+			}
+			for (int k = 0; k < 3; k++) {   // lightning round the ring as it bursts
+				float fk = float(k), a = h11(fk + 70.0) * 6.2832 + dirB * after * 2.0, tick = floor(after * 18.0 + fk * 5.0), frame = mod(tick + fk, 4.0);
+				vec2 q = rot(-a + 1.5708 + tick * 1.7) * (p - vec2(cos(a), sin(a)) * 1.3) / 0.9;
+				e += spr(ZAP + frame, q, 0.9, pxr) * 1.6 * exp(-after * 3.5) * step(0.3, h11(tick * 3.1 + fk + 9.0));
+			}
+			int rays = TR > 2.5 ? 12 : 6;   // rays of light, straight out
+			for (int j = 0; j < 12; j++) {
+				if (j >= rays) break;
+				float aj = h11(float(j) + 80.0) * 0.5 + float(j) / float(rays) * 6.2832 + nzo, lj = (1.6 + 1.6 * h11(float(j) + 90.0)) * (0.7 + 0.3 * pw);
+				vec2 dj = vec2(cos(aj), sin(aj)), pj = vec2(dot(p, vec2(dj.y, -dj.x)) / 0.07, (dot(p, dj) - (1.0 + lj * 0.5 * (1.0 - exp(-after * 5.0)))) / (lj * 0.5));
+				e += spr(STREAK, pj, lj * 0.5, pxr) * 1.7 * exp(-after * 2.6);
+			}
+		}
 		float rw2 = 1.0 + (1.0 - exp(-after * 5.0)) * (2.4 + pw), w2 = 0.18;   // and a softer, faster one
-		e += spr(SOFTRING, dir * (0.58 + (r - rw2) / w2 * 0.32), w2 / 0.32, pxr) * 0.5 * exp(-after * 3.5);
+		e += spr(SOFTRING, dir * (0.58 + (r - rw2) / w2 * 0.32), w2 / 0.32, pxr) * (TR < 0.5 ? 0.9 : 0.5) * exp(-after * 3.5);
 		e += 0.35 * smoothstep(0.92, 1.05, r) * exp(-max(r - 1.0, 0.0) * 3.5) * exp(-after * 0.7);   // the glow it leaves
-		for (int i = 0; i < 84; i++) {   // sparks: streaks along their flight; every fourth is a slow, twinkling ember
+		float cone = h11(4.0) < 0.45 ? 0.0 : 0.25 + 0.5 * h11(5.0), coneA = h11(6.0) * 6.2832;   // some bursts are radial, some throw their sparks to one side
+		for (int i = 0; i < 84; i++) {   // sparks: streaks along their flight; some are slow, twinkling embers (Easy: half of them)
 			float s = float(i);
-			if (s >= 24.0 + 30.0 * pw) break;
-			bool ember = mod(s, 4.0) < 0.5;
-			float a = h11(s + 0.3) * 6.2832, spd = ember ? 0.15 + 0.4 * h11(s + 3.1) : 0.6 + 2.6 * h11(s + 3.1);
-			float life = ember ? 2.0 + 1.5 * h11(s + 7.7) : 0.5 + 1.4 * h11(s + 7.7), rise = ember ? 0.12 : 0.35;
+			if (s >= (TR < 0.5 ? 16.0 : TR < 1.5 ? 32.0 : TR < 2.5 ? 54.0 : 84.0)) break;
+			bool ember = mod(s, TR < 0.5 ? 2.0 : 4.0) < 0.5;
+			float a = mix(h11(s + 0.3) * 6.2832, coneA + (h11(s + 0.3) - 0.5) * 6.2832 * 0.35, cone * (ember ? 0.3 : 1.0)), spd = (ember ? 0.15 + 0.4 * h11(s + 3.1) : 0.6 + 2.6 * h11(s + 3.1)) * (0.7 + 0.2 * TR);
+			float life = ember ? 2.0 + 1.5 * h11(s + 7.7) : 0.5 + 1.4 * h11(s + 7.7), rise = (ember ? 0.12 : 0.35) * (0.4 + 1.2 * h11(7.0));
 			float tt = after - 0.05 * h11(s + 9.2);
 			if (tt < 0.0 || tt > life) continue;
 			float f = tt / life, fade = 1.0 - f * f;
@@ -339,6 +367,7 @@ void main() {
 	vec3 col = vec3(0.0);
 	for (int i = 0; i < ${FX_MAX}; i++) {
 		if (i >= uN) break;
+		SD = uSeed[i]; TR = uTier[i];
 		vec2 p = (px - uC[i]) / uR[i];
 		float lim = ${FX_REACH.toFixed(1)} / uR[i], r = length(p);
 		if (uT[i] < 0.0 || r > lim) continue;
@@ -349,11 +378,22 @@ void main() {
 	o = vec4(col, max(col.r, max(col.g, col.b)));
 }`;
 
+/** The tier's colour turned a random way round the hue wheel (up to 28 degrees) and a little brighter or darker: no two bursts have the same tone. */
+function jitterHue([r, g, b]) {
+	const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2;
+	let h = d === 0 ? 0 : mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+	h = (h * 60 + (Math.random() - 0.5) * 56 + 360) % 360;
+	const sat = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1)), L = Math.min(0.8, Math.max(0.5, l + (Math.random() - 0.5) * 0.14));
+	const c = (1 - Math.abs(2 * L - 1)) * sat, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = L - c / 2, k = Math.floor(h / 60);
+	const [R, G, B] = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][k % 6];
+	return [R + m, G + m, B + m];
+}
+
 /** Draws FX_FRAG for a list of badges: [{ el, color, power, at }] (at: when its sequence starts, in performance.now() ms). */
 class Burst {
 	constructor(canvas, badges) {
 		this.canvas = canvas;
-		this.badges = badges.slice(0, FX_MAX).map((b) => ({ ...b, rgb: [1, 3, 5].map((i) => parseInt(b.color.slice(i, i + 2), 16) / 255) }));
+		this.badges = badges.slice(0, FX_MAX).map((b) => ({ ...b, seed: Math.random() * 40, rgb: jitterHue([1, 3, 5].map((i) => parseInt(b.color.slice(i, i + 2), 16) / 255)) }));
 		const gl = this.gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
 		this.ok = !!gl;
 		if (!this.ok) return;
@@ -361,7 +401,7 @@ class Burst {
 		const p = this.prog = gl.createProgram();
 		gl.attachShader(p, sh(gl.VERTEX_SHADER, FX_VERT)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FX_FRAG)); gl.linkProgram(p);
 		if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { this.ok = false; return; }
-		this.u = Object.fromEntries(['uRes', 'uDpr', 'uN', 'uC', 'uR', 'uT', 'uPow', 'uCol', 'uAtlas', 'uNoise'].map((n) => [n, gl.getUniformLocation(p, n)]));
+		this.u = Object.fromEntries(['uRes', 'uDpr', 'uN', 'uC', 'uR', 'uT', 'uPow', 'uSeed', 'uTier', 'uCol', 'uAtlas', 'uNoise'].map((n) => [n, gl.getUniformLocation(p, n)]));
 		// the textures, black until their images are decoded (they normally are by now: fxImages() runs when the plugin loads)
 		const imgs = fxImages(), texture = (img, repeat) => {
 			const t = gl.createTexture();
@@ -387,17 +427,17 @@ class Burst {
 		const gl = this.gl, c = this.canvas, dpr = Math.min(2, window.devicePixelRatio || 1), w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
 		if (w && (c.width !== w || c.height !== h)) { c.width = w; c.height = h; }
 		// badge centres relative to the canvas; both move together, and a badge's scale does not move its centre
-		const cr = c.getBoundingClientRect(), n = this.badges.length, C = new Float32Array(FX_MAX * 2), R = new Float32Array(FX_MAX), T = new Float32Array(FX_MAX), P = new Float32Array(FX_MAX), K = new Float32Array(FX_MAX * 3);
+		const cr = c.getBoundingClientRect(), n = this.badges.length, C = new Float32Array(FX_MAX * 2), R = new Float32Array(FX_MAX), T = new Float32Array(FX_MAX), P = new Float32Array(FX_MAX), SDs = new Float32Array(FX_MAX), TRs = new Float32Array(FX_MAX), K = new Float32Array(FX_MAX * 3);
 		this.badges.forEach((b, i) => {
 			const r = b.el.getBoundingClientRect();
 			C[i * 2] = r.left + r.width / 2 - cr.left; C[i * 2 + 1] = r.top + r.height / 2 - cr.top;
-			R[i] = b.el.offsetWidth / 2 || 26; T[i] = (now - b.at) / 1000; P[i] = b.power; K.set(b.rgb, i * 3);
+			R[i] = b.el.offsetWidth / 2 || 26; T[i] = (now - b.at) / 1000; P[i] = b.power; SDs[i] = b.seed; TRs[i] = b.tier; K.set(b.rgb, i * 3);
 		});
 		gl.viewport(0, 0, c.width, c.height);
 		gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.useProgram(this.prog);
 		gl.uniform2f(this.u.uRes, c.width, c.height); gl.uniform1f(this.u.uDpr, c.width / (c.clientWidth || 1)); gl.uniform1i(this.u.uN, n);
-		gl.uniform2fv(this.u.uC, C); gl.uniform1fv(this.u.uR, R); gl.uniform1fv(this.u.uT, T); gl.uniform1fv(this.u.uPow, P); gl.uniform3fv(this.u.uCol, K);
+		gl.uniform2fv(this.u.uC, C); gl.uniform1fv(this.u.uR, R); gl.uniform1fv(this.u.uT, T); gl.uniform1fv(this.u.uPow, P); gl.uniform1fv(this.u.uSeed, SDs); gl.uniform1fv(this.u.uTier, TRs); gl.uniform3fv(this.u.uCol, K);
 		gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.atlas); gl.uniform1i(this.u.uAtlas, 0);
 		gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.noise); gl.uniform1i(this.u.uNoise, 1);
 		gl.bindVertexArray(this.vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
@@ -816,7 +856,7 @@ class Plugin extends AppPlugin {
 
 		const now = performance.now(), arrive = 380;   // the glow first, then the rows
 		const still = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-		const fx = still ? null : new Burst(t.querySelector('canvas'), rows.map((r, i) => ({ el: r.row.querySelector('.ach-badge'), color: TIER_FX[tier(r.a)][0], power: TIER_FX[tier(r.a)][1], at: now + arrive + i * FX_STAGGER_MS })));
+		const fx = still ? null : new Burst(t.querySelector('canvas'), rows.map((r, i) => ({ el: r.row.querySelector('.ach-badge'), color: TIER_FX[tier(r.a)][0], power: TIER_FX[tier(r.a)][1], tier: Object.keys(TIER_FX).indexOf(tier(r.a)), at: now + arrive + i * FX_STAGGER_MS })));
 		const animated = !!(fx && fx.ok);
 		if (animated) {
 			this.toastFx = fx;

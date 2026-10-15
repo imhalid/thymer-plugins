@@ -1,0 +1,222 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Epic unlock - lab</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+	:root { color-scheme: dark; }
+	body { margin: 0; background: radial-gradient(1200px 500px at 50% 0, #1b1f2b, #0d0f14); color: #cfd6e6; font: 13px/1.4 -apple-system, system-ui, sans-serif; min-height: 100vh; }
+	#stage { position: relative; width: 1300px; height: 470px; margin: 30px auto 0; }
+	canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+	.badge { position: absolute; top: 205px; width: 60px; height: 60px; margin: -0px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; background: #1a1d27; box-shadow: inset 0 0 0 2px var(--c); transform: scale(var(--s, 1)); }
+	.lab { position: absolute; top: 300px; width: 200px; text-align: center; opacity: .6; letter-spacing: .08em; text-transform: uppercase; font-size: 11px; }
+	#ui { width: 1300px; margin: 12px auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+	button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 8px; background: #252a38; } button:hover { background: #333a4d; }
+	input[type=range] { width: 360px; }
+</style>
+<div id="stage"><canvas id="c"></canvas><div id="badges"></div></div>
+<div id="ui"><button id="all">Play all</button><button data-i="0">Easy</button><button data-i="1">Medium</button><button data-i="2">Hard</button><button data-i="3">Legendary</button>
+	<label><input type="checkbox" id="loop" checked> loop</label><span style="flex:1"></span><span id="tt">t</span><input type="range" id="sc" min="0" max="45" value="0"></div>
+<script>
+const TIERS = [
+	{ name: 'Easy', sub: 'Bloom', color: '#5ee6a0', icon: '\u{1F331}' }, { name: 'Medium', sub: 'Prism', color: '#4fd8ff', icon: '\u{1F48E}' },
+	{ name: 'Hard', sub: 'Eclipse', color: '#b98cff', icon: '\u{1F311}' }, { name: 'Legendary', sub: 'Supernova', color: '#ffb347', icon: '\u{1F451}' },
+];
+const N = TIERS.length, R = 30, SPACING = 295;
+const VERT = `#version 300 es
+in vec2 aPos; void main() { gl_Position = vec4(aPos, 0.0, 1.0); }`;
+const FRAG = `#version 300 es
+precision highp float;
+uniform vec2 uRes; uniform float uDpr; uniform int uN;
+uniform vec2 uC[${N}]; uniform float uR[${N}], uT[${N}], uSeed[${N}], uTier[${N}]; uniform vec3 uCol[${N}];
+out vec4 o;
+const float B = 1.0, TAU = 6.2831853;   // B: when the charge ends and it breaks
+float SD = 0.0;
+float hash2(vec2 p) { p += vec2(SD * 13.17, SD * 7.31); p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+vec2 hash22(vec2 p) { float n = hash2(p); return vec2(n, hash2(p + n + 17.7)); }
+float h11(float n) { return hash2(vec2(n, n * 0.37 + 1.3)); }
+float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash2(i), hash2(i + vec2(1, 0)), f.x), mix(hash2(i + vec2(0, 1)), hash2(i + vec2(1, 1)), f.x), f.y); }
+float fbm(vec2 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++) { s += a * vnoise(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }
+float angn(float ang, float k, float z) { return fbm(vec2(cos(ang), sin(ang)) * k + z); }   // noise round a circle, with no seam
+vec3 pal(float x) { return 0.5 + 0.5 * cos(TAU * (x + vec3(0.0, 0.33, 0.67))); }
+mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }
+// Voronoi: x = distance to the nearest point, y = distance to the nearest edge (F2 - F1), z = the cell's random value
+vec3 vor(vec2 p) {
+	vec2 g = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0; vec2 id = vec2(0.0);
+	for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+		vec2 b = vec2(float(i), float(j)); vec2 r = b + hash22(g + b) - f; float d = dot(r, r);
+		if (d < d1) { d2 = d1; d1 = d; id = g + b; } else if (d < d2) d2 = d;
+	}
+	return vec3(sqrt(d1), sqrt(d2) - sqrt(d1), hash2(id + 3.3));
+}
+float ease(float x) { x = clamp(x, 0.0, 1.0); return 1.0 - pow(1.0 - x, 3.0); }
+
+// The light at p (in the badge's radii, y up), t seconds into the sequence, for tier tr (0 Easy .. 3 Legendary).
+vec3 fx(vec2 p, float t, float tr, vec3 base, out float occ) {
+	occ = 0.0;
+	float r = length(p), ang = atan(p.y, p.x), after = t - B;
+	vec3 e = vec3(0.0);
+	// what each tier is made of
+	float wBloom = tr < 0.5 ? 1.0 : tr > 2.5 ? 0.5 : 0.0;
+	float wCrack = tr < 0.5 ? 0.0 : tr < 1.5 ? 1.0 : tr < 2.5 ? 0.7 : 1.0;
+	float wDisk  = tr < 1.5 ? 0.0 : tr < 2.5 ? 1.0 : 1.25;
+	float wRays  = tr < 0.5 ? 0.0 : tr < 1.5 ? 0.5 : tr < 2.5 ? 1.0 : 1.4;
+	float wJet   = tr < 1.5 ? 0.0 : tr < 2.5 ? 0.35 : 1.0;
+	float wStreak = tr < 1.5 ? 0.0 : tr < 2.5 ? 0.5 : 1.0;
+	float wShock = tr < 0.5 ? 0.3 : tr < 1.5 ? 1.0 : tr < 2.5 ? 1.2 : 1.6;
+	float wDust  = tr < 0.5 ? 1.0 : tr < 1.5 ? 0.5 : tr < 2.5 ? 0.6 : 1.0;
+	float scale = 0.75 + 0.3 * tr;                         // how far it reaches
+	float dirA = h11(3.0) < 0.5 ? -1.0 : 1.0, tilt = (h11(5.0) - 0.5) * 0.9;
+	vec3 c1 = base, c2 = mix(base, pal(h11(12.0)), 0.5), hot = mix(base, vec3(1.0), 0.75);
+
+	// ---- charge: the light is drawn in -----------------------------------------------------------------------------------
+	float charge = smoothstep(0.0, B, t), gone = 1.0 - smoothstep(B, B + 0.15, t);
+	if (t < B + 0.2) {
+		for (int L = 0; L < 2; L++) {   // streaks falling into the badge, one to each slice of the sky
+			float cells = L == 0 ? 36.0 : 64.0, u = (ang / TAU + 0.5) * cells, cell = floor(u), id = cell + 31.0 * float(L);
+			float lat = abs(fract(u) - (0.2 + 0.6 * h11(id * 1.3))) / cells * TAU * r;
+			float ph = fract(h11(id) + t * (0.5 + 0.45 * h11(id + 2.0))), rm = mix(3.0 + 1.2 * tr + float(L), 0.95, ph * ph);
+			float d = r - rm, trail = step(0.0, d) * exp(-d / (0.25 + 1.4 * ph)) * smoothstep(0.0, 0.05, d + 0.05);
+			e += mix(c2, hot, ph) * exp(-pow(lat / (0.014 + 0.008 * float(L)), 2.0)) * trail * ph * (0.5 + 0.35 * tr) * charge * gone;
+		}
+		float pulse = 0.8 + 0.2 * sin(t * 18.0);
+		e += hot * exp(-r * r * 3.5) * pow(charge, 2.0) * (0.5 + 0.25 * tr) * pulse * gone;
+		float Rr = mix(2.6, 1.0, ease(t / B)); e += c2 * exp(-pow((r - Rr) / 0.035, 2.0)) * charge * 0.55 * gone;
+		if (wDisk > 0.0) {   // a black hole: a tilted, flowing disk with a bright rim, and its shadow
+			vec2 q = rot(tilt) * p; vec2 qd = vec2(q.x, q.y * 3.4); float rd = length(qd), ad = atan(qd.y, qd.x);
+			float flow = fbm(vec2(cos(ad + dirA * t * 1.4), sin(ad + dirA * t * 1.4)) * 1.9 + vec2(rd * 4.0, 1.0));
+			float doppler = 0.5 + 0.5 * cos(ad - 0.7);
+			float amp = smoothstep(0.05, 0.75, t) * (1.0 - smoothstep(B + 0.05, B + 1.5, t));
+			e += mix(c1, hot, flow) * exp(-pow((rd - 1.4) / 0.26, 2.0)) * (0.3 + 1.7 * flow) * doppler * amp * wDisk;
+			float lens = exp(-pow((r - 1.14) / 0.04, 2.0)) * (0.35 + 0.65 * pow(0.5 + 0.5 * cos(ang - 0.7 + dirA * t * 0.8), 2.0));
+			e += hot * lens * amp * wDisk * 1.3;
+			occ = smoothstep(1.02, 0.86, r) * smoothstep(0.1, 0.5, t) * (1.0 - smoothstep(B, B + 0.3, t)) * 0.92;
+		}
+	}
+
+	// ---- the break --------------------------------------------------------------------------------------------------------
+	if (after > -0.15) {
+		float ac = max(after, 0.0), flash = exp(-ac * 5.5) * smoothstep(-0.12, 0.0, after);
+		e += hot * exp(-r * r * 1.1) * flash * 2.2 + c2 * exp(-r * 0.9) * flash * 0.45;
+		if (wCrack > 0.0) {   // the light finds its way out through cracks that run out from the middle, then the web comes apart
+			float front = (after + 0.15) * 7.0 * scale;
+			float mask = 1.0 - smoothstep(front - 0.6, front, r);
+			vec3 v = vor(p / (1.0 + ac * 0.7) * 1.05 + vec2(SD));
+			float crack = exp(-v.y * 22.0) * (0.55 + 0.45 * vnoise(p * 3.0 + vec2(SD)));
+			float alive = 1.0 - smoothstep(0.12 + v.z * 0.5, 0.45 + v.z * 0.9, ac);
+			float shard = (0.02 + 0.11 * v.z) * smoothstep(0.0, 0.5, v.y) * (0.6 + 0.4 * cos(v.x * 9.0 + ac * 4.0));
+			vec3 tint = mix(c2, hot, exp(-ac * 3.0));
+			e += tint * (crack * 1.4 + shard) * alive * mask * wCrack * smoothstep(0.7, 1.3, r) * exp(-ac * 1.2) * exp(-r * 0.22);
+		}
+		for (int j = 0; j < 3; j++) {   // shock rings, split into colours at the edge, like glass
+			if (float(j) >= (tr < 1.5 ? 1.0 : tr < 2.5 ? 2.0 : 3.0)) break;
+			float aj = after - 0.17 * float(j);
+			if (aj <= 0.0) continue;
+			float Rj = 0.9 + 3.1 * scale * (1.0 - exp(-aj * 2.4)), wd = 0.045 + 0.06 * aj;
+			float rr = r + (angn(ang, 1.6, aj * 0.5 + float(j) * 4.0) - 0.5) * 0.35 * min(1.0, aj * 3.0);
+			vec3 sp = vec3(exp(-pow((rr - Rj) / wd, 2.0)), exp(-pow((rr - Rj * 0.975) / wd, 2.0)), exp(-pow((rr - Rj * 0.95) / wd, 2.0)));
+			e += mix(sp, base * dot(sp, vec3(0.333)), 0.4) * exp(-aj * 1.6) * wShock * (1.0 - 0.22 * float(j)) * 1.6;
+		}
+		if (wRays > 0.0) {   // rays out of the middle
+			float a1 = angn(ang, 2.2, t * 0.12), a2 = angn(ang, 6.5, t * 0.3 + 4.0);
+			float ray = pow(smoothstep(0.32, 0.9, a1), 2.0) * (0.45 + 0.55 * a2);
+			e += mix(c2, hot, 0.3) * ray * exp(-r * 0.55 / scale) * smoothstep(0.7, 1.3, r) * exp(-ac * 1.5) * smoothstep(0.0, 0.08, after) * wRays * 1.4;
+		}
+		if (wJet > 0.0) {   // two jets along the axis
+			vec2 pj = rot(tilt * 1.4) * p; float len = (1.0 - exp(-ac * 4.5)) * (3.0 + 4.0 * wJet) * scale / 1.3, ay = abs(pj.y);
+			float w = 0.05 + 0.07 * ay, fl = 0.7 + 0.3 * vnoise(vec2(ay * 3.0 - t * 10.0, 3.0));
+			float body = exp(-pow(pj.x / w, 2.0)) * smoothstep(len, len * 0.4, ay) * smoothstep(0.7, 1.05, ay) * fl;
+			e += (c2 * body + hot * body * body * 0.8) * exp(-ac * 1.3) * wJet * 1.8 * smoothstep(0.0, 0.05, after);
+		}
+		if (wStreak > 0.0) {   // the anamorphic streak
+			float s = exp(-abs(p.y) * 16.0) * exp(-abs(p.x) * 0.26 / scale) + 0.4 * exp(-abs(p.y) * 55.0) * exp(-abs(p.x) * 0.12 / scale);
+			e += mix(vec3(0.55, 0.8, 1.0), base, 0.45) * s * exp(-ac * 2.4) * smoothstep(0.0, 0.03, after) * wStreak * 1.5;
+		}
+		if (wBloom > 0.0) {   // petals unfolding, three turns of them
+			for (int L = 0; L < 3; L++) {
+				float k = 5.0 + float(L) + floor(h11(20.0 + float(L)) * 3.0), spin = dirA * (L == 1 ? -1.0 : 1.0) * 0.35 * ac + h11(30.0 + float(L)) * TAU;
+				float Rb = (1.05 + 0.5 * float(L)) * (0.35 + 0.65 * ease(ac * 0.9)) * (0.9 + 0.15 * scale);
+				float Rang = Rb * (0.5 + 0.5 * pow(abs(cos(k * (ang + spin) * 0.5)), 1.4));
+				float line = exp(-pow((r - Rang) / (0.03 + 0.012 * float(L)), 2.0)), fill = smoothstep(Rang, Rang * 0.25, r) * 0.07;
+				e += mix(c1, pal(h11(40.0 + float(L)) + float(L) * 0.12), 0.5) * (line * 1.1 + fill) * exp(-ac * 0.7) * smoothstep(0.0, 0.2, after) * wBloom;
+			}
+		}
+		if (wDust > 0.0) {   // lights that stay and drift: fireflies, two depths
+			for (int L = 0; L < 2; L++) {
+				vec2 q = p * (2.1 + 1.3 * float(L)) + vec2(float(L) * 7.7, -ac * (0.5 + 0.3 * float(L))), g = floor(q); vec2 hp = hash22(g + float(L) * 9.0);
+				vec2 c = g + 0.5 + 0.36 * vec2(sin(t * 0.9 + hp.x * TAU), cos(t * 0.7 + hp.y * TAU)); float d = length(q - c);
+				float reach = (1.2 + ac * 3.4) * scale, life = 1.0 - smoothstep(1.4 + hp.x * 1.6, 3.4 + hp.x * 1.6, ac);
+				float tw = 0.55 + 0.45 * sin(t * (2.0 + 5.0 * hp.x) + hp.y * TAU);
+				e += mix(hot, c2, hp.x) * exp(-d * d * (85.0 + 70.0 * float(L))) * tw * life * smoothstep(reach, reach - 1.0, r) * smoothstep(0.9, 1.3, r) * step(hp.y, 0.38 * wDust) * 1.5;
+			}
+		}
+	}
+	return e;
+}
+void main() {
+	vec2 px = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uDpr;
+	vec3 col = vec3(0.0); float occ = 0.0;
+	for (int i = 0; i < ${N}; i++) {
+		if (i >= uN) break;
+		vec2 p = (px - uC[i]) / uR[i];
+		float tr = uTier[i], lim = 4.6 + 1.5 * tr, r = length(p);
+		if (uT[i] < 0.0 || uT[i] > 6.0 || r > lim) continue;
+		SD = uSeed[i];
+		float o1; vec3 e = fx(vec2(p.x, -p.y), uT[i], tr, uCol[i], o1) * smoothstep(lim, lim * 0.7, r);
+		col += e; occ = max(occ, o1);
+	}
+	col = 1.0 - exp(-col * 1.25);            // a soft shoulder: the brightest light goes white, never clips flat
+	o = vec4(col, clamp(max(max(col.r, col.g), col.b) + occ, 0.0, 1.0));
+}`;
+
+const c = document.getElementById('c'), gl = c.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
+const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+const prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG)); gl.linkProgram(prog);
+const U = Object.fromEntries(['uRes', 'uDpr', 'uN', 'uC', 'uR', 'uT', 'uSeed', 'uTier', 'uCol'].map((n) => [n, gl.getUniformLocation(prog, n)]));
+const vao = gl.createVertexArray(); gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, 'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+// each unlock: its own seed and a slightly different tone
+const jitter = (hex) => {
+	const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2;
+	let h = d === 0 ? 0 : mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+	h = (h * 60 + (Math.random() - 0.5) * 50 + 360) % 360;
+	const sat = d / (1 - Math.abs(2 * l - 1)), L = Math.min(0.78, Math.max(0.5, l + (Math.random() - 0.5) * 0.12)), cc = (1 - Math.abs(2 * L - 1)) * sat, x = cc * (1 - Math.abs(((h / 60) % 2) - 1)), m = L - cc / 2;
+	const [R_, G_, B_] = [[cc, x, 0], [x, cc, 0], [0, cc, x], [0, x, cc], [x, 0, cc], [cc, 0, x]][Math.floor(h / 60) % 6];
+	return [R_ + m, G_ + m, B_ + m];
+};
+const state = TIERS.map((t, i) => ({ at: -1e9, seed: Math.random() * 40, rgb: jitter(t.color) }));
+const stage = document.getElementById('stage'), badges = document.getElementById('badges');
+TIERS.forEach((t, i) => {
+	const left = 190 + i * SPACING - R;
+	badges.insertAdjacentHTML('beforeend', `<div class="badge" id="b${i}" style="left:${left}px;--c:${t.color}">${t.icon}</div><div class="lab" style="left:${left + R - 100}px">${t.name} - ${t.sub}</div>`);
+});
+let frozen = null, playingAll = false;
+const play = (i) => { const s = state[i]; s.at = performance.now(); s.seed = Math.random() * 40; s.rgb = jitter(TIERS[i].color); };
+document.getElementById('all').onclick = () => { frozen = null; TIERS.forEach((_, i) => play(i)); };
+document.querySelectorAll('button[data-i]').forEach((b) => { b.onclick = () => { frozen = null; play(Number(b.dataset.i)); }; });
+const sc = document.getElementById('sc'), tt = document.getElementById('tt');
+sc.oninput = () => { frozen = sc.value / 10; };
+function frame(now) {
+	requestAnimationFrame(frame);
+	const dpr = Math.min(2, devicePixelRatio || 1), w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
+	if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+	const C = new Float32Array(N * 2), Rr = new Float32Array(N), T = new Float32Array(N), S = new Float32Array(N), Tr = new Float32Array(N), K = new Float32Array(N * 3);
+	if (!frozen && document.getElementById('loop').checked && state.every((s) => now - s.at > 6200)) TIERS.forEach((_, i) => play(i));
+	state.forEach((s, i) => {
+		const el = document.getElementById('b' + i), r = el.getBoundingClientRect(), cr = c.getBoundingClientRect();
+		C[i * 2] = r.left + r.width / 2 - cr.left; C[i * 2 + 1] = r.top + r.height / 2 - cr.top; Rr[i] = R;
+		const t = frozen != null ? frozen : (now - s.at) / 1000; T[i] = t; S[i] = s.seed; Tr[i] = i; K.set(s.rgb, i * 3);
+		el.style.setProperty('--s', t < 1 ? String(0.55 + 0.1 * Math.max(0, t)) : String(1 + 0.25 * Math.exp(-(t - 1) * 7) * Math.sin((t - 1) * 14 + 1.2) + 0.0));
+		el.style.opacity = t < 0 ? 1 : '1';
+	});
+	if (frozen != null) tt.textContent = `t = ${frozen.toFixed(1)}s`; else tt.textContent = '';
+	gl.viewport(0, 0, c.width, c.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.useProgram(prog);
+	gl.uniform2f(U.uRes, c.width, c.height); gl.uniform1f(U.uDpr, c.width / c.clientWidth); gl.uniform1i(U.uN, N);
+	gl.uniform2fv(U.uC, C); gl.uniform1fv(U.uR, Rr); gl.uniform1fv(U.uT, T); gl.uniform1fv(U.uSeed, S); gl.uniform1fv(U.uTier, Tr); gl.uniform3fv(U.uCol, K);
+	gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+requestAnimationFrame(frame);
+window.__fx = { state, setT: (t) => { frozen = t; } };
+</script>

@@ -2615,7 +2615,7 @@ class Plugin extends AppPlugin {
 					if (node.matches(CARET_SEL)) attach(node);
 					else node.querySelectorAll?.(CARET_SEL).forEach(attach);
 				}
-				if (m.removedNodes.length && this.caretEl && !this.caretEl.isConnected) { this.caretEl = null; this.clipT = 0; }
+				if (m.removedNodes.length && this.caretEl && !this.caretEl.isConnected) { this.caretEl = null; this.clipT = 0; poke(); }   // look again: its page may be gone
 			}
 		});
 		tree.observe(document.body, { childList: true, subtree: true });
@@ -3007,7 +3007,7 @@ class Plugin extends AppPlugin {
 		if (document.querySelector(MODAL_SEL)) return; // command palette / dropdown open: leave the editor caret alone
 		const cur = this.caretRect();
 		this.sampleN++;
-		if (!cur) { this.updateBlock(null); this.notifySample(null, typed, false); return; }
+		if (!cur) { this.last = null; this.updateBlock(null); this.notifySample(null, typed, false); return; }   // gone (another page): nothing may stay drawn where it was
 		const prev = this.last;
 		this.last = cur;
 		const moved = !prev || Math.hypot(cur.x - prev.x, cur.y - prev.y) >= 0.5;

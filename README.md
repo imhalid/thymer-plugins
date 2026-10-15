@@ -7,6 +7,7 @@ Personal plugins for [Thymer](https://thymer.com).
 | [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning, Holy, Prism, Health, Zephyr, Tide) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
 | [`achievements`](plugins/achievements) | 62 writing achievements, from easy to legendary (words, speed, streaks, tasks, night owl, ...) that pay rings, with a small 3D mascot drawn in plain WebGL in the top-left corner: it spins, runs faster while you type, and hops with a banner when something unlocks |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
+| [`cursor-fx`](plugins/cursor-fx) | Mouse effects drawn from particle textures: a ripple, spark burst, magic circle, electric zap, hearts, slash, firework or smoke puff where you click, and a comet, fairy-dust or flame trail behind the pointer |
 
 ## Install a plugin
 
@@ -134,3 +135,11 @@ Thymer draws its caret as the left border of `div.listview-caret-self`, colored 
 The trail and lightning are Canvas 2D re-implementations of the Ghostty cursor shaders `cursor_blaze` (based on [this gist](https://gist.github.com/chardskarth/95874c54e29da6b5a36ab7b50ae2d088)) and `cursor_lightning`. Finding Thymer's caret element and variables, and measuring carets in inputs, follows the approach in [akaready/thymer-cursor-tweaks](https://github.com/akaready/thymer-cursor-tweaks).
 
 Motion smear, Fresh ink, Bracket tether and Back-man are ported from [Sadsnake1/cursor-smith](https://github.com/Sadsnake1/cursor-smith) (MIT, version 1.8.1) and adapted to Thymer's editor. Cursor-Smith's copyright and license notice are kept at the top of `plugin.js`, and each effect names the files it follows.
+
+## Cursor FX
+
+Effects for the mouse. Clicking plays a click effect where you clicked (Ripple, Spark burst, Magic circle, Electric zap, Hearts, Slash, Firework, Smoke puff, or Random), and moving the pointer can leave a trail (Comet, Fairy dust, Flame, or none). Pick them, the colour and the size in `Cursor FX: settings…` (clicking in there is the preview); `Cursor FX: next click effect`, `Cursor FX: next trail` and `Cursor FX: turn on or off` work from the command palette. Choices are kept per device.
+
+Everything is drawn from small grayscale CC0 textures (Kenney's Particle Pack and a Screaming Brain Studios noise, see `fx/LICENSE.md`) as instanced WebGL particles on one canvas that clicks pass through; it draws only while something is alive. On a dark theme the light adds up; on a light theme the colour is darkened and painted. It stays off on phones and tablets and with reduced motion.
+
+To install: paste `cursor-fx.js` (the built plugin, textures included) into a new global plugin's code tab and `plugin.css` into its CSS tab. To rebuild after editing `cursor-fx.src.js`: `node build.mjs`.

@@ -8,13 +8,13 @@
  * Four more effects - Motion smear, Fresh ink, Bracket tether and Back-man (the caret that eats what
  * Backspace and Delete take) - are ported from Cursor-Smith by Sadsnake1
  * (https://github.com/Sadsnake1/cursor-smith, MIT License). See THIRD-PARTY NOTICE below.
- * They are off until chosen in the "Caret FX: set preset…" dialog: Motion smear is a switch there (with the block
+ * They are off until chosen on the "Caret FX: open settings" page: Motion smear is a switch there (with the block
  * cursor); Fresh ink, Bracket tether and Back-man are special presets, like Lightning and the falling petals.
  *
  * Five special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
  * (tiny star glints that twinkle on the caret, like a gem), Prism (two crescents of spectrum flanking the caret, light
  * through a lens), Health (tiny pluses rising out of the caret as you write, each with a trail of light, as if you were gaining health) and Zephyr (an anime-style wind skill: speed lines and leaves swept up round the caret) and Tide
- * (a stylized water skill: sprays of teardrops and drifting bubbles). Pick them in "Caret FX: set preset…" under Special.
+ * (a stylized water skill: sprays of teardrops and drifting bubbles). Pick them on the "Caret FX: open settings" page under Special.
  *
  * Scope: the Thymer editor only. The plugin follows Thymer's own caret element
  * (div.listview-caret-self) and never touches the command palette, rename fields,
@@ -30,7 +30,11 @@
  * Effects live in the EFFECTS registry (see "HOW TO ADD AN EFFECT"); the Plugin class knows none by name.
  *
  * Settings: defaults and tuning live in this plugin's config under "custom" (Edit Code > Configuration); what you
- * choose in the "Caret FX: ..." dialogs and commands is kept per device and wins over it.
+ * choose on the settings page and with the commands is kept per device and wins over it.
+ *
+ * The settings page ("Caret FX: open settings") is a page in a panel, opened the way a note is (registerCustomPanelType):
+ * a scratch area to type in, where the caret and its effects run for real, then the presets, the switches and the
+ * intensity. See "THE SETTINGS PAGE" in the Plugin class.
  */
 
 /*
@@ -78,21 +82,29 @@ const PRESETS = [
 	['Mono', '#ffffff', '#8a8f98'],
 ];
 
-// The switches in the preset dialog, in its order: [key, label, caption]. 'style' is the block cursor (cfg.style is
-// 'block' when on); every other key is the id of an 'always' effect. They have no command of their own.
+// The switches on the settings page, in its order: [key, label, caption]. 'style' is the block cursor (cfg.style is
+// 'block' when on); every other key is the id of an 'always' effect. An effect here has no toggle command of its own.
 // (Fresh ink, Bracket tether and Back-man are not here: they are special presets, one at a time like Lightning.)
-const DIALOG_SWITCHES = [
+const PAGE_SWITCHES = [
 	['style', 'Block cursor', 'A box the width of the letter'],
 	['smear', 'Motion smear', 'Stretches as it moves, snaps back'],
+	['trail', 'Trail', 'A comet ribbon behind the caret'],
+	['bounce', 'Bounce', 'A hop on every letter'],
 ];
+
+// The settings page
+const PAGE_TYPE = 'caretfx';          // its panel type (registerCustomPanelType)
+const NOTE_KEY = 'caretfx.note';      // what was typed in its scratch area, kept on this device
+const NOTE_DEFAULT = ['Type here to see the caret and its effects.', 'Skip words with the arrow keys, press Enter, delete something; (a bracket) and "a quote" for the tether.', ''];
+const INTENSITY_MIN = 0.3, INTENSITY_MAX = 2;
 
 // Stacking: the effects (canvas, block cursor) sit above the editor, whose layers top out at 11, and below Thymer's own
 // menus, command palette and dialogs (z-index 998 and up), so nothing of the caret shows through or over them. The
-// preset dialog of this plugin is itself a dialog and sits above everything.
+// settings page of this plugin is a page in a panel, like a note, and its own caret element is followed like Thymer's.
 
-// What the dialogs and commands choose is kept in this device's localStorage and laid over the configuration JSON, which
-// stays the place for defaults and tuning. (Saving the plugin's configuration reloads the plugin - the dialog would
-// close at every click - and AppPlugin has no way to save it quietly.)
+// What the settings page and the commands choose is kept in this device's localStorage and laid over the configuration JSON, which
+// stays the place for defaults and tuning. (Saving the plugin's configuration reloads the plugin - the page would
+// be torn down at every click - and AppPlugin has no way to save it quietly.)
 const CHOICES_KEY = 'caretfx.choices';
 function loadChoices() {
 	try { return JSON.parse(localStorage.getItem(CHOICES_KEY) || '{}') || {}; } catch (e) { return {}; }
@@ -102,9 +114,9 @@ function saveChoices(patch) {
 }
 
 // Thymer DOM the plugin relies on (same hooks Thymer's own caret CSS uses).
-const CARET_SEL = 'div.listview-caret-self';
+const CARET_SEL = 'div.listview-caret-self, div.cfx-pcaret';   // Thymer's caret, and the settings page's own (see renderPage)
 const FOCUSED_PANEL_SEL = '.panel.focused-panel, .panel.has-focus';
-const LISTITEM_SEL = '.listitem[data-guid]';
+const LISTITEM_SEL = '.listitem[data-guid], .cfx-row[data-guid]';   // an editor row, and a row of the settings page's scratch area
 const MODAL_SEL = '.cmdpal--dialog, .dropdown, .modal-container, .link-menu-visible'; // typing here is not editor typing
 
 const hash = (p) => { p = (p * 0.1031) % 1; p *= p + 33.33; p *= p + p; return p - Math.floor(p); };
@@ -184,7 +196,7 @@ function charRectAt(x, y) {
 /** Top/height of the text on a row at a given vertical position: headings and code rows have a taller line than the caret element itself. */
 function lineTextRect(row, midY) {
 	if (!(row instanceof HTMLElement)) return null;
-	const line = row.querySelector(':scope > .line-div') || row.querySelector('.line-div');
+	const line = lineDivOf(row);
 	if (!(line instanceof HTMLElement)) return null;
 	const lineBox = line.getBoundingClientRect();
 	if (lineBox.width < 1 && lineBox.height < 1) return null;
@@ -231,7 +243,7 @@ function rowForCaret(caretEl, r) {
 // =====================================================================================
 
 /** The element that holds an editor row's text. */
-const lineDivOf = (row) => (row instanceof HTMLElement ? row.querySelector(':scope > .line-div') || row.querySelector('.line-div') : null);
+const lineDivOf = (row) => (row instanceof HTMLElement ? row.querySelector(':scope > .line-div, :scope > .cfx-line') || row.querySelector('.line-div, .cfx-line') : null);
 
 /** One editor row's text, with the geometry of every character in it. */
 class LineText {
@@ -300,7 +312,7 @@ class LineText {
 }
 
 /** The row with this guid, wherever it is now (an editor may redraw its rows). */
-const rowByGuid = (guid) => (guid ? document.querySelector(`.listitem[data-guid="${CSS.escape(guid)}"]`) : null);
+const rowByGuid = (guid) => (guid ? document.querySelector(`.listitem[data-guid="${CSS.escape(guid)}"], .cfx-row[data-guid="${CSS.escape(guid)}"]`) : null);
 
 /**
  * The line the caret is on and where in it: { line, idx, collapsed }, or null. The browser's own selection says
@@ -352,7 +364,7 @@ function lineEdit(before, after, caret) {
 // HOW TO ADD AN EFFECT
 //   EFFECTS.myfx = { id, label, mode, defaults, blend, onMove, draw, preview, ... };
 //   - mode 'always': runs whenever cfg[id] is true (toggle command generated; toggleable:false = always on).
-//     mode 'signature': runs when cfg.fx === id; needs preset { name, color, accent } for the dialog's Special grid.
+//     mode 'signature': runs when cfg.fx === id; needs preset { name, color, accent } for the settings page's Special grid.
 //   - defaults: extra config keys, merged into DEFAULTS automatically.
 //     defaultOn: false keeps an 'always' effect off until it is toggled (new effects should not change a look that exists).
 //   - onMove(plugin, prev, cur, info): after the caret moved; info = { typed, dist, dx, dy, now }.
@@ -366,7 +378,8 @@ function lineEdit(before, after, caret) {
 //   - draw(plugin, ctx, item, p, k, now, dt): p = progress 0..1, k = intensity, dt = ms since last frame.
 //     Items are removed when p >= 1 or item.done = true. blend: 'lighter' | 'source-over' (set by the core).
 //     A still item (item.rest = true) is redrawn whenever a frame runs but does not ask for frames of its own.
-//   - preview(plugin, pv, caret, now): optional; spawn demo items into pv.items for the dialog preview. Without one, the
+//   - preview(plugin, pv, caret, now): optional; a demo on a preview canvas (unused since the settings page has a real scratch
+//     area to type in; kept for a preview elsewhere). Without one, such a
 //     preview types for the effect: onMove is called with a letter's step (typed) now and then and a jump once in a while.
 //   - Effects that keep state or take over the caret: plugin.state(id) is their state bag, plugin.ensureItem(id) their one
 //     long-lived item, plugin.hideCaret(id, on) hides Thymer's caret while they draw their own; ownsCaret: true says the
@@ -510,7 +523,7 @@ const TRAIL_SWEEP = 0.55;     // a sweep (to another line) lives this share of t
 /** How long the ribbon lingers, from the settings. */
 const trailDur = (plugin) => clamp(Number(plugin.cfg.trailMs) || 900, 200, 5000);
 
-/** The item that holds the path of `host` (the plugin, or the dialog's preview). */
+/** The item that holds the path of `host` (the plugin, or a preview host). */
 function trailOf(host) {
 	const item = host.ensureItem('trail');
 	if (!item.pts) { item.pts = []; item.broken = false; item.attached = false; }
@@ -1632,8 +1645,8 @@ EFFECTS.backman = {
 // SPECIAL PRESETS ORIGINAL TO CARET FX: Holy, Prism, Health, Zephyr, Tide
 //
 // Written for this plugin, not ported. They are special presets like Sakura and Lightning: each brings its own colors and
-// is picked in the preset dialog's Special grid (or by "next preset"), one at a time. Like the falling petals they
-// keep everything in their one long-lived item, so the dialog's preview can run them on its own canvas, and they answer
+// is picked in the settings page's Special grid (or by "next preset"), one at a time. Like the falling petals they
+// keep everything in their one long-lived item, so a preview can run them on a canvas of its own, and they answer
 // writing - the caret moving forward along its line as a key is typed - rather than deleting. (Holy and Prism also catch
 // a new line, or the caret landing somewhere else.)
 // =====================================================================================
@@ -1678,7 +1691,7 @@ function traceGlint(ctx, r) {
 	ctx.closePath();
 }
 
-/** The item that holds the glints of `host` (the plugin, or the dialog's preview). */
+/** The item that holds the glints of `host` (the plugin, or a preview host). */
 function glintsOf(host) {
 	const item = host.ensureItem('holy');
 	if (!item.parts) { item.parts = []; item.until = 0; item.next = 0; }
@@ -1796,7 +1809,47 @@ function traceStar(ctx, r, rot) {
 	ctx.closePath();
 }
 
-/** The item that holds the burst of `host` (the plugin, or the dialog's preview). */
+// A star with its glow is costly to draw - a blurred shadow for each, dozens of times a frame - so each kind is drawn once,
+// glow and all, into a small canvas and stamped from then on, turned and scaled as the star needs.
+const PRISM_SPRITE = 112;    // a sprite's side, in CSS px...
+const PRISM_SPRITE_R = 16;   // ...and the star's outer radius in it (the ember's core is 0.3 of that)
+const prismSprites = new Map();
+
+/** The sprite of a star of hue `i` (an index into PRISM_HUES; -1 for an ember), for a dark or a light page. */
+function prismSprite(i, dark) {
+	const key = i + (dark ? 'd' : 'l');
+	let cv = prismSprites.get(key);
+	if (cv) return cv;
+	const dpr = Math.min(2, window.devicePixelRatio || 1), S = PRISM_SPRITE, R = PRISM_SPRITE_R;
+	cv = document.createElement('canvas');
+	cv.width = cv.height = Math.round(S * dpr);
+	const g = cv.getContext('2d');
+	g.scale(dpr, dpr);
+	g.translate(S / 2, S / 2);
+	if (i < 0) {   // an ember: a soft orange dot
+		const light = dark ? 62 : 42, grad = g.createRadialGradient(0, 0, 0, 0, 0, R);
+		grad.addColorStop(0, `hsl(36, 100%, ${light + 12}%)`);
+		grad.addColorStop(0.3, `hsla(36, 100%, ${light + 12}%, 0.9)`);
+		grad.addColorStop(0.5, 'hsla(30, 100%, 60%, 0.35)');
+		grad.addColorStop(1, 'hsla(30, 100%, 60%, 0)');
+		g.fillStyle = grad;
+		g.fillRect(-R, -R, 2 * R, 2 * R);
+	} else {   // a chunky star with rounded points, its glow, and a bright heart
+		const [hh, ss, ll] = PRISM_HUES[i], col = `hsl(${hh}, ${ss}%, ${ll + (dark ? 0 : -18)}%)`;
+		g.shadowColor = `hsla(${hh}, 100%, 60%, 0.95)`;
+		g.shadowBlur = R * 2.2;
+		traceStar(g, R, 0);
+		g.fillStyle = col; g.fill();
+		g.lineJoin = 'round'; g.lineWidth = R * 0.28; g.strokeStyle = col; g.stroke();
+		g.shadowBlur = 0;
+		traceStar(g, R * 0.5, 0);
+		g.fillStyle = `hsla(${hh}, 100%, ${dark ? 90 : 75}%, 0.9)`; g.fill();
+	}
+	prismSprites.set(key, cv);
+	return cv;
+}
+
+/** The item that holds the burst of `host` (the plugin, or a preview host). */
 function prismOf(host) {
 	const item = host.ensureItem('prism');
 	if (!item.stars) { item.stars = []; item.embers = []; item.flashAt = -1e9; item.big = 0; item.lastAt = 0; }
@@ -1811,9 +1864,9 @@ function kindlePrism(host, rect, big, now) {
 	item.lastAt = now;
 	const u = Math.max(rect.h, 16) / 24, cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
 	for (let i = 0; i < (big ? 8 : 1 + (Math.random() < 0.45 ? 1 : 0)) && item.stars.length < PRISM_STARS_MAX; i++) {
-		const hue = PRISM_HUES[Math.floor(Math.random() * PRISM_HUES.length)], a = Math.random() * Math.PI * 2, v = (60 + Math.random() * 90) * u;
+		const hi = Math.floor(Math.random() * PRISM_HUES.length), hue = PRISM_HUES[hi], a = Math.random() * Math.PI * 2, v = (60 + Math.random() * 90) * u;
 		item.stars.push({
-			x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 15 * u, r: (2.6 + Math.random() * 3.4) * u, hue,
+			x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 15 * u, r: (2.6 + Math.random() * 3.4) * u, hue, hi,
 			spin: (Math.random() - 0.5) * 6, rot: Math.random() * 6.28, tail: hue[0] === 190, t0: now + i * 25, life: lerp(PRISM_STAR_MS[0], PRISM_STAR_MS[1], Math.random()),
 		});
 	}
@@ -1832,6 +1885,7 @@ function drawPrism(plugin, ctx, item, now, k) {
 	if (!rect) return;
 	const dark = plugin.dark, h = Math.max(rect.h, 16), u = h / 24, cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
 	const power = (plugin.cfg.prismStrength ?? 1) * Math.min(k, 1.5) * (dark ? 1 : 0.6), light = dark ? 62 : 42;
+	const scale = PRISM_SPRITE / PRISM_SPRITE_R;   // a sprite's side for a star of radius 1
 	if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
 	ctx.save();
 
@@ -1859,46 +1913,36 @@ function drawPrism(plugin, ctx, item, now, k) {
 		ctx.fillRect(ox - 5 * u, cy - 5 * u, 10 * u, 10 * u);
 	}
 
-	for (const q of item.embers) {   // embers: tiny, slowing, flickering
+	const ember = prismSprite(-1, dark);
+	for (const q of item.embers) {   // embers: tiny, slowing, flickering - a stamp each
 		const t = (now - q.t0) / 1000, f = (now - q.t0) / q.life, drag = Math.exp(-2.2 * t);
 		const x = q.x + (q.vx * (1 - drag)) / 2.2, y = q.y + (q.vy * (1 - drag)) / 2.2 - 6 * t * t * u * 6;
 		const a = Math.sin(Math.PI * f) * (0.65 + 0.35 * Math.sin(q.ph + t * 14)) * power;
 		if (a < 0.02) continue;
+		const s = (scale * q.r) / 0.3;   // the sprite's core is 0.3 of its star radius: that core is the ember
 		ctx.globalAlpha = Math.min(1, a);
-		ctx.shadowColor = `hsla(30, 100%, 60%, 0.9)`;
-		ctx.shadowBlur = 4 * u;
-		ctx.fillStyle = `hsl(36, 100%, ${light + 12}%)`;
-		ctx.beginPath();
-		ctx.arc(x, y, q.r, 0, Math.PI * 2);
-		ctx.fill();
+		ctx.drawImage(ember, x - s / 2, y - s / 2, s, s);
 	}
-	ctx.shadowBlur = 0;
 
-	for (const q of item.stars) {   // stars: flung out, slowing down, spinning, then shrinking away
+	for (const q of item.stars) {   // stars: flung out, slowing down, spinning, then shrinking away - a stamp each, turned
 		const t = (now - q.t0) / 1000, f = t * 1000 / q.life;
 		if (f < 0) continue;
 		const drag = Math.exp(-3 * t), x = q.x + (q.vx * (1 - drag)) / 3, y = q.y + (q.vy * (1 - drag)) / 3;
 		const alpha = Math.min(1, f / 0.08) * (f < 0.55 ? 1 : 1 - (f - 0.55) / 0.45) * power, r = q.r * (f < 0.12 ? easeOutBack(f / 0.12) : 1 - 0.35 * f);
 		if (alpha <= 0.01) continue;
-		const [hh, ss, ll] = q.hue, col = `hsl(${hh}, ${ss}%, ${ll + (dark ? 0 : -18)}%)`;
-		ctx.save();
 		ctx.globalAlpha = alpha;
 		if (q.tail) {   // the cyan ones trail a tapering tail behind them
-			const sp = Math.hypot(q.vx, q.vy) * drag || 1, tl = Math.min(18 * u, sp * 0.16), ux = (q.vx * drag) / sp, uy = (q.vy * drag) / sp;
+			const [hh] = q.hue, sp = Math.hypot(q.vx, q.vy) * drag || 1, tl = Math.min(18 * u, sp * 0.16), ux = (q.vx * drag) / sp, uy = (q.vy * drag) / sp;
 			const tg = ctx.createLinearGradient(x, y, x - ux * tl, y - uy * tl);
 			tg.addColorStop(0, `hsla(${hh}, 100%, 70%, 0.8)`); tg.addColorStop(1, `hsla(${hh}, 100%, 70%, 0)`);
 			ctx.strokeStyle = tg; ctx.lineWidth = r * 0.7; ctx.lineCap = 'round';
 			ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - ux * tl, y - uy * tl); ctx.stroke();
 		}
+		const s = scale * r;
+		ctx.save();
 		ctx.translate(x, y);
-		ctx.shadowColor = `hsla(${hh}, 100%, 60%, 0.95)`;
-		ctx.shadowBlur = r * 2.2;
-		traceStar(ctx, r, q.rot + q.spin * t);
-		ctx.fillStyle = col; ctx.fill();
-		ctx.lineJoin = 'round'; ctx.lineWidth = r * 0.28; ctx.strokeStyle = col; ctx.stroke();   // chunky, rounded points
-		ctx.shadowBlur = 0;
-		traceStar(ctx, r * 0.5, q.rot + q.spin * t);
-		ctx.fillStyle = `hsla(${hh}, 100%, ${dark ? 90 : 75}%, 0.9)`; ctx.fill();   // the bright heart
+		ctx.rotate(q.rot + q.spin * t);
+		ctx.drawImage(prismSprite(q.hi, dark), -s / 2, -s / 2, s, s);
 		ctx.restore();
 	}
 	ctx.restore();
@@ -1947,7 +1991,7 @@ function tracePlus(ctx, l, t) {
 	else { ctx.rect(-l, -t, 2 * l, 2 * t); ctx.rect(-t, -l, 2 * t, 2 * l); }
 }
 
-/** The item that holds the pluses of `host` (the plugin, or the dialog's preview). */
+/** The item that holds the pluses of `host` (the plugin, or a preview host). */
 function pluses(host) {
 	const item = host.ensureItem('health');
 	if (!item.parts) { item.parts = []; item.lastAt = 0; item.pulseAt = -1e9; }
@@ -2070,7 +2114,7 @@ function traceLeaf(ctx, len, wid) {
 	ctx.closePath();
 }
 
-/** The item that holds the wind of `host` (the plugin, or the dialog's preview). */
+/** The item that holds the wind of `host` (the plugin, or a preview host). */
 function zephyrOf(host) {
 	const item = host.ensureItem('zephyr');
 	if (!item.leaves) { item.leaves = []; item.streaks = []; item.lastAt = 0; item.glowAt = -1e9; }
@@ -2204,7 +2248,7 @@ function traceDrop(ctx, r) {
 	ctx.closePath();
 }
 
-/** The item that holds the water of `host` (the plugin, or the dialog's preview). */
+/** The item that holds the water of `host` (the plugin, or a preview host). */
 function tideOf(host) {
 	const item = host.ensureItem('tide');
 	if (!item.drops) { item.drops = []; item.bubbles = []; item.lastAt = 0; item.glowAt = -1e9; }
@@ -2450,7 +2494,7 @@ function comboHue(tier, now) {
 	return h === null ? [0, 0, 96] : h === -1 ? [200 + 50 * Math.sin(now * 0.002), 100, 70] : [h, 100, 60];
 }
 
-/** The item that holds the run of `host` (the plugin, or the dialog's preview). */
+/** The item that holds the run of `host` (the plugin, or a preview host). */
 function comboOf(host) {
 	const item = host.ensureItem('combo');
 	if (item.n === undefined) { item.n = 0; item.lastAt = 0; item.popAt = -1e9; item.wordAt = -1e9; item.word = ''; item.flashAt = -1e9; item.flashTier = 0; item.fallen = []; item.sparks = []; item.acc = 0; }
@@ -2629,7 +2673,7 @@ class Plugin extends AppPlugin {
 		};
 		const cap = { capture: true, passive: true };
 		const nav = () => requestAnimationFrame(() => this.sample(false));
-		listen(document, 'input', () => requestAnimationFrame(() => this.sample(true)), cap);
+		listen(document, 'input', (e) => { if (this.page && this.page.note.contains(e.target)) this.noteInput(); requestAnimationFrame(() => this.sample(true)); }, cap);
 		listen(document, 'keydown', (e) => {
 			if (!this.caretEl) return; // typing in the palette, a rename field or another plugin: not ours
 			const key = e.key || '', typing = (key.length === 1 && !e.ctrlKey && !e.metaKey) || key === 'Backspace' || key === 'Delete' || key === 'Enter';
@@ -2640,18 +2684,18 @@ class Plugin extends AppPlugin {
 		}, cap);
 		listen(document, 'keyup', nav, cap);
 		listen(document, 'click', nav, cap);
-		listen(document, 'selectionchange', nav);
+		listen(document, 'selectionchange', () => { this.placePageCaret(); nav(); });
 		listen(document, 'scroll', () => { this.clipT = 0; this.scrollAt = performance.now(); nav(); }, cap);   // a move seen right after this is the page moving, not the caret (see sample)
-		listen(window, 'resize', () => { this.resize(); this.clipT = 0; nav(); });
+		listen(window, 'resize', () => { this.resize(); this.clipT = 0; this.placePageCaret(); nav(); });
 
 		this.installCaretObserver();
 		this.installThemeObserver();
 
-		this.ui.addCommandPaletteCommand({ label: 'Caret FX: set preset…', icon: 'ti-palette', onSelected: () => this.presetDialog() });
+		this.ui.registerCustomPanelType(PAGE_TYPE, (panel) => this.renderPage(panel));
+		this.ui.addCommandPaletteCommand({ label: 'Caret FX: open settings', icon: 'ti-palette', onSelected: () => this.openPage() });
 		this.ui.addCommandPaletteCommand({ label: 'Caret FX: next preset', icon: 'ti-color-swatch', onSelected: () => this.nextPreset() });
-		this.ui.addCommandPaletteCommand({ label: 'Caret FX: set intensity…', icon: 'ti-adjustments', onSelected: () => this.intensityDialog() });
 		for (const e of Object.values(EFFECTS)) {
-			if (e.mode !== 'always' || e.toggleable === false || DIALOG_SWITCHES.some(([key]) => key === e.id)) continue;
+			if (e.mode !== 'always' || e.toggleable === false || PAGE_SWITCHES.some(([key]) => key === e.id)) continue;
 			this.ui.addCommandPaletteCommand({ label: `Caret FX: toggle ${e.label.toLowerCase()}`, icon: 'ti-toggle-right', onSelected: () => this.update({ [e.id]: !this.cfg[e.id] }) });
 		}
 
@@ -2667,7 +2711,7 @@ class Plugin extends AppPlugin {
 		for (const id of this.running) if (EFFECTS[id]?.keepsState) this.dropEffect(id);
 		this.running = new Set();
 		this.canvas?.remove();
-		this.closeDialog();
+		this.closePage();
 		this.caretHolders.clear();
 		document.body.classList.remove('cfx-caret-off');
 		this.caretStyle?.remove();
@@ -2724,8 +2768,7 @@ class Plugin extends AppPlugin {
 			if (dark === this.dark) return;
 			this.dark = dark;
 			this.applyCaretStyle();
-			this.dlgBox?.style.setProperty('--c', this.col());
-			this.dlgBox?.style.setProperty('--a', this.acc());
+			this.refreshPage();
 			if (this.last) this.addPulse(this.last);
 		};
 		const mo = new MutationObserver(check);
@@ -2782,7 +2825,7 @@ class Plugin extends AppPlugin {
 	// sight while it does; they come back when the last of them lets go.
 	hideCaret(id, on) {
 		if (on) this.caretHolders.add(id); else this.caretHolders.delete(id);
-		if (!this.isPreview) document.body.classList.toggle('cfx-caret-off', this.caretHolders.size > 0);   // the dialog's preview keeps its own count and touches no caret of the page
+		if (!this.isPreview) document.body.classList.toggle('cfx-caret-off', this.caretHolders.size > 0);   // a preview host keeps its own count and touches no caret of the page
 	}
 
 	// What an effect that keeps state leaves behind when it stops: its items, its state, its hold on the caret.
@@ -2819,9 +2862,9 @@ class Plugin extends AppPlugin {
 		const col = this.col();
 		const block = this.cfg.style === 'block';
 		this.caretStyle.textContent = block
-			? `div.listview-caret-self { opacity: 0 !important; animation: none !important; transition: none !important; }
+			? `div.listview-caret-self, div.cfx-pcaret { opacity: 0 !important; animation: none !important; transition: none !important; }
 .app-chrome-panels .panel .listitem, .app-chrome-panels .panel .listitem [contenteditable="true"] { caret-color: transparent !important; }`
-			: `body, div.listview-caret-self { --ed-caret-self-fg: ${col} !important; }`;
+			: `body, div.listview-caret-self, div.cfx-pcaret { --ed-caret-self-fg: ${col} !important; }`;
 		if (block) {
 			if (!this.block) { this.block = document.createElement('div'); this.block.className = 'cfx-block'; this.block.style.display = 'none'; document.body.appendChild(this.block); }
 			this.block.style.background = rgba(col, 0.42);
@@ -2865,46 +2908,13 @@ class Plugin extends AppPlugin {
 		else if (this.last) this.addPulse(this.last);
 	}
 
-	// ---- themed dialogs ----------------------------------------------------------------
-
-	dialog(title, build) {
-		this.closeDialog();
-		const cs = getComputedStyle(document.body);
-		const ov = document.createElement('div');
-		ov.className = 'cfx-ov';
-		const box = document.createElement('div');
-		box.className = 'cfx-box';
-		box.style.color = cs.color;
-		box.style.background = cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : 'Canvas';
-		box.style.setProperty('--c', this.col());
-		box.style.setProperty('--a', this.acc());
-		box.innerHTML = `<div class="cfx-head"><div class="cfx-title"></div><button class="cfx-x" aria-label="Close">✕</button></div>`;
-		box.querySelector('.cfx-title').textContent = title;
-		box.querySelector('.cfx-x').onclick = () => this.closeDialog();
-		ov.appendChild(box);
-		ov.addEventListener('mousedown', (e) => { if (e.target === ov) this.closeDialog(); });
-		this.dlgKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.closeDialog(); } };
-		document.addEventListener('keydown', this.dlgKey, true);
-		document.body.appendChild(ov);
-		this.dlg = ov;
-		this.dlgBox = box;
-		build(box);
-	}
-
-	closeDialog() {
-		if (this.dlgKey) document.removeEventListener('keydown', this.dlgKey, true);
-		this.dlg?.remove();
-		this.dlg = this.dlgBox = this.dlgKey = null;
-	}
-
 	// Apply right away (and remember it).
 	live(patch) {
 		this.cfg = { ...this.cfg, ...patch };
 		saveChoices(patch);
 		this.syncEffects();
 		this.applyCaretStyle();
-		this.dlgBox?.style.setProperty('--c', this.col());
-		this.dlgBox?.style.setProperty('--a', this.acc());
+		this.refreshPage();
 	}
 
 	// Pointer-drag helper: calls fn(x, y) in 0..1 coordinates of el while dragging.
@@ -2920,121 +2930,189 @@ class Plugin extends AppPlugin {
 		});
 	}
 
-	// Plays the active effects' previews inside the dialog, on a mini canvas, through the same registry draw(). An effect
-	// with a preview hook of its own runs that; for the rest the preview types - a letter's step now and then, a jump once
-	// in a while - so the glow, the trail and the smear show what they do.
-	startPreview(host) {
-		const cv = document.createElement('canvas');
-		host.appendChild(cv);
-		const dpr = window.devicePixelRatio || 1, W = host.offsetWidth, H = host.offsetHeight;
-		cv.width = W * dpr; cv.height = H * dpr;
-		const pv = Object.create(this);              // shares cfg (colors, effect) with the plugin, owns its drawing state
-		pv.ctx = cv.getContext('2d');
-		pv.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-		pv.items = []; pv.lastT = 0; pv.isPreview = true;
-		pv.fxState = {}; pv.caretHolders = new Set();   // its own: an effect's springs and marks here must not be the live caret's
-		const caretAt = () => ({ x: 186, y: 28, w: this.cfg.style === 'block' ? 14 : 2.5, h: 28, cw: 14, lw: 2.5 });   // as .cfx-caret is laid out
-		const sim = { next: performance.now() + 500, n: 0 };
-		const tick = () => {
-			if (!this.dlg || !cv.isConnected) return;
-			const now = performance.now(), caret = caretAt();
-			pv.last = caret;
-			let move = null;
-			if (now >= sim.next) {
-				const jump = ++sim.n % 6 === 0;
-				sim.next = now + (jump ? 1100 : 320 + Math.random() * 220);
-				const prev = { ...caret, x: jump ? 40 : caret.x - 9 }, dx = caret.x - prev.x;
-				move = { prev, info: { typed: !jump, dist: dx, dx, dy: 0, now } };
-			}
-			for (const e of this.activeEffects()) {
-				if (e.preview) e.preview(this, pv, caret, now);
-				else if (move) pv.callHook(e, 'onMove', move.prev, caret, move.info);
-			}
-			pv.ctx.clearRect(0, 0, W, H);
-			const live = new Set(this.activeEffects().map((e) => e.id));
-			pv.items = pv.items.filter((it) => live.has(it.effect));   // what was switched off must not linger in the preview
-			host.classList.toggle('cfx-nocaret', pv.items.some((it) => it.hidesCaret));   // an effect that draws the caret itself: the preview's own is hidden too
-			pv.renderItems(now);
-			requestAnimationFrame(tick);
-		};
-		requestAnimationFrame(tick);
+	// ---- THE SETTINGS PAGE ----------------------------------------------------------------------------------------------------
+	// "Caret FX: open settings" opens a page in the panel being worked in (registerCustomPanelType), the way a note opens. On
+	// it: a scratch area to type in, where the caret and its effects run for real - the page keeps a caret element of its own
+	// (div.cfx-pcaret), placed on the selection, which the plugin follows like Thymer's (CARET_SEL), and its rows are read
+	// like editor rows (.cfx-row / .cfx-line, in LISTITEM_SEL and lineDivOf) so Fresh ink, Bracket tether and Back-man work
+	// there too - then the color presets, the special presets, the switches and the intensity slider. What is typed in the
+	// scratch area is kept on this device. Thymer draws the page's bar and title; when the panel goes on to something else
+	// the page is simply gone, and the plugin notices by its root being disconnected.
+
+	/** Opens the page in the panel being worked in (or a new one); Thymer then calls renderPage. */
+	async openPage() {
+		const panel = this.ui.getActivePanel() || await this.ui.createPanel();
+		panel?.navigateToCustomType(PAGE_TYPE);
 	}
 
-	presetDialog() {
-		this.dialog('Caret preset', (box) => {
-			const html = (h) => { const t = document.createElement('div'); t.innerHTML = h; return t.firstElementChild; };
-			const preview = html('<div class="cfx-preview"><span>Typing something…</span><div class="cfx-caret"></div></div>');
-			box.appendChild(preview);
-			this.startPreview(preview);
-
-			box.appendChild(html('<div class="cfx-label">Colors</div>'));
-			const grid = html('<div class="cfx-presets"></div>');
-			box.appendChild(grid);
-			box.appendChild(html('<div class="cfx-label">Special</div>'));
-			const special = html('<div class="cfx-presets"></div>');
-			box.appendChild(special);
-
-			const list = this.presetList();
-			const refreshPresets = () => box.querySelectorAll('.cfx-pre').forEach((b) => { const p = list[b.dataset.i]; b.classList.toggle('on', p[1] === this.cfg.color && p[2] === this.cfg.accent && (p[3] || null) === (this.cfg.fx || null)); });
-			list.forEach(([name, color, accent, fx], i) => {
-				const b = html(`<button class="cfx-pre" data-i="${i}" title="${name}"><div class="cfx-dot" style="background:linear-gradient(135deg, ${color} 0%, ${color} 38%, ${accent} 100%)"></div><span>${name}</span></button>`);
-				b.onclick = () => { this.live({ color, accent, fx }); refreshPresets(); };
-				(fx ? special : grid).appendChild(b);
-			});
-			refreshPresets();
-
-			box.appendChild(html('<div class="cfx-label">Effects</div>'));
-			const opts = html('<div class="cfx-opts"></div>');
-			box.appendChild(opts);
-			const isOn = (key) => (key === 'style' ? this.cfg.style === 'block' : !!this.cfg[key]);
-			const refreshSwitches = () => {
-				preview.classList.toggle('block', this.cfg.style === 'block');
-				opts.querySelectorAll('.cfx-opt').forEach((b) => b.setAttribute('aria-checked', String(isOn(b.dataset.key))));
-			};
-			for (const [key, label, note] of DIALOG_SWITCHES) {
-				const b = html(`<button class="cfx-opt" role="switch" data-key="${key}"><span><span class="cfx-opt-name"></span><span class="cfx-opt-note"></span></span><span class="cfx-sw"></span></button>`);
-				b.querySelector('.cfx-opt-name').textContent = label;
-				b.querySelector('.cfx-opt-note').textContent = note;
-				b.onclick = () => {
-					this.update({ [key]: key === 'style' ? (isOn(key) ? 'line' : 'block') : !isOn(key) });
-					refreshSwitches();
-				};
-				opts.appendChild(b);
-			}
-			refreshSwitches();
+	renderPage(panel) {
+		const host = panel.getElement();
+		if (!host) return;
+		this.closePage();
+		panel.setTitle?.('Caret FX');
+		const html = (h) => { const t = document.createElement('div'); t.innerHTML = h; return t.firstElementChild; };
+		host.innerHTML = `<div-scrollable class="cfx-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="cfx-page">
+<div class="cfx-hero"><h1>Caret FX</h1><p>The caret in a color of your choice, with effects as you write. Pick a look below and try it right here.</p></div>
+<div class="cfx-label">Try it</div>
+<div class="cfx-notebox"><div class="cfx-note" contenteditable="true" spellcheck="false"></div><div class="cfx-pcaret"></div></div>
+<div class="cfx-hint">A scratch pad: type, skip words with the arrow keys, press Enter, delete something. It is kept on this device.</div>
+<div class="cfx-label">Colors</div><div class="cfx-presets cfx-colors"></div>
+<div class="cfx-label">Special</div><div class="cfx-presets cfx-special"></div>
+<div class="cfx-label">Effects</div><div class="cfx-opts"></div>
+<div class="cfx-label">Intensity</div>
+<div class="cfx-readout"><span class="cfx-big"></span><span class="cfx-mode"></span></div>
+<div class="cfx-sl" tabindex="0"><div class="cfx-sl-track"></div><div class="cfx-sl-fill"></div><div class="cfx-sl-thumb"></div></div>
+<div class="cfx-ticks"><span>Subtle</span><span>Normal</span><span>Intense</span></div>
+</div></div-scrollable>`;
+		const root = host.querySelector('.cfx-page'), note = root.querySelector('.cfx-note');
+		this.page = { root, note, box: root.querySelector('.cfx-notebox'), caret: root.querySelector('.cfx-pcaret'), n: 0 };
+		let saved = null;
+		try { saved = localStorage.getItem(NOTE_KEY); } catch (e) { /* the default text */ }
+		this.fillNote(saved !== null ? saved.split('\n') : NOTE_DEFAULT);
+		note.addEventListener('paste', (e) => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData || window.clipboardData)?.getData('text/plain') || ''); });   // plain text only
+		note.addEventListener('focus', () => this.placePageCaret());
+		note.addEventListener('blur', () => this.placePageCaret());
+		// the presets
+		const colors = root.querySelector('.cfx-colors'), special = root.querySelector('.cfx-special');
+		this.presetList().forEach(([name, color, accent, fx], i) => {
+			const b = html(`<button class="cfx-pre" data-i="${i}" title="${name}"><div class="cfx-dot" style="background:linear-gradient(135deg, ${color} 0%, ${color} 38%, ${accent} 100%)"></div><span>${name}</span></button>`);
+			b.onclick = () => this.live({ color, accent, fx });
+			(fx ? special : colors).appendChild(b);
 		});
+		// the switches
+		const opts = root.querySelector('.cfx-opts');
+		for (const [key, label, caption] of PAGE_SWITCHES) {
+			const b = html(`<button class="cfx-opt" role="switch" data-key="${key}"><span><span class="cfx-opt-name"></span><span class="cfx-opt-note"></span></span><span class="cfx-sw"></span></button>`);
+			b.querySelector('.cfx-opt-name').textContent = label;
+			b.querySelector('.cfx-opt-note').textContent = caption;
+			b.onclick = () => { this.update({ [key]: key === 'style' ? (this.switchOn(key) ? 'line' : 'block') : !this.switchOn(key) }); this.refreshPage(); };
+			opts.appendChild(b);
+		}
+		// the slider
+		const sl = root.querySelector('.cfx-sl');
+		const set = (v) => this.live({ intensity: Math.round(clamp(v, INTENSITY_MIN, INTENSITY_MAX) * 10) / 10 });
+		this.drag(sl, (x) => set(INTENSITY_MIN + x * (INTENSITY_MAX - INTENSITY_MIN)));
+		sl.addEventListener('keydown', (e) => {
+			if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); set(this.cfg.intensity + 0.1); }
+			if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); set(this.cfg.intensity - 0.1); }
+		});
+		// A preset or a switch clicked while writing in the scratch area must not take the caret away: the look is tried as it is picked.
+		root.addEventListener('mousedown', (e) => { if (document.activeElement === note && e.target.closest('.cfx-pre, .cfx-opt')) e.preventDefault(); });
+		this.refreshPage();
 	}
 
-	intensityDialog() {
-		this.dialog('Effect intensity', (box) => {
-			const MIN = 0.3, MAX = 2;
-			const name = (v) => (v < 0.7 ? 'Subtle' : v < 1.25 ? 'Normal' : v < 1.7 ? 'Strong' : 'Intense');
-			box.insertAdjacentHTML('beforeend', `
-				<div class="cfx-orb"><i></i></div>
-				<div class="cfx-label">Strength</div>
-				<div class="cfx-readout"><span class="cfx-big"></span><span class="cfx-mode"></span></div>
-				<div class="cfx-sl" tabindex="0"><div class="cfx-sl-track"></div><div class="cfx-sl-fill"></div><div class="cfx-sl-thumb"></div></div>
-				<div class="cfx-ticks"><span>Subtle</span><span>Normal</span><span>Intense</span></div>
-				<div class="cfx-foot"><button class="cfx-btn" data-r>Reset</button><button class="cfx-btn primary" data-d>Done</button></div>`);
-			const sl = box.querySelector('.cfx-sl'), fill = box.querySelector('.cfx-sl-fill'), thumb = box.querySelector('.cfx-sl-thumb');
-			const big = box.querySelector('.cfx-big'), mode = box.querySelector('.cfx-mode'), orb = box.querySelector('.cfx-orb i');
-			const show = (v) => {
-				const f = (v - MIN) / (MAX - MIN);
-				fill.style.width = f * 100 + '%'; thumb.style.left = f * 100 + '%';
-				big.textContent = v.toFixed(1) + '×'; mode.textContent = name(v);
-				orb.style.boxShadow = `0 0 ${6 + v * 14}px ${v * 3}px ${rgba(this.col(), Math.min(0.9, 0.25 + v * 0.3))}, 0 0 ${10 + v * 34}px ${v * 6}px ${rgba(this.acc(), 0.35)}`;
-			};
-			const set = (v) => { v = Math.round(Math.min(MAX, Math.max(MIN, v)) * 10) / 10; this.live({ intensity: v }); show(v); };
-			this.drag(sl, (x) => set(MIN + x * (MAX - MIN)));
-			sl.addEventListener('keydown', (e) => {
-				if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); set(this.cfg.intensity + 0.1); }
-				if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); set(this.cfg.intensity - 0.1); }
-			});
-			box.querySelector('[data-r]').onclick = () => set(1);
-			box.querySelector('[data-d]').onclick = () => this.closeDialog();
-			show(this.cfg.intensity);
-			sl.focus();
-		});
+	/** Whether a switch of the page is on. */
+	switchOn(key) { return key === 'style' ? this.cfg.style === 'block' : !!this.cfg[key]; }
+
+	/** The page brought up to date with the settings: the colors, which preset and switches are on, the slider. */
+	refreshPage() {
+		const pg = this.page;
+		if (!pg) return;
+		if (!pg.root.isConnected) { this.closePage(); return; }
+		const { root } = pg, list = this.presetList();
+		root.style.setProperty('--c', this.col());
+		root.style.setProperty('--a', this.acc());
+		root.querySelectorAll('.cfx-pre').forEach((b) => { const p = list[b.dataset.i]; b.classList.toggle('on', p[1] === this.cfg.color && p[2] === this.cfg.accent && (p[3] || null) === (this.cfg.fx || null)); });
+		root.querySelectorAll('.cfx-opt').forEach((b) => b.setAttribute('aria-checked', String(this.switchOn(b.dataset.key))));
+		const v = this.cfg.intensity, f = (v - INTENSITY_MIN) / (INTENSITY_MAX - INTENSITY_MIN);
+		root.querySelector('.cfx-sl-fill').style.width = f * 100 + '%';
+		root.querySelector('.cfx-sl-thumb').style.left = f * 100 + '%';
+		root.querySelector('.cfx-big').textContent = v.toFixed(1) + '×';
+		root.querySelector('.cfx-mode').textContent = v < 0.7 ? 'Subtle' : v < 1.25 ? 'Normal' : v < 1.7 ? 'Strong' : 'Intense';
+	}
+
+	/** The scratch area filled with `lines`, one row each. */
+	fillNote(lines) {
+		const pg = this.page, esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+		pg.note.innerHTML = lines.map((l) => `<div class="cfx-row" data-guid="cfx-${++pg.n}"><span class="cfx-line">${esc(l) || '<br>'}</span></div>`).join('');
+	}
+
+	/**
+	 * After an edit in the scratch area, its rows are put back in order - the browser edits the DOM its own way - and the
+	 * text is kept. Enter splits a row into two with the same guid (each must be its own); Backspace at a row's start joins two
+	 * rows, leaving the second's text beside the first's span (gathered into it, the caret kept at the join); a row wiped is
+	 * given its line span back.
+	 */
+	noteInput() {
+		const pg = this.page;
+		if (!pg || !pg.root.isConnected) return;
+		const { note } = pg, sel = window.getSelection();
+		if (!note.children.length) {   // everything wiped: one empty row to write in
+			this.fillNote(['']);
+			const r = document.createRange(); r.setStart(note.querySelector('.cfx-line'), 0); r.collapse(true);
+			sel.removeAllRanges(); sel.addRange(r);
+		}
+		const seen = new Set();
+		for (const row of Array.from(note.childNodes)) {
+			if (!(row instanceof HTMLElement)) { row.remove(); continue; }
+			row.classList.add('cfx-row');
+			// Everything in a row belongs in its one line span. The browser leaves things beside it - the text of a row joined
+			// to this one, a second span, a stray <br> - so the row is rebuilt around one span, in reading order, and the caret
+			// is put back at the same place in its text.
+			const line = row.querySelector(':scope > .cfx-line');
+			if (!line || row.childNodes.length !== 1) {
+				let at = -1;
+				if (sel && sel.focusNode && row.contains(sel.focusNode)) { const r = document.createRange(); r.setStart(row, 0); r.setEnd(sel.focusNode, sel.focusOffset); at = r.toString().length; }
+				const frag = document.createDocumentFragment();
+				const take = (n) => { if (n.nodeType === 1 && n.classList.contains('cfx-line')) { while (n.firstChild) take(n.firstChild); n.remove(); } else frag.appendChild(n); };
+				for (const n of Array.from(row.childNodes)) take(n);
+				const one = document.createElement('span');
+				one.className = 'cfx-line';
+				one.appendChild(frag);
+				if (one.textContent) one.querySelectorAll('br').forEach((br) => br.remove());
+				if (!one.childNodes.length) one.appendChild(document.createElement('br'));
+				one.normalize();
+				row.appendChild(one);
+				if (at >= 0) this.setCaretIn(one, at);
+			}
+			const g = row.getAttribute('data-guid');
+			if (!g || seen.has(g)) row.setAttribute('data-guid', `cfx-${++pg.n}`);
+			seen.add(row.getAttribute('data-guid'));
+		}
+		try { localStorage.setItem(NOTE_KEY, Array.from(note.querySelectorAll('.cfx-line')).map((l) => l.textContent).join('\n')); } catch (e) { /* kept for this visit only */ }
+		this.placePageCaret();
+	}
+
+	/** Puts the caret `index` characters into `el`. */
+	setCaretIn(el, index) {
+		const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+		let node = walk.nextNode(), left = index;
+		while (node && left > node.data.length) { left -= node.data.length; node = walk.nextNode(); }
+		const sel = window.getSelection();
+		if (node) sel.collapse(node, left); else sel.collapse(el, 0);
+	}
+
+	/** The page's caret element onto the selection in the scratch area (hidden when the selection is elsewhere); the plugin follows it from there. */
+	placePageCaret() {
+		const pg = this.page;
+		if (!pg) return;
+		if (!pg.root.isConnected) { this.closePage(); return; }
+		const { note, caret, box } = pg, sel = window.getSelection();
+		if (document.activeElement !== note || !sel || !sel.rangeCount || !sel.focusNode || !note.contains(sel.focusNode)) { caret.style.display = 'none'; return; }
+		const node = sel.focusNode, off = sel.focusOffset;
+		const box1 = (a, b) => { try { const q = document.createRange(); q.setStart(node, a); q.setEnd(node, b); const c = q.getClientRects()[0]; return c && c.height > 0.5 ? c : null; } catch (e) { return null; } };
+		let r = null;
+		if (node.nodeType === 3) {   // in text: the box of the letter after the caret, else the right edge of the one before
+			const c = off < node.data.length ? box1(off, off + 1) : null;
+			if (c) r = { x: c.left, y: c.top, h: c.height };
+			else { const d = off > 0 ? box1(off - 1, off) : null; if (d) r = { x: d.right, y: d.top, h: d.height }; }
+		}
+		if (!r) {   // an empty row (the caret by its <br>), or a position between elements: the row's left edge
+			const el = node.nodeType === 3 ? node.parentElement : node, row = (el && el.closest && el.closest('.cfx-row')) || el;
+			const b = row.getBoundingClientRect(), cs = getComputedStyle(row), lh = parseFloat(cs.lineHeight);
+			r = { x: b.left + (parseFloat(cs.paddingLeft) || 0), y: b.top + (parseFloat(cs.paddingTop) || 0), h: Number.isFinite(lh) && lh > 0 ? Math.min(lh, b.height || lh) : b.height };
+		}
+		const bb = box.getBoundingClientRect(), left = `${r.x - bb.left}px`, top = `${r.y - bb.top}px`;
+		const moved = caret.style.left !== left || caret.style.top !== top;
+		Object.assign(caret.style, { display: 'block', left, top, height: `${r.h}px` });
+		if (moved) { caret.style.animation = 'none'; void caret.offsetWidth; caret.style.animation = ''; }   // solid while moving, blinks when idle
+	}
+
+	/** The page is gone (its panel shows something else, or the plugin is going): the plugin lets go of its caret. */
+	closePage() {
+		if (!this.page) return;
+		this.page = null;
+		if (this.caretEl && this.caretEl.classList.contains('cfx-pcaret')) { this.caretEl = null; this.last = null; this.clipT = 0; }
 	}
 
 	// Cycles the colour presets, then the special presets from the registry, from the one in use (a custom color: from the first).
@@ -3186,7 +3264,7 @@ class Plugin extends AppPlugin {
 		if (this.items.some((it) => !it.rest)) this.kick();   // a still item is redrawn with the others but needs no frames of its own
 	}
 
-	// Draws every live item through its effect's draw(); the blend mode comes from the effect. Also used by the dialog preview.
+	// Draws every live item through its effect's draw(); the blend mode comes from the effect. Also used by a preview host.
 	renderItems(now) {
 		const ctx = this.ctx, k = this.cfg.intensity;
 		const dt = Math.min(48, this.lastT ? now - this.lastT : 16);

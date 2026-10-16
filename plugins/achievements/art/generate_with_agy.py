@@ -6,7 +6,7 @@
     python3 generate_with_agy.py --workers 3      # pictures made at the same time (default 2)
 
 Reads the prompts from prompts.md (the one code block under each `### Name  ·  `id`  ·  Tier` heading). For every picture it starts
-`agy --dangerously-skip-permissions -p ...`, tells it to look at the character reference sheets in reference/ and to hand them to its image
+`agy --dangerously-skip-permissions -p ...`, tells it to look at the real reference images in reference/ (the hero, his sword and shield, and the creatures the picture mentions) and to hand them to its image
 generator, and to save the result as generated/NN-id-slug.png (NN = the order in prompts.md). It then also writes generated/720x480/ (the
 same picture cut to 3:2 and scaled to 720 x 480). Pictures that exist are skipped, so a run can be repeated. generation-log.json records
 what happened to each picture.
@@ -23,8 +23,24 @@ GEN = os.path.join(HERE, "generated")
 SMALL = os.path.join(GEN, "720x480")
 LOG = os.path.join(GEN, "generation-log.json")
 
-REF_HERO = ["reference/hero-character-sheet.png", "reference/hero-face.png", "reference/hero-sword.png"]
-REF_EXTRA = {"gremlin": "reference/gremlin-and-owl.png", "owl": "reference/gremlin-and-owl.png"}
+# Real screenshots of the hero (the front, a side with the shield, the back), his sword and his shield up close: given for every picture.
+REF_HERO = {
+    "reference/hero-front-sword.png": "the hero from the front, sword in hand",
+    "reference/hero-side-shield.png": "the hero from the side behind his shield",
+    "reference/hero-back-shield.png": "the hero from the back",
+    "reference/sword-1.png": "his sword up close",
+    "reference/shield.png": "his shield up close",
+}
+# A word in the prompt -> the reference that shows it (only the ones the prompt mentions are given).
+REF_EXTRA = [
+    ("gremlin", "reference/gremlins.png", "the gremlins"),
+    ("stranger", "reference/stranger.png", "a Stranger (merchant)"),
+    ("snipe", "reference/snipes.png", "Snipes (the round birds)"),
+    ("scuttlebot", "reference/scuttlebot.png", "a Scuttlebot (robot)"),
+    ("jelly cube", "reference/jelly-cube.png", "a Jelly Cube"),
+    ("bloogato", "reference/bloogato.png", "a Bloogato (ghost)"),
+    ("energy", "reference/energy.png", "the energy symbol (a cyan ring with a bar across it) and the cyan energy blocks"),
+]
 
 
 def slug(name):
@@ -41,19 +57,20 @@ def parse():
 
 
 def task(item, dest):
-    refs = list(REF_HERO)
+    refs = dict(REF_HERO)
     low = item["prompt"].lower()
-    for key, ref in REF_EXTRA.items():
-        if key in low and ref not in refs:
-            refs.append(ref)
+    for key, ref, what in REF_EXTRA:
+        if key in low:
+            refs[ref] = what
     return (
         f"Create exactly ONE picture with your image generation tool (the image-generator subagent / generate_image) and save it as a PNG at:\n{dest}\n\n"
         "Landscape 3:2, as large as the tool allows (about 1536x1024). The small knight hero in the picture must look EXACTLY like the 3D character in the "
         "reference images: open and look at these files and pass them to the image generator as reference images:\n"
-        + "\n".join(f"- {os.path.join(HERE, r)}" for r in refs)
-        + "\nKeep his design unchanged: helmet, black visor with two white pill eyes, blue scarf, white sash, armour, blue shield, and above all his SWORD, a broad "
-        "gently curved tan-copper cleaver-like blade with a squared tip, two rivets, a grey guard plate with a glowing mint-green slot, a bright-green looped hand "
-        "guard and a red-brown wrapped grip. Gremlins and the owl must match their reference sheet too.\n\n"
+        + "\n".join(f"- {os.path.join(HERE, r)}  ({what})" for r, what in refs.items())
+        + "\nKeep his design unchanged: helmet, black visor with two white pill eyes, blue scarf, white tabard, armour, his green-rimmed shield with the white ram's-head "
+        "emblem (NOT a plain blue shield), and above all his SWORD, a broad gently curved pale tan cleaver-like blade with a squared tip, two rivets, a grey guard "
+        "plate with a glowing mint-green slot, a bright-green looped hand guard and a red-brown wrapped grip. Gremlins, the Stranger, Snipes, the monsters and the "
+        "energy symbol must match their reference images too (gremlins are scrappy fox-like mechanics, not round green blobs).\n\n"
         "Follow this picture description exactly:\n\n" + item["prompt"] + "\n\n"
         "When the file is saved, reply with only its path. Do not create any other files."
     )

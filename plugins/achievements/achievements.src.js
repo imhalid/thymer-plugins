@@ -17,71 +17,77 @@ const HIDE_KEY = 'achievements:hidden';
 const STREAK_MIN_WORDS = 30;   // a day counts toward the streak from this many words
 
 // ---- The list ------------------------------------------------------------------------------------------------------------
-// stat: what is measured; target: where it unlocks; crowns: what it pays.
+// stat: what is measured; target: where it unlocks; crowns: what it pays. Each one has a picture (IMAGES[id], see pictureOf).
 const ACHIEVEMENTS = [
-	{ id: 'w1', name: 'First Crown', desc: 'Write your first word', stat: 'words', target: 1, crowns: 5, icon: '👑' },
-	{ id: 'w25', name: 'Warm Up', desc: 'Write 25 words', stat: 'words', target: 25, crowns: 5, icon: '🏃' },
-	{ id: 'w100', name: 'Crown Collector', desc: 'Write 100 words', stat: 'words', target: 100, crowns: 10, icon: '🪙' },
-	{ id: 'w500', name: 'Gold Rush', desc: 'Write 500 words', stat: 'words', target: 500, crowns: 20, icon: '🥇' },
-	{ id: 'w1000', name: 'Crown Master', desc: 'Write 1,000 words', stat: 'words', target: 1000, crowns: 40, icon: '🏅' },
-	{ id: 'w5000', name: 'Crowns Everywhere', desc: 'Write 5,000 words', stat: 'words', target: 5000, crowns: 80, icon: '🌟' },
-	{ id: 'w10000', name: 'Royal Crowns', desc: 'Write 10,000 words', stat: 'words', target: 10000, crowns: 150, icon: '👑' },
-	{ id: 'w25000', name: 'Crown Vault', desc: 'Write 25,000 words', stat: 'words', target: 25000, crowns: 300, icon: '💰' },
-	{ id: 'w50000', name: 'Treasure Hoard', desc: 'Write 50,000 words', stat: 'words', target: 50000, crowns: 500, icon: '🏆' },
-	{ id: 'w100000', name: 'Spiral Legend', desc: 'Write 100,000 words', stat: 'words', target: 100000, crowns: 1000, icon: '🌀' },
-	{ id: 'd250', name: 'Quick Slash', desc: 'Write 250 words in one day', stat: 'bestDay', target: 250, crowns: 15, icon: '🗡️' },
-	{ id: 'd1000', name: 'Charge Attack', desc: 'Write 1,000 words in one day', stat: 'bestDay', target: 1000, crowns: 50, icon: '⚡' },
-	{ id: 'd2500', name: 'Full Charge', desc: 'Write 2,500 words in one day', stat: 'bestDay', target: 2500, crowns: 120, icon: '🔋' },
-	{ id: 'd5000', name: 'Proto Blade Unleashed', desc: 'Write 5,000 words in one day', stat: 'bestDay', target: 5000, crowns: 250, icon: '⚔️' },
-	{ id: 'm1000', name: 'Clockwork Sprint', desc: 'Write 1,000 words without a 10-minute break', stat: 'bestSession', target: 1000, crowns: 60, icon: '🏃' },
-	{ id: 'm3000', name: 'Deep Dive', desc: 'Write 3,000 words without a 10-minute break', stat: 'bestSession', target: 3000, crowns: 180, icon: '🕳️' },
-	{ id: 'p25', name: 'Quick Hands', desc: '25 words in a minute', stat: 'peak', target: 25, crowns: 10, icon: '✋' },
-	{ id: 'p40', name: 'Gremlin Dash', desc: '40 words in a minute', stat: 'peak', target: 40, crowns: 30, icon: '💨' },
-	{ id: 'p60', name: 'Lightning Reflexes', desc: '60 words in a minute', stat: 'peak', target: 60, crowns: 80, icon: '⚡' },
-	{ id: 'p80', name: 'Light Speed', desc: '80 words in a minute', stat: 'peak', target: 80, crowns: 150, icon: '🌠' },
-	{ id: 'ln50', name: 'Clockwork Corridor', desc: 'Write 50 words in a single line', stat: 'longLine', target: 50, crowns: 10, icon: '🚪' },
-	{ id: 'ln200', name: 'Endless Corridor', desc: 'Write 200 words in a single line', stat: 'longLine', target: 200, crowns: 50, icon: '♾️' },
-	{ id: 'l10', name: 'Shield Bash', desc: 'Add 10 lines', stat: 'lines', target: 10, crowns: 5, icon: '🛡️' },
-	{ id: 'l1000', name: 'Gear Grinder', desc: 'Add 1,000 lines', stat: 'lines', target: 1000, crowns: 60, icon: '⚙️' },
-	{ id: 'l5000', name: 'Clockwork Factory', desc: 'Add 5,000 lines', stat: 'lines', target: 5000, crowns: 200, icon: '🏭' },
-	{ id: 's3', name: 'First Crystal', desc: 'Write 3 days in a row', stat: 'bestStreak', target: 3, crowns: 15, icon: '💎' },
-	{ id: 's7', name: 'Seven Crystals', desc: 'Write 7 days in a row', stat: 'bestStreak', target: 7, crowns: 50, icon: '💠' },
-	{ id: 's14', name: 'Crystal Cluster', desc: 'Write 14 days in a row', stat: 'bestStreak', target: 14, crowns: 100, icon: '🔷' },
-	{ id: 's30', name: 'Heat Wave', desc: 'Write 30 days in a row', stat: 'bestStreak', target: 30, crowns: 250, icon: '🔥' },
-	{ id: 's60', name: 'Depth Delver', desc: 'Write 60 days in a row', stat: 'bestStreak', target: 60, crowns: 400, icon: '⛏️' },
-	{ id: 's100', name: 'Hall of Heroes', desc: 'Write 100 days in a row', stat: 'bestStreak', target: 100, crowns: 600, icon: '🏛️' },
-	{ id: 's365', name: 'Everlasting Crystal', desc: 'Write 365 days in a row', stat: 'bestStreak', target: 365, crowns: 2000, icon: '🔮' },
-	{ id: 't1', name: 'First Gremlin', desc: 'Finish a task', stat: 'tasks', target: 1, crowns: 5, icon: '👾' },
-	{ id: 't5', name: 'Gremlin Pack', desc: 'Finish 5 tasks', stat: 'tasks', target: 5, crowns: 10, icon: '🤖' },
-	{ id: 't10', name: 'Floor Cleared', desc: 'Finish 10 tasks', stat: 'tasks', target: 10, crowns: 20, icon: '✅' },
-	{ id: 't50', name: 'Depth Complete', desc: 'Finish 50 tasks', stat: 'tasks', target: 50, crowns: 60, icon: '🏁' },
-	{ id: 't100', name: 'Clockworks Conqueror', desc: 'Finish 100 tasks', stat: 'tasks', target: 100, crowns: 120, icon: '⚙️' },
-	{ id: 't250', name: 'Gremlin Slayer', desc: 'Finish 250 tasks', stat: 'tasks', target: 250, crowns: 200, icon: '🗡️' },
-	{ id: 't1000', name: 'Vanaduke Down', desc: 'Finish 1,000 tasks', stat: 'tasks', target: 1000, crowns: 700, icon: '👹' },
-	{ id: 'td5', name: 'Combo', desc: 'Finish 5 tasks in one day', stat: 'bestTaskDay', target: 5, crowns: 15, icon: '🔗' },
-	{ id: 'td20', name: 'Boss Rush', desc: 'Finish 20 tasks in one day', stat: 'bestTaskDay', target: 20, crowns: 80, icon: '⚔️' },
-	{ id: 'night', name: 'Night Owl', desc: 'Write 100 words between 22:00 and 04:00', stat: 'night', target: 100, crowns: 25, icon: '🌙' },
-	{ id: 'night1k', name: 'Midnight Clockworks', desc: 'Write 1,000 words between 22:00 and 04:00', stat: 'night', target: 1000, crowns: 80, icon: '🦇' },
-	{ id: 'early', name: 'Early Bird', desc: 'Write 100 words between 04:00 and 08:00', stat: 'early', target: 100, crowns: 25, icon: '🌅' },
-	{ id: 'early1k', name: 'Dawn Over Haven', desc: 'Write 1,000 words between 04:00 and 08:00', stat: 'early', target: 1000, crowns: 80, icon: '☀️' },
-	{ id: 'midnight', name: 'Midnight Knight', desc: 'Write a word at midnight sharp (00:00)', stat: 'midnight', target: 1, crowns: 40, icon: '🌑' },
-	{ id: 'h12', name: 'Sunset Over Haven', desc: 'Write in 12 different hours of the day', stat: 'hours', target: 12, crowns: 40, icon: '🌇' },
-	{ id: 'h24', name: 'Day and Night', desc: 'Write in every hour of the day, 00 to 23', stat: 'hours', target: 24, crowns: 200, icon: '🌗' },
-	{ id: 'wkend', name: 'Weekend Patrol', desc: 'Write 500 words on weekends', stat: 'weekend', target: 500, crowns: 25, icon: '🛡️' },
-	{ id: 'wk7', name: 'Grand Tour', desc: 'Write on every day of the week, Monday to Sunday', stat: 'weekdays', target: 7, crowns: 30, icon: '📅' },
-	{ id: 'ny', name: 'New Game', desc: "Write on New Year's Day", stat: 'newYear', target: 1, crowns: 30, icon: '🎆' },
-	{ id: 'back', name: 'Extra Life', desc: 'Come back and write after 7 or more days away', stat: 'comeback', target: 7, crowns: 20, icon: '🆙' },
-	{ id: 'a3', name: 'First Steps', desc: 'Write on 3 different days', stat: 'daysActive', target: 3, crowns: 10, icon: '👣' },
-	{ id: 'a10', name: 'Haven Resident', desc: 'Write on 10 different days', stat: 'daysActive', target: 10, crowns: 30, icon: '🏠' },
-	{ id: 'a30', name: 'Clockworks Regular', desc: 'Write on 30 different days', stat: 'daysActive', target: 30, crowns: 90, icon: '⚙️' },
-	{ id: 'a100', name: 'Spiral Veteran', desc: 'Write on 100 different days', stat: 'daysActive', target: 100, crowns: 300, icon: '🧭' },
-	{ id: 'a200', name: 'Haven Hero', desc: 'Write on 200 different days', stat: 'daysActive', target: 200, crowns: 500, icon: '🏙️' },
-	{ id: 'a365', name: 'Eternal Knight', desc: 'Write on 365 different days', stat: 'daysActive', target: 365, crowns: 1000, icon: '🗡️' },
-	{ id: 'peek', name: 'Crown Chest', desc: 'Open the achievements list', stat: 'opens', target: 1, crowns: 2, icon: '📦' },
-	{ id: 'got10', name: 'Guild Hall', desc: 'Unlock 10 achievements', stat: 'got', target: 10, crowns: 30, icon: '🏰' },
-	{ id: 'got30', name: 'Trophy Hunter', desc: 'Unlock 30 achievements', stat: 'got', target: 30, crowns: 150, icon: '🎖️' },
+	{ id: 'w1', name: 'First Crown', desc: 'Write your first word', stat: 'words', target: 1, crowns: 5 },
+	{ id: 'w25', name: 'Warm Up', desc: 'Write 25 words', stat: 'words', target: 25, crowns: 5 },
+	{ id: 'w100', name: 'Crown Collector', desc: 'Write 100 words', stat: 'words', target: 100, crowns: 10 },
+	{ id: 'w500', name: 'Gold Rush', desc: 'Write 500 words', stat: 'words', target: 500, crowns: 20 },
+	{ id: 'w1000', name: 'Crown Master', desc: 'Write 1,000 words', stat: 'words', target: 1000, crowns: 40 },
+	{ id: 'w5000', name: 'Crowns Everywhere', desc: 'Write 5,000 words', stat: 'words', target: 5000, crowns: 80 },
+	{ id: 'w10000', name: 'Royal Crowns', desc: 'Write 10,000 words', stat: 'words', target: 10000, crowns: 150 },
+	{ id: 'w25000', name: 'Crown Vault', desc: 'Write 25,000 words', stat: 'words', target: 25000, crowns: 300 },
+	{ id: 'w50000', name: 'Treasure Hoard', desc: 'Write 50,000 words', stat: 'words', target: 50000, crowns: 500 },
+	{ id: 'w100000', name: 'Spiral Legend', desc: 'Write 100,000 words', stat: 'words', target: 100000, crowns: 1000 },
+	{ id: 'd250', name: 'Quick Slash', desc: 'Write 250 words in one day', stat: 'bestDay', target: 250, crowns: 15 },
+	{ id: 'd500', name: 'Energy Depot', desc: 'Write 500 words in one day', stat: 'bestDay', target: 500, crowns: 25 },
+	{ id: 'd1000', name: 'Charge Attack', desc: 'Write 1,000 words in one day', stat: 'bestDay', target: 1000, crowns: 50 },
+	{ id: 'd2500', name: 'Full Charge', desc: 'Write 2,500 words in one day', stat: 'bestDay', target: 2500, crowns: 120 },
+	{ id: 'd5000', name: 'Proto Blade Unleashed', desc: 'Write 5,000 words in one day', stat: 'bestDay', target: 5000, crowns: 250 },
+	{ id: 'm500', name: 'Energy Gate', desc: 'Write 500 words without a 10-minute break', stat: 'bestSession', target: 500, crowns: 25 },
+	{ id: 'm1000', name: 'Clockwork Sprint', desc: 'Write 1,000 words without a 10-minute break', stat: 'bestSession', target: 1000, crowns: 60 },
+	{ id: 'm3000', name: 'Deep Dive', desc: 'Write 3,000 words without a 10-minute break', stat: 'bestSession', target: 3000, crowns: 180 },
+	{ id: 'p25', name: 'Quick Hands', desc: '25 words in a minute', stat: 'peak', target: 25, crowns: 10 },
+	{ id: 'p40', name: 'Gremlin Dash', desc: '40 words in a minute', stat: 'peak', target: 40, crowns: 30 },
+	{ id: 'p60', name: 'Lightning Reflexes', desc: '60 words in a minute', stat: 'peak', target: 60, crowns: 80 },
+	{ id: 'p80', name: 'Light Speed', desc: '80 words in a minute', stat: 'peak', target: 80, crowns: 150 },
+	{ id: 'ln50', name: 'Clockwork Corridor', desc: 'Write 50 words in a single line', stat: 'longLine', target: 50, crowns: 10 },
+	{ id: 'ln200', name: 'Endless Corridor', desc: 'Write 200 words in a single line', stat: 'longLine', target: 200, crowns: 50 },
+	{ id: 'l10', name: 'Shield Bash', desc: 'Add 10 lines', stat: 'lines', target: 10, crowns: 5 },
+	{ id: 'l1000', name: 'Gear Grinder', desc: 'Add 1,000 lines', stat: 'lines', target: 1000, crowns: 60 },
+	{ id: 'l5000', name: 'Clockwork Factory', desc: 'Add 5,000 lines', stat: 'lines', target: 5000, crowns: 200 },
+	{ id: 's3', name: 'First Crystal', desc: 'Write 3 days in a row', stat: 'bestStreak', target: 3, crowns: 15 },
+	{ id: 's7', name: 'Seven Crystals', desc: 'Write 7 days in a row', stat: 'bestStreak', target: 7, crowns: 50 },
+	{ id: 's14', name: 'Crystal Cluster', desc: 'Write 14 days in a row', stat: 'bestStreak', target: 14, crowns: 100 },
+	{ id: 's30', name: 'Heat Wave', desc: 'Write 30 days in a row', stat: 'bestStreak', target: 30, crowns: 250 },
+	{ id: 's60', name: 'Depth Delver', desc: 'Write 60 days in a row', stat: 'bestStreak', target: 60, crowns: 400 },
+	{ id: 's100', name: 'Hall of Heroes', desc: 'Write 100 days in a row', stat: 'bestStreak', target: 100, crowns: 600 },
+	{ id: 's365', name: 'Everlasting Crystal', desc: 'Write 365 days in a row', stat: 'bestStreak', target: 365, crowns: 2000 },
+	{ id: 't1', name: 'First Gremlin', desc: 'Finish a task', stat: 'tasks', target: 1, crowns: 5 },
+	{ id: 't5', name: 'Gremlin Pack', desc: 'Finish 5 tasks', stat: 'tasks', target: 5, crowns: 10 },
+	{ id: 't10', name: 'Floor Cleared', desc: 'Finish 10 tasks', stat: 'tasks', target: 10, crowns: 20 },
+	{ id: 't25', name: 'Token Trader', desc: 'Finish 25 tasks', stat: 'tasks', target: 25, crowns: 40 },
+	{ id: 't50', name: 'Depth Complete', desc: 'Finish 50 tasks', stat: 'tasks', target: 50, crowns: 60 },
+	{ id: 't100', name: 'Clockworks Conqueror', desc: 'Finish 100 tasks', stat: 'tasks', target: 100, crowns: 120 },
+	{ id: 't250', name: 'Gremlin Slayer', desc: 'Finish 250 tasks', stat: 'tasks', target: 250, crowns: 200 },
+	{ id: 't1000', name: 'Vanaduke Down', desc: 'Finish 1,000 tasks', stat: 'tasks', target: 1000, crowns: 700 },
+	{ id: 'td5', name: 'Combo', desc: 'Finish 5 tasks in one day', stat: 'bestTaskDay', target: 5, crowns: 15 },
+	{ id: 'td10', name: 'Spark Collector', desc: 'Finish 10 tasks in one day', stat: 'bestTaskDay', target: 10, crowns: 40 },
+	{ id: 'td20', name: 'Boss Rush', desc: 'Finish 20 tasks in one day', stat: 'bestTaskDay', target: 20, crowns: 80 },
+	{ id: 'night', name: 'Night Owl', desc: 'Write 100 words between 22:00 and 04:00', stat: 'night', target: 100, crowns: 25 },
+	{ id: 'night1k', name: 'Midnight Clockworks', desc: 'Write 1,000 words between 22:00 and 04:00', stat: 'night', target: 1000, crowns: 80 },
+	{ id: 'early', name: 'Early Bird', desc: 'Write 100 words between 04:00 and 08:00', stat: 'early', target: 100, crowns: 25 },
+	{ id: 'early1k', name: 'Dawn Over Haven', desc: 'Write 1,000 words between 04:00 and 08:00', stat: 'early', target: 1000, crowns: 80 },
+	{ id: 'midnight', name: 'Midnight Knight', desc: 'Write a word at midnight sharp (00:00)', stat: 'midnight', target: 1, crowns: 40 },
+	{ id: 'h12', name: 'Sunset Over Haven', desc: 'Write in 12 different hours of the day', stat: 'hours', target: 12, crowns: 40 },
+	{ id: 'h24', name: 'Day and Night', desc: 'Write in every hour of the day, 00 to 23', stat: 'hours', target: 24, crowns: 200 },
+	{ id: 'wkend', name: 'Weekend Patrol', desc: 'Write 500 words on weekends', stat: 'weekend', target: 500, crowns: 25 },
+	{ id: 'wk7', name: 'Grand Tour', desc: 'Write on every day of the week, Monday to Sunday', stat: 'weekdays', target: 7, crowns: 30 },
+	{ id: 'ny', name: 'New Game', desc: "Write on New Year's Day", stat: 'newYear', target: 1, crowns: 30 },
+	{ id: 'back', name: 'Extra Life', desc: 'Come back and write after 7 or more days away', stat: 'comeback', target: 7, crowns: 20 },
+	{ id: 'a3', name: 'First Steps', desc: 'Write on 3 different days', stat: 'daysActive', target: 3, crowns: 10 },
+	{ id: 'a10', name: 'Haven Resident', desc: 'Write on 10 different days', stat: 'daysActive', target: 10, crowns: 30 },
+	{ id: 'a30', name: 'Clockworks Regular', desc: 'Write on 30 different days', stat: 'daysActive', target: 30, crowns: 90 },
+	{ id: 'a50', name: 'Energy Reserve', desc: 'Write on 50 different days', stat: 'daysActive', target: 50, crowns: 120 },
+	{ id: 'a100', name: 'Spiral Veteran', desc: 'Write on 100 different days', stat: 'daysActive', target: 100, crowns: 300 },
+	{ id: 'a200', name: 'Haven Hero', desc: 'Write on 200 different days', stat: 'daysActive', target: 200, crowns: 500 },
+	{ id: 'a365', name: 'Eternal Knight', desc: 'Write on 365 different days', stat: 'daysActive', target: 365, crowns: 1000 },
+	{ id: 'peek', name: 'Crown Chest', desc: 'Open the achievements list', stat: 'opens', target: 1, crowns: 2 },
+	{ id: 'got10', name: 'Guild Hall', desc: 'Unlock 10 achievements', stat: 'got', target: 10, crowns: 30 },
+	{ id: 'got20', name: 'Arcade Champion', desc: 'Unlock 20 achievements', stat: 'got', target: 20, crowns: 80 },
+	{ id: 'got30', name: 'Trophy Hunter', desc: 'Unlock 30 achievements', stat: 'got', target: 30, crowns: 150 },
 ];
-ACHIEVEMENTS.push({ id: 'all', name: 'Heavenly Guardian', desc: 'Unlock every other achievement', stat: 'got', target: ACHIEVEMENTS.length, crowns: 1500, icon: '👼' });
+ACHIEVEMENTS.push({ id: 'all', name: 'Heavenly Guardian', desc: 'Unlock every other achievement', stat: 'got', target: ACHIEVEMENTS.length, crowns: 1500 });
 
 /** How hard an achievement is, read from what it pays. */
 const tier = (a) => (a.crowns <= 10 ? 'Easy' : a.crowns <= 40 ? 'Medium' : a.crowns <= 150 ? 'Hard' : 'Legendary');
@@ -103,7 +109,7 @@ const ease = (t) => 1 - Math.pow(1 - t, 3);
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 
 function freshState() {
-	return { words: 0, tasks: 0, lines: 0, peak: 0, night: 0, early: 0, midnight: 0, longLine: 0, session: 0, bestSession: 0, lastWordAt: 0, opens: 0, days: {}, taskDays: {}, hours: {}, unlocked: {}, doneGuids: [] };
+	return { words: 0, tasks: 0, lines: 0, peak: 0, night: 0, early: 0, midnight: 0, longLine: 0, session: 0, bestSession: 0, lastWordAt: 0, opens: 0, days: {}, taskDays: {}, hours: {}, unlocked: {}, doneGuids: [], pending: [] };
 }
 
 /** The measures the list is checked against, from the saved state. Pure (apart from today's date). */
@@ -287,148 +293,14 @@ class Mascot {
 	destroy() { try { this.gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { /* ignore */ } }
 }
 
-// ---- The unlock effect: one fragment shader over every badge of the notification ---------------------------------------
-// Round each badge, while the icon waits small, energy gathers: a vortex turns, a ring of flame licks outward and electricity
-// crackles round it, and stars are drawn in. At BURST_MS it bursts: a flash, a shockwave broken into arcs, a softer faster
-// ring, and a spray of streaking sparks and twinkling embers, as the icon springs open. It is drawn from small grayscale
-// textures (see fx/LICENSE.md): a sprite atlas and a tiling noise, tinted with the tier's colour. Coordinates are in badge
-// radii; one canvas (one WebGL context) covers the whole stack, so any number of unlocks costs the same.
-const FX = __FX__;   // { atlas, noise } as data URLs, baked in by build.mjs
-const BURST_MS = 800;
-const FX_MAX = 6;            // badges in one notification; more are summed up in a line
-const FX_REACH = 130;        // how far (CSS px) an effect reaches from its badge
-const FX_STAGGER_MS = 160;   // between one row's opening and the next
-const GLOW_BELOW = 100;     // how far (px) the notification's glow reaches below its last row
+// ---- The notification's settings ----------------------------------------------------------------------------------------
+const IMAGES = __IMAGES__;   // { achievement id: a 3:2 WebP as a data URL }, baked in by build.mjs from art/webp (see art/source/pack_images.py)
+const SOUND = __SOUND__;     // sound/unlock.mp3 as a data URL, baked in by build.mjs
+const MUTE_KEY = 'achievements:muted';
+const FX_MAX = 6;            // cards in one opening; more are summed up in a line
 const TIER_FX = { Easy: ['#5ee6a0', 0.5], Medium: ['#4fd8ff', 1], Hard: ['#b98cff', 1.4], Legendary: ['#ffb347', 2] };
-let fxImgs = null;
-/** The textures as images, decoded once and kept, so they are ready when something unlocks. */
-const fxImages = () => fxImgs || (fxImgs = Object.fromEntries(Object.entries(FX).map(([k, src]) => { const i = new Image(); i.src = src; return [k, i]; })));
-const FX_VERT = `#version 300 es
-in vec2 aPos;
-void main() { gl_Position = vec4(aPos, 0.0, 1.0); }`;
-const FX_FRAG = `#version 300 es
-precision highp float;
-uniform vec2 uRes; uniform float uDpr; uniform int uN; uniform sampler2D uAtlas, uNoise;
-uniform vec2 uC[${FX_MAX}]; uniform float uR[${FX_MAX}], uT[${FX_MAX}], uPow[${FX_MAX}], uSeed[${FX_MAX}], uTier[${FX_MAX}]; uniform vec3 uCol[${FX_MAX}];
-out vec4 o;
-const float B = ${(BURST_MS / 1000).toFixed(2)};
-// the atlas, 4 x 3 cells: 0-3 electricity, 4 vortex, 5 sharp ring, 6 soft ring, 7 four-point star, 8 streak, 9 burst, 10 six-point star, 11 glow star
-const float ZAP = 0.0, VORTEX = 4.0, RING = 5.0, SOFTRING = 6.0, STAR = 7.0, STREAK = 8.0, BURST = 9.0, STAR6 = 10.0, GLOW = 11.0;
-float SD = 0.0, TR = 1.0;   // this badge's random seed (every unlock is different) and tier (0 Easy ... 3 Legendary: its form)
-float h11(float n) { return fract(sin((n + SD) * 127.1) * 43758.5453); }
-mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }
-float nz(vec2 uv) { return textureLod(uNoise, uv, 0.0).r; }
-// sprite c at q (its own space, -1 to 1, y up), size its half-width in radii; pxr is device px per radius, for the mip level
-float spr(float c, vec2 q, float size, float pxr) {
-	if (abs(q.x) >= 1.0 || abs(q.y) >= 1.0) return 0.0;
-	vec2 uv = (vec2(mod(c, 4.0), floor(c / 4.0)) + 0.5 + vec2(q.x, -q.y) * 0.49) / vec2(4.0, 3.0);
-	return textureLod(uAtlas, uv, clamp(log2(64.0 / max(size * pxr, 1.0)), 0.0, 4.0)).r;
-}
-// the light of one badge at p (in its radii, y up), t seconds into its sequence; pw is how big its tier makes it
-float fx(vec2 p, float t, float pw, float pxr) {
-	float r = length(p), ang = atan(p.y, p.x), after = t - B, e = 0.0;
-	float dirA = h11(1.0) < 0.5 ? -1.0 : 1.0, dirB = h11(2.0) < 0.5 ? -1.0 : 1.0, nzo = h11(3.0) * 8.0;   // spin directions, noise offset
-	float charge = smoothstep(0.05, B, t) * (1.0 - smoothstep(0.0, 0.15, after));
-	if (charge > 0.0) {
-		float c15 = pow(charge, 1.5);
-		e += spr(VORTEX, rot(dirA * t * 5.0) * p / 2.3, 2.3, pxr) * (0.18 + 0.08 * TR) * charge;   // the vortex, turning faster as it charges
-		// flame: the noise wrapped round the ring (3 times, so it meets itself) and flowing outward
-		float u = ang / 6.2832 * 3.0, edge = r - 1.0;
-		float n = nz(vec2(u + nzo, edge * 0.9 - t * 1.4)), n2 = nz(vec2(u * 2.0 + 0.37 + nzo * 2.0, edge * 1.7 - t * 2.3)), fl = n * n2 * 2.0;
-		float flame = smoothstep(-0.08, 0.0, edge) * exp(-max(edge, 0.0) / (0.05 + 0.6 * charge * fl)) * (0.25 + fl);
-		float rim = exp(-pow((r - 1.03) / 0.04, 2.0)) * (0.45 + n);
-		e += (flame * 2.4 + rim * 1.1) * c15 * (0.55 + 0.25 * TR);
-		for (int k = 0; k < 3; k++) {   // electricity: three crackles going round, flicking through the four frames (none for Easy)
-			if (TR < 0.5) break;
-			float fk = float(k), a = h11(fk + 40.0) * 6.2832 + dirB * t * (1.4 + 0.5 * fk), tick = floor(t * 16.0 + fk * 5.0), frame = mod(tick + fk, 4.0);
-			vec2 q = rot(-a + 1.5708 + tick * 1.7) * (p - vec2(cos(a), sin(a)) * 1.2) / 0.8;
-			e += spr(ZAP + frame, q, 0.8, pxr) * 1.5 * c15 * step(0.3, h11(tick * 3.1 + fk));
-		}
-		for (int i = 0; i < 14; i++) {   // stars drawn in
-			float s = float(i) + 100.0, a = h11(s) * 6.2832, ph = fract(t * 0.9 + h11(s + 1.3));
-			if (float(i) >= 6.0 + 4.0 * TR) break;
-			vec2 q = rot(dirB * ph * 3.0) * (p - vec2(cos(a), sin(a)) * (2.6 - 1.5 * ph * ph)) / 0.16;
-			e += spr(STAR, q, 0.16, pxr) * sin(ph * 3.1416) * charge;
-		}
-	}
-	if (after > 0.0) {
-		float flash = exp(-after * 6.0);   // the flash: a burst and a glowing star
-		e += spr(BURST, rot(dirA * after * 1.2 + nzo) * p / (1.8 + 0.3 * TR + 0.3 * pw), 1.8 + 0.3 * TR + 0.3 * pw, pxr) * (0.9 + 0.35 * TR) * flash;
-		float gs = 1.7 + after * 2.0;
-		e += spr(GLOW, rot(-dirA * after * 0.8) * p / gs, gs, pxr) * (0.8 + 0.2 * TR) * exp(-after * 4.0);
-		// the shockwave, broken into arcs by the noise. The ring sprites are read across their band at a chosen width (the
-		// sharp ring's band runs 0.55-0.72 of the sprite, the soft one's 0.58-0.9), so they stay thin as they grow.
-		vec2 dir = p / max(r, 1e-4);
-		float k = 1.0 - exp(-after * 3.0), rw = 1.0 + k * (1.6 + 0.9 * pw), w1 = 0.06 + 0.12 * k;
-		float arcs = smoothstep(0.3, 0.7, nz(vec2(ang / 6.2832 * 2.0 + nzo, 0.5 + after * 0.25 + nzo)));
-		float ringAmt = TR < 0.5 ? 0.25 : 1.0;   // Easy has hardly a shockwave: just the soft ring
-		e += spr(RING, dir * (0.55 + (r - rw) / w1 * 0.17), w1 / 0.17, pxr) * (0.1 + 1.3 * arcs) * 1.5 * exp(-after * 1.7) * ringAmt;
-		if (TR > 1.5) {   // Hard and Legendary: a second shockwave, a beat behind (Legendary: a third)
-			for (int j = 1; j < 3; j++) {
-				if (j == 2 && TR < 2.5) break;
-				float aj = after - 0.14 * float(j);
-				if (aj <= 0.0) continue;
-				float kj = 1.0 - exp(-aj * 3.0), rj = 1.0 + kj * (1.4 + 0.8 * pw), wj = 0.05 + 0.1 * kj;
-				float arcj = smoothstep(0.25, 0.7, nz(vec2(ang / 6.2832 * 3.0 + nzo + float(j) * 1.7, 0.2 + aj * 0.3)));
-				e += spr(RING, dir * (0.55 + (r - rj) / wj * 0.17), wj / 0.17, pxr) * (0.1 + 1.1 * arcj) * 1.2 * exp(-aj * 1.9);
-			}
-			for (int k = 0; k < 3; k++) {   // lightning round the ring as it bursts
-				float fk = float(k), a = h11(fk + 70.0) * 6.2832 + dirB * after * 2.0, tick = floor(after * 18.0 + fk * 5.0), frame = mod(tick + fk, 4.0);
-				vec2 q = rot(-a + 1.5708 + tick * 1.7) * (p - vec2(cos(a), sin(a)) * 1.3) / 0.9;
-				e += spr(ZAP + frame, q, 0.9, pxr) * 1.6 * exp(-after * 3.5) * step(0.3, h11(tick * 3.1 + fk + 9.0));
-			}
-			int rays = TR > 2.5 ? 12 : 6;   // rays of light, straight out
-			for (int j = 0; j < 12; j++) {
-				if (j >= rays) break;
-				float aj = h11(float(j) + 80.0) * 0.5 + float(j) / float(rays) * 6.2832 + nzo, lj = (1.6 + 1.6 * h11(float(j) + 90.0)) * (0.7 + 0.3 * pw);
-				vec2 dj = vec2(cos(aj), sin(aj)), pj = vec2(dot(p, vec2(dj.y, -dj.x)) / 0.07, (dot(p, dj) - (1.0 + lj * 0.5 * (1.0 - exp(-after * 5.0)))) / (lj * 0.5));
-				e += spr(STREAK, pj, lj * 0.5, pxr) * 1.7 * exp(-after * 2.6);
-			}
-		}
-		float rw2 = 1.0 + (1.0 - exp(-after * 5.0)) * (2.4 + pw), w2 = 0.18;   // and a softer, faster one
-		e += spr(SOFTRING, dir * (0.58 + (r - rw2) / w2 * 0.32), w2 / 0.32, pxr) * (TR < 0.5 ? 0.9 : 0.5) * exp(-after * 3.5);
-		e += 0.35 * smoothstep(0.92, 1.05, r) * exp(-max(r - 1.0, 0.0) * 3.5) * exp(-after * 0.7);   // the glow it leaves
-		float cone = h11(4.0) < 0.45 ? 0.0 : 0.25 + 0.5 * h11(5.0), coneA = h11(6.0) * 6.2832;   // some bursts are radial, some throw their sparks to one side
-		for (int i = 0; i < 84; i++) {   // sparks: streaks along their flight; some are slow, twinkling embers (Easy: half of them)
-			float s = float(i);
-			if (s >= (TR < 0.5 ? 16.0 : TR < 1.5 ? 32.0 : TR < 2.5 ? 54.0 : 84.0)) break;
-			bool ember = mod(s, TR < 0.5 ? 2.0 : 4.0) < 0.5;
-			float a = mix(h11(s + 0.3) * 6.2832, coneA + (h11(s + 0.3) - 0.5) * 6.2832 * 0.35, cone * (ember ? 0.3 : 1.0)), spd = (ember ? 0.15 + 0.4 * h11(s + 3.1) : 0.6 + 2.6 * h11(s + 3.1)) * (0.7 + 0.2 * TR);
-			float life = ember ? 2.0 + 1.5 * h11(s + 7.7) : 0.5 + 1.4 * h11(s + 7.7), rise = (ember ? 0.12 : 0.35) * (0.4 + 1.2 * h11(7.0));
-			float tt = after - 0.05 * h11(s + 9.2);
-			if (tt < 0.0 || tt > life) continue;
-			float f = tt / life, fade = 1.0 - f * f;
-			vec2 v = vec2(cos(a), sin(a)), d = p - v * (1.0 + spd * (1.0 - exp(-tt * 3.0)) * 0.8) - vec2(0.0, rise * tt * tt);
-			if (ember) {
-				float sz = 0.13 * (1.0 - 0.5 * f);
-				e += spr(h11(s + 5.0) < 0.5 ? STAR : STAR6, rot(tt * 2.0 + s) * d / sz, sz, pxr) * fade * (1.0 + 0.5 * sin(tt * 18.0 + s));
-			} else {
-				vec2 vel = normalize(v * spd * 2.4 * exp(-tt * 3.0) + vec2(0.0, 2.0 * rise * tt) + 1e-4);
-				float w = 0.07 * (1.0 - f) + 0.02, len = w * (2.0 + 6.0 * exp(-tt * 3.0));   // longer while it is fast
-				vec2 q = vec2(dot(d, vec2(vel.y, -vel.x)) / w, dot(d, vel) / len);
-				e += spr(STREAK, q, len, pxr) * 2.6 * fade;
-			}
-		}
-	}
-	return e;
-}
-void main() {
-	vec2 px = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uDpr;   // CSS px from the canvas's top left
-	vec3 col = vec3(0.0);
-	for (int i = 0; i < ${FX_MAX}; i++) {
-		if (i >= uN) break;
-		SD = uSeed[i]; TR = uTier[i];
-		vec2 p = (px - uC[i]) / uR[i];
-		float lim = ${FX_REACH.toFixed(1)} / uR[i], r = length(p);
-		if (uT[i] < 0.0 || r > lim) continue;
-		float e = fx(vec2(p.x, -p.y), uT[i], uPow[i], uR[i] * uDpr) * smoothstep(lim, lim * 0.75, r);   // fades out before its reach ends
-		col += uCol[i] * e + vec3(0.8) * smoothstep(1.2, 3.0, e);   // white-hot where it is brightest
-	}
-	col = min(col, vec3(1.0));
-	o = vec4(col, max(col.r, max(col.g, col.b)));
-}`;
 
-/** The tier's colour turned a random way round the hue wheel (up to 28 degrees) and a little brighter or darker: no two bursts have the same tone. */
+/** The tier's colour turned a random way round the hue wheel (up to 28 degrees) and a little brighter or darker: no two openings have the same tone. */
 function jitterHue([r, g, b]) {
 	const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2;
 	let h = d === 0 ? 0 : mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
@@ -439,73 +311,242 @@ function jitterHue([r, g, b]) {
 	return [R + m, G + m, B + m];
 }
 
-/** Draws FX_FRAG for a list of badges: [{ el, color, power, at }] (at: when its sequence starts, in performance.now() ms). */
-class Burst {
-	constructor(canvas, badges) {
-		this.canvas = canvas;
-		this.badges = badges.slice(0, FX_MAX).map((b) => ({ ...b, seed: Math.random() * 40, rgb: jitterHue([1, 3, 5].map((i) => parseInt(b.color.slice(i, i + 2), 16) / 255)) }));
+// ---- The pictures: a coloured plate while one is missing, and the shader that opens a picture in the notification --------------
+const PLATES = {};
+/** The picture of an achievement as a data URL; one that is not made yet gets the demo picture, or (without one) a plate in its tier's colour with faint spiral rings. */
+function pictureOf(a) {
+	if (IMAGES[a.id]) return IMAGES[a.id];
+	if (IMAGES._demo) return IMAGES._demo;   // art/demo.webp: stands in for every picture that is not made yet
+	const t = tier(a);
+	if (PLATES[t]) return PLATES[t];
+	const c = document.createElement('canvas'); c.width = 384; c.height = 256;
+	const g = c.getContext('2d'), col = TIER_FX[t][0];
+	const bg = g.createRadialGradient(192, 118, 8, 192, 128, 250); bg.addColorStop(0, col + 'aa'); bg.addColorStop(0.45, '#1a2850'); bg.addColorStop(1, '#070b1c');
+	g.fillStyle = bg; g.fillRect(0, 0, 384, 256);
+	g.strokeStyle = col + '55'; g.lineWidth = 3; g.lineCap = 'round';
+	for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(192, 128, 30 + i * 26, 0.6 + i, 4.9 + i); g.stroke(); }
+	return (PLATES[t] = c.toDataURL('image/png'));
+}
+
+/** How an achievement opens: the style asked for (a number, or a list, one for each picture) or, by default, its own, the same every time (from its id). */
+const revealStyle = (a, style, i = 0) => { const v = Array.isArray(style) ? style[i % style.length] : style; return Number.isInteger(v) ? v : [...a.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % REVEAL_STYLES.length; };
+
+/**
+ * The opening of a picture: it shows the closed look (grey, blurred) until start(), then opens in REVEAL_MS and at the end it is only the picture. One fragment shader, five styles (REVEAL_STYLES): every one makes a `mask` (where the picture shows), may bend
+ * the picture (`duv`), light its edge in the tier's colour (`rim`) and hide what is not open yet under a `cover` (doors, paper).
+ */
+const REVEAL_MS = 1400;
+const REVEAL_STYLES = ['Iris', 'Shards', 'Blocks', 'Ink', 'Burn'];
+const REVEAL_VERT = `#version 300 es
+in vec2 aPos; out vec2 vUv; void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+const REVEAL_FRAG = `#version 300 es
+precision highp float;
+in vec2 vUv; out vec4 o;
+uniform sampler2D uTex; uniform vec2 uRes; uniform float uP, uT, uSeed; uniform vec3 uCol; uniform int uM;   // uP: how open it is, 0..1; uT: seconds since it began to open; uM: the style
+const float PI = 3.14159265;
+float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 4; i++) { s += a * vnoise(p); p = p * 2.03 + 17.0; a *= 0.5; } return s; }
+vec2 rot(vec2 p, float a) { float c = cos(a), s = sin(a); return vec2(c * p.x + s * p.y, -s * p.x + c * p.y); }
+void vor(vec2 x, out float f1, out float f2, out vec2 rb, out float id) {   // voronoi: the nearest and second nearest distance, the way to the nearest point, its id
+	vec2 n = floor(x), f = fract(x); f1 = 8.0; f2 = 8.0; rb = vec2(0.0); id = 0.0;
+	for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+		vec2 g = vec2(float(i), float(j)), c = n + g, r = g + vec2(hash(c + uSeed), hash(c + uSeed + 31.7)) - f; float d = dot(r, r);
+		if (d < f1) { f2 = f1; f1 = d; rb = r; id = hash(c + 7.1); } else if (d < f2) f2 = d;
+	}
+	f1 = sqrt(f1); f2 = sqrt(f2);
+}
+void main() {
+	vec2 q = vUv - 0.5; q.x *= uRes.x / uRes.y;   // y from -0.5 to 0.5, x about -0.75 to 0.75
+	float p = clamp(uP, 0.0, 1.0), e = 1.0 - pow(1.0 - p, 1.9);
+	float mask = 0.0, rim = 0.0, coverA = 0.0, flatc = 0.0, lift = 0.0, zoom = mix(1.14, 1.0, e);
+	vec2 duv = vec2(0.0); vec3 cover = vec3(0.0), rimc = uCol; float spark = 0.0;
+	if (uM == 0) {   // IRIS: a wide ellipse of light opens from a slit, its edge torn and glowing
+		float n = fbm(q * 4.5 + uSeed) - 0.5, sdf = length(vec2(q.x * mix(0.95, 0.52, smoothstep(0.0, 0.5, p)), q.y * 1.15)) - e * 1.12 - n * 0.3 * (1.0 - p);
+		mask = 1.0 - smoothstep(-0.012, 0.012, sdf);
+		rim = exp(-abs(sdf) * 34.0) * (1.0 - smoothstep(0.55, 1.0, p)); zoom = mix(1.24, 1.0, e);
+		duv = normalize(q + 1e-4) * rim * 0.014;
+		vec2 g = q * 30.0, gi = floor(g), gf = fract(g) - 0.5; float hh = hash(gi + uSeed * 3.0);
+		spark = step(0.9, hh) * (1.0 - smoothstep(0.0, 0.34, length(gf))) * (0.5 + 0.5 * sin(uT * 20.0 + hh * 40.0)) * exp(-abs(sdf) * 14.0) * (1.0 - smoothstep(0.7, 1.0, p));
+	} else if (uM == 1) {   // SHARDS: the picture is a pane of glass; shards fly in from the middle outward and the cracks close
+		float f1, f2, id; vec2 rb; vor(q * 7.0, f1, f2, rb, id);
+		vec2 c = (q * 7.0 + rb) / 7.0;
+		float delay = length(c * vec2(0.8, 1.0)) * 0.85 + id * 0.25, cp = clamp((p * 1.3 - delay) / 0.5, 0.0, 1.0);
+		float thr = (1.0 - cp) * 1.0 - 0.06 * cp, b = f2 - f1;
+		mask = smoothstep(thr - 0.012, thr + 0.012, b);
+		rim = exp(-abs(b - thr) * 12.0) * smoothstep(0.0, 0.1, cp) * (1.0 - smoothstep(0.8, 1.0, cp));
+		duv = rb * (1.0 - cp) * 0.03; lift = sin(cp * PI) * 0.35 * id;
+		rimc = mix(uCol, vec3(1.0), 0.45); zoom = 1.0;
+		spark = step(0.97, hash(floor(q * 40.0) + uSeed)) * smoothstep(0.1, 0.5, cp) * (1.0 - smoothstep(0.7, 1.0, cp)) * 1.2;
+	} else if (uM == 2) {   // BLOCKS: the picture builds itself out of glowing blocks of energy that pop in and settle into it
+		vec2 g = q * 14.0, gi = floor(g), gf = fract(g);
+		vec2 cq = (gi + 0.5) / 14.0;
+		float delay = hash(gi + uSeed) * 0.5 + length(cq) * 0.4, cp = clamp((p * 1.35 - delay) / 0.4, 0.0, 1.0);
+		float gapw = (1.0 - cp) * 0.42 - 0.02 * cp, bi = max(abs(gf.x - 0.5), abs(gf.y - 0.5));
+		mask = (1.0 - smoothstep(0.5 - gapw - 0.02, 0.5 - gapw + 0.02, bi)) * step(0.001, cp);
+		flatc = (1.0 - smoothstep(0.15, 0.75, cp)) * (0.7 + 0.3 * hash(gi + 5.0));
+		rim = (1.0 - smoothstep(0.0, 0.9, cp)) * step(0.001, cp) * 0.7;
+		vec2 uvc = vec2(cq.x * uRes.y / uRes.x + 0.5, cq.y + 0.5); duv = (uvc - vUv) * (1.0 - cp); zoom = 1.0;
+		spark = step(0.985, hash(gi + floor(uT * 12.0) + uSeed)) * step(0.001, cp) * (1.0 - cp) * 1.5;
+	} else if (uM == 3) {   // INK: wet paint blooms from a point, pooling darker at its edge, washed pale until it dries into the picture
+		vec2 o2 = (vec2(hash(vec2(uSeed, 1.0)), hash(vec2(uSeed, 2.0))) - 0.5) * 0.5;
+		float f = length((q - o2) * vec2(0.75, 1.0)) + (fbm(q * 3.5 + uSeed) - 0.5) * 0.55 + (fbm(q * 9.0 + uSeed) - 0.5) * 0.12;
+		float ei = 1.0 - pow(1.0 - p, 1.6), sdf = f - mix(-0.1, 1.8, ei);
+		mask = 1.0 - smoothstep(-0.02, 0.02, sdf); flatc = 0.0;
+		float ring = exp(-pow(sdf / 0.035, 2.0)), washed = smoothstep(-0.25, 0.0, sdf);
+		rim = ring * 0.22; lift = -ring * 0.3 + washed * 0.25 * (1.0 - smoothstep(0.7, 1.0, p));
+		duv = vec2(fbm(q * 6.0 + uSeed), fbm(q * 6.0 + 9.0)) * 0.02 * washed; zoom = mix(1.06, 1.0, e);
+		spark = 0.0;
+	} else {   // BURN: a sheet of scorched parchment burns away from the middle, an ember line eating outward
+		float f = length(q * vec2(0.62, 1.0)) + (fbm(q * 5.0 + uSeed) - 0.5) * 0.35 + (fbm(q * 14.0 + uSeed) - 0.5) * 0.08;
+		float sdf = f - mix(-0.05, 1.25, e);
+		mask = 1.0 - smoothstep(-0.008, 0.008, sdf);
+		vec3 parch = vec3(0.64, 0.5, 0.33) * (0.6 + 0.4 * fbm(q * 8.0 + uSeed));
+		cover = mix(parch, vec3(0.05, 0.03, 0.025), 1.0 - smoothstep(0.02, 0.18, sdf)); coverA = 1.0;
+		float flick = 0.75 + 0.25 * sin(uT * 30.0 + fbm(q * 9.0) * 12.0);
+		rim = exp(-abs(sdf) * 26.0) * flick * (1.0 - smoothstep(0.8, 1.0, p));
+		rimc = mix(vec3(1.0, 0.45, 0.1), uCol, 0.22); zoom = mix(1.08, 1.0, e);
+		vec2 g = vec2(q.x * 26.0, q.y * 18.0 + uT * 4.0), gi = floor(g), gf = fract(g) - 0.5; float hh = hash(gi + uSeed);
+		spark = step(0.92, hh) * (1.0 - smoothstep(0.0, 0.3, length(gf))) * exp(-abs(sdf) * 9.0) * (1.0 - smoothstep(0.75, 1.0, p)) * flick;
+	}
+	mask *= step(0.002, p); rim *= step(0.002, p); spark *= step(0.002, p);   // nothing shows before it begins to open (a cover, if the style has one, does)
+	// the picture itself, treated the same way in every style
+	vec2 uv = (vUv + duv - 0.5) / zoom + 0.5, fr = normalize(q + 1e-4) * rim * 0.01;
+	vec3 img = vec3(textureLod(uTex, uv + fr, 0.0).r, textureLod(uTex, uv, 0.0).g, textureLod(uTex, uv - fr, 0.0).b);   // level 0: as sharp as the picture it hands over to
+	img = mix(vec3(dot(img, vec3(0.3, 0.59, 0.11)) * 0.55), img, smoothstep(0.1, 0.8, p)) * mix(0.7, 1.0, smoothstep(0.0, 0.7, p));
+	img = mix(img, uCol * 1.1 + 0.12, flatc) + vec3(lift);
+	float sp = clamp((p - 0.62) / 0.38, 0.0, 1.0);   // a shine sweeps across at the end, and is gone when it is open
+	img += vec3(1.0, 0.95, 0.85) * exp(-pow((q.x + q.y * 0.55 - mix(-1.0, 1.0, sp)) * 9.0, 2.0)) * sin(sp * PI) * 0.38;
+	vec3 glow = rimc * rim * 1.3 + vec3(1.0) * (spark * 1.4 + rim * rim * 0.5);
+	// what is not open yet shows the picture as the note did: grey, blurred and dim, and it fades as the picture opens
+	vec3 sd = textureLod(uTex, vUv, 2.2).rgb, sealed = vec3(dot(sd, vec3(0.3, 0.59, 0.11))) * 0.62 + uCol * 0.05;
+	float ua = (1.0 - mask) * (1.0 - coverA) * (1.0 - smoothstep(0.2, 0.9, p)) * 0.96;
+	float a = clamp(max(max(mask + coverA * (1.0 - mask), ua), max(glow.r, max(glow.g, glow.b))), 0.0, 1.0);
+	o = vec4(min(img * mask + cover * coverA * (1.0 - mask) + sealed * ua + glow, vec3(a)), a);
+}`;
+
+/** Draws REVEAL_FRAG over one picture in one of REVEAL_STYLES. start(now) opens it; done(now) says when it is just the picture again. */
+class Reveal {
+	constructor(canvas, img, color, mode = 0) {
+		this.canvas = canvas; this.t1 = 0; this.seed = Math.random() * 40; this.mode = mode;
+		this.rgb = jitterHue([1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16) / 255));
 		const gl = this.gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
 		this.ok = !!gl;
 		if (!this.ok) return;
-		const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
-		const p = this.prog = gl.createProgram();
-		gl.attachShader(p, sh(gl.VERTEX_SHADER, FX_VERT)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FX_FRAG)); gl.linkProgram(p);
-		if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { this.ok = false; return; }
-		this.u = Object.fromEntries(['uRes', 'uDpr', 'uN', 'uC', 'uR', 'uT', 'uPow', 'uSeed', 'uTier', 'uCol', 'uAtlas', 'uNoise'].map((n) => [n, gl.getUniformLocation(p, n)]));
-		// the textures, black until their images are decoded (they normally are by now: fxImages() runs when the plugin loads)
-		const imgs = fxImages(), texture = (img, repeat) => {
-			const t = gl.createTexture();
-			gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1, 1, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array([0]));
-			const upload = () => {
-				gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, gl.RED, gl.UNSIGNED_BYTE, img); gl.generateMipmap(gl.TEXTURE_2D);
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-				const wrap = repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE;
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
-			};
-			if (img.complete && img.naturalWidth) upload(); else img.addEventListener('load', upload, { once: true });
-			return t;
+		const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x); return x; };
+		const pr = this.prog = gl.createProgram();
+		gl.attachShader(pr, sh(gl.VERTEX_SHADER, REVEAL_VERT)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, REVEAL_FRAG)); gl.linkProgram(pr);
+		if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { this.ok = false; return; }
+		this.u = Object.fromEntries(['uTex', 'uRes', 'uP', 'uT', 'uSeed', 'uCol', 'uM'].map((n) => [n, gl.getUniformLocation(pr, n)]));
+		const tex = this.tex = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+		const upload = () => {
+			gl.bindTexture(gl.TEXTURE_2D, tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img); gl.generateMipmap(gl.TEXTURE_2D);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		};
-		this.atlas = texture(imgs.atlas, false); this.noise = texture(imgs.noise, true);
+		if (img.complete && img.naturalWidth) upload(); else img.addEventListener('load', upload, { once: true });
 		this.vao = gl.createVertexArray(); gl.bindVertexArray(this.vao);
 		gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-		const loc = gl.getAttribLocation(p, 'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+		const loc = gl.getAttribLocation(pr, 'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 		gl.bindVertexArray(null);
 	}
-
+	start(now) { this.t1 = now; }
+	done(now) { return this.t1 > 0 && now - this.t1 > REVEAL_MS + 60; }
 	draw(now) {
 		if (!this.ok) return;
 		const gl = this.gl, c = this.canvas, dpr = Math.min(2, window.devicePixelRatio || 1), w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
 		if (w && (c.width !== w || c.height !== h)) { c.width = w; c.height = h; }
-		// badge centres relative to the canvas; both move together, and a badge's scale does not move its centre
-		const cr = c.getBoundingClientRect(), n = this.badges.length, C = new Float32Array(FX_MAX * 2), R = new Float32Array(FX_MAX), T = new Float32Array(FX_MAX), P = new Float32Array(FX_MAX), SDs = new Float32Array(FX_MAX), TRs = new Float32Array(FX_MAX), K = new Float32Array(FX_MAX * 3);
-		this.badges.forEach((b, i) => {
-			const r = b.el.getBoundingClientRect();
-			C[i * 2] = r.left + r.width / 2 - cr.left; C[i * 2 + 1] = r.top + r.height / 2 - cr.top;
-			R[i] = b.el.offsetWidth / 2 || 26; T[i] = (now - b.at) / 1000; P[i] = b.power; SDs[i] = b.seed; TRs[i] = b.tier; K.set(b.rgb, i * 3);
-		});
-		gl.viewport(0, 0, c.width, c.height);
-		gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+		gl.viewport(0, 0, c.width, c.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+		const p = this.t1 > 0 ? Math.min(1, (now - this.t1) / REVEAL_MS) : 0, t = this.t1 > 0 ? (now - this.t1) / 1000 : 0;   // before start() it is the closed look
 		gl.useProgram(this.prog);
-		gl.uniform2f(this.u.uRes, c.width, c.height); gl.uniform1f(this.u.uDpr, c.width / (c.clientWidth || 1)); gl.uniform1i(this.u.uN, n);
-		gl.uniform2fv(this.u.uC, C); gl.uniform1fv(this.u.uR, R); gl.uniform1fv(this.u.uT, T); gl.uniform1fv(this.u.uPow, P); gl.uniform1fv(this.u.uSeed, SDs); gl.uniform1fv(this.u.uTier, TRs); gl.uniform3fv(this.u.uCol, K);
-		gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.atlas); gl.uniform1i(this.u.uAtlas, 0);
-		gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.noise); gl.uniform1i(this.u.uNoise, 1);
+		gl.uniform2f(this.u.uRes, c.width, c.height); gl.uniform1f(this.u.uP, p); gl.uniform1f(this.u.uT, t); gl.uniform1f(this.u.uSeed, this.seed); gl.uniform3fv(this.u.uCol, this.rgb); gl.uniform1i(this.u.uM, this.mode);
+		gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.tex); gl.uniform1i(this.u.uTex, 0);
 		gl.bindVertexArray(this.vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
 	}
+	destroy() { try { this.gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { /* ignore */ } }
+}
 
+/**
+ * The change from one picture to the next in the viewer: a fragment shader over the picture, a liquid wipe in the direction you are going
+ * with a white, light-bending front. At the end it is exactly the new picture.
+ */
+const MORPH_MS = 1000;
+const MORPH_FRAG = `#version 300 es
+precision highp float;
+in vec2 vUv; out vec4 o;
+uniform sampler2D uA, uB; uniform vec2 uRes; uniform float uP, uSeed, uDir;   // uA: the picture on screen, uB: the next; uP: 0..1; uDir: -1 or 1
+const float PI = 3.14159265;
+float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 4; i++) { s += a * vnoise(p); p = p * 2.03 + 17.0; a *= 0.5; } return s; }
+void main() {
+	vec2 q = vUv - 0.5; q.x *= uRes.x / uRes.y;
+	float p = uP, fade = 1.0 - smoothstep(0.82, 1.0, p);
+	// a wavy front sweeps across in the direction you are going; the pictures bend where it passes, and a white light runs along it
+	float n = fbm(q * 3.0 + uSeed) - 0.5, f = q.x * uDir + n * 0.42 + q.y * 0.12, sdf = f - mix(-1.1, 1.3, p * p * (3.0 - 2.0 * p));
+	float m = 1.0 - smoothstep(-0.03, 0.03, sdf), edge = exp(-abs(sdf) * 22.0);
+	vec2 disp = vec2(uDir, n * 0.6) * exp(-abs(sdf) * 9.0) * 0.045 * fade * sign(-sdf);
+	vec3 a = texture(uA, vUv - disp).rgb, b = texture(uB, vUv + disp).rgb;
+	vec3 c = mix(a, b, m) + vec3(edge * 0.95 + edge * edge * 0.4) * fade;
+	o = vec4(min(c, vec3(1.0)), 1.0);
+}`;
+
+/** Draws MORPH_FRAG over a canvas that covers the picture: start(now), then draw(now) every frame until done(now). */
+class Morph {
+	constructor(canvas, imgA, imgB, dir) {
+		this.canvas = canvas; this.t0 = 0; this.dir = dir; this.seed = Math.random() * 40;
+		const gl = this.gl = canvas.getContext('webgl2', { alpha: false, antialias: false });
+		this.ok = !!gl;
+		if (!this.ok) return;
+		const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x); return x; };
+		const pr = this.prog = gl.createProgram();
+		gl.attachShader(pr, sh(gl.VERTEX_SHADER, REVEAL_VERT)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, MORPH_FRAG)); gl.linkProgram(pr);
+		if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { this.ok = false; return; }
+		this.u = Object.fromEntries(['uA', 'uB', 'uRes', 'uP', 'uSeed', 'uDir'].map((n) => [n, gl.getUniformLocation(pr, n)]));
+		const texture = (img) => {
+			const t = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			return t;
+		};
+		this.ta = texture(imgA); this.tb = texture(imgB);
+		this.vao = gl.createVertexArray(); gl.bindVertexArray(this.vao);
+		gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+		const loc = gl.getAttribLocation(pr, 'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+		gl.bindVertexArray(null);
+	}
+	start(now) { this.t0 = now; }
+	done(now) { return now - this.t0 > MORPH_MS + 30; }
+	draw(now) {
+		if (!this.ok) return;
+		const gl = this.gl, c = this.canvas, dpr = Math.min(2, window.devicePixelRatio || 1), w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
+		if (w && (c.width !== w || c.height !== h)) { c.width = w; c.height = h; }
+		gl.viewport(0, 0, c.width, c.height);
+		gl.useProgram(this.prog);
+		gl.uniform2f(this.u.uRes, c.width, c.height); gl.uniform1f(this.u.uP, Math.min(1, Math.max(0, (now - this.t0) / MORPH_MS))); gl.uniform1f(this.u.uSeed, this.seed);
+		gl.uniform1f(this.u.uDir, this.dir || 1);
+		gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.ta); gl.uniform1i(this.u.uA, 0);
+		gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.tb); gl.uniform1i(this.u.uB, 1);
+		gl.bindVertexArray(this.vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
+	}
 	destroy() { try { this.gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { /* ignore */ } }
 }
 
 class Plugin extends AppPlugin {
 	cleanup = [];
-	toastT = [];
+	revT = [];
 	held = [];   // what unlocked in focus mode, to be shown when it ends
 	native = {};   // Thymer's own sidebar rows the card takes over: search, jump, and the workspace row
 
 	onLoad() {
 		if (onMobile()) { this.off = true; return; }
 		this.st = this.load();
-		fxImages();   // decode the unlock effect's textures now, not when something unlocks
 		this.lineWords = new Map();
 		this.wordTimes = [];
 		this.lastType = 0;
@@ -514,8 +555,13 @@ class Plugin extends AppPlugin {
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: open', icon: 'trophy', onSelected: () => this.openPanel() });
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: show or hide the mascot', icon: 'eye', onSelected: () => this.toggleWidget() });
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: replay the last unlock', icon: 'sparkles', onSelected: () => {
-			const last = ACHIEVEMENTS.filter((a) => this.st.unlocked[a.id]).sort((a, b) => this.st.unlocked[b.id] - this.st.unlocked[a.id])[0];
-			this.celebrate([last || ACHIEVEMENTS[0]]);
+			const last = ACHIEVEMENTS.filter((a) => this.claimed(a)).sort((a, b) => this.st.unlocked[b.id] - this.st.unlocked[a.id])[0];
+			this.reveal([last || ACHIEVEMENTS[0]]);
+		} });
+		this.ui.addCommandPaletteCommand({ label: 'Achievements: mute or unmute the sound', icon: 'volume', onSelected: () => {
+			const off = localStorage.getItem(MUTE_KEY) !== '1';
+			try { localStorage.setItem(MUTE_KEY, off ? '1' : '0'); } catch (e) { /* ignore */ }
+			if (!off) this.chime();
 		} });
 
 		const on = (target, type, fn, opts) => { target.addEventListener(type, fn, opts); this.cleanup.push(() => target.removeEventListener(type, fn, opts)); };
@@ -529,8 +575,8 @@ class Plugin extends AppPlugin {
 			if (inFocusMode() === focus) return;
 			focus = !focus;
 			this.layout();   // the card goes or comes back now, not at the next frame
-			if (focus) this.endToast();
-			else if (this.held.length) { const list = this.held; this.held = []; this.celebrate(list); }
+			if (focus) { this.endNote(false); this.endReveal(false); }
+			else if (this.held.length) { const list = this.held; this.held = []; this.announce(list); }
 		});
 		watch.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 		this.cleanup.push(() => watch.disconnect());
@@ -564,7 +610,8 @@ class Plugin extends AppPlugin {
 		this.closePanel();
 		this.unmountWidget();
 		this.padStyle?.remove();
-		this.endToast();
+		this.endNote(false);
+		this.endReveal(false);
 	}
 
 	// ---- State -------------------------------------------------------------------------------------------------------------
@@ -616,12 +663,14 @@ class Plugin extends AppPlugin {
 		}
 		clearTimeout(this.saveT);
 		this.saveT = setTimeout(() => this.save(), 600);
-		if (fresh.length) { this.save(); if (inFocusMode()) this.held.push(...fresh); else this.celebrate(fresh); }
+		if (fresh.length) { this.st.pending.push(...fresh.map((a) => a.id)); this.save(); if (inFocusMode()) this.held.push(...fresh); else this.announce(fresh); }
 		this.refreshUi();
 	}
 
-	crowns() { return ACHIEVEMENTS.reduce((n, a) => n + (this.st.unlocked[a.id] ? a.crowns : 0), 0); }
-	unlockedCount() { return ACHIEVEMENTS.filter((a) => this.st.unlocked[a.id]).length; }
+	/** What is shown counts only what was opened: one that is still waiting (st.pending) is not in the totals, nor named in the list. */
+	claimed(a) { return !!this.st.unlocked[a.id] && !this.st.pending.includes(a.id); }
+	crowns() { return ACHIEVEMENTS.reduce((n, a) => n + (this.claimed(a) ? a.crowns : 0), 0); }
+	unlockedCount() { return ACHIEVEMENTS.filter((a) => this.claimed(a)).length; }
 
 	// ---- The mascot and the notification ---------------------------------------------------------------------------------------
 
@@ -639,7 +688,7 @@ class Plugin extends AppPlugin {
 			<div class="ach-btns">
 				<button class="ach-btn" data-a="search" title="Search everything">${ICONS.search}<span>Search</span></button>
 				<button class="ach-btn" data-a="jump" title="Jump to a page">${ICONS.jump}<span>Jump to</span></button></div>`;
-		w.querySelector('.ach-por').addEventListener('click', () => this.openPanel());
+		w.querySelector('.ach-por').addEventListener('click', () => { if (this.st.pending.length) this.claim(); else this.openPanel(); });   // something is waiting: open that first
 		for (const [ev, on] of [['pointerenter', true], ['pointerleave', false]]) w.querySelector('.ach-por').addEventListener(ev, () => { if (this.mascot) this.mascot.hover = on; });
 		w.querySelector('[data-a="search"]').onclick = () => { const n = this.native.search; if (n && n.isConnected) n.click(); else this.openSearch(); };
 		w.querySelector('[data-a="jump"]').onclick = () => { const n = this.native.jump; if (n && n.isConnected) n.click(); else this.openJump(); };
@@ -756,8 +805,10 @@ class Plugin extends AppPlugin {
 		const w = this.widget, got = this.unlockedCount(), total = ACHIEVEMENTS.length;
 		if (w) {
 			w.querySelector('.ach-rg').textContent = `◎ ${fmt(this.crowns())}`;
-			const m = measures(this.st), next = ACHIEVEMENTS.filter((a) => !this.st.unlocked[a.id]).sort((a, b) => m[b.stat] / b.target - m[a.stat] / a.target)[0];
-			w.querySelector('.ach-por').title = `Achievements ${got}/${total}` + (next ? ` - next: ${next.name}` : '');   // what it asks for stays secret until it unlocks
+			const m = measures(this.st), next = ACHIEVEMENTS.filter((a) => !this.claimed(a)).sort((a, b) => m[b.stat] / b.target - m[a.stat] / a.target)[0];
+			const waiting = this.st.pending.length > 0 && !this.note;   // the note itself is the announcement; the glow takes over when it is gone
+			w.classList.toggle('ach-pending', waiting);
+			w.querySelector('.ach-por').title = waiting ? 'A new achievement is waiting: click to open it' : `Achievements ${got}/${total}` + (next ? ` - next: ${next.name}` : '');   // what it asks for stays secret until it unlocks
 		}
 		if (this.panel) this.renderPanel();
 	}
@@ -866,81 +917,214 @@ class Plugin extends AppPlugin {
 		});
 	}
 
-	/**
-	 * New achievements: a notification at the top centre of the screen, on a black radial glow (no box) that fades in, drifts
-	 * down and grows a little. Then each achievement opens, one row under the other, staggered: its badge charges up with the
-	 * icon small and bursts (the Burst shader, in the tier's colour) as the icon springs open and the words bounce in. It stays a
-	 * short while and leaves fading upward. Without WebGL, or with reduced motion, there is no shader and the rows open at once.
-	 */
-	celebrate(list) {
-		this.endToast();
-		const shown = list.slice(0, FX_MAX), more = list.length - shown.length;
-		const t = this.toast = document.createElement('div');
-		t.className = 'ach-toast';
-		t.innerHTML = '<div class="ach-glow"></div><div class="ach-stack"><canvas class="ach-fx"></canvas></div>';
-		const stack = t.querySelector('.ach-stack');
-		const rows = shown.map((a) => {
-			const row = document.createElement('div');
-			row.className = 'ach-row';
-			row.style.setProperty('--ach-fx', TIER_FX[tier(a)][0]);
-			row.innerHTML = '<div class="ach-badge"><i></i></div><div class="ach-tx"><small></small><b></b><div class="ach-bd"></div><em></em></div>';
-			row.querySelector('i').textContent = a.icon;
-			row.querySelector('small').textContent = `Achievement unlocked · ${tier(a)}`;
-			const words = a.name.split(' ');   // the name comes in word by word
-			row.querySelector('b').append(...words.map((w, i) => { const s = document.createElement('span'); s.className = 'ach-w'; s.textContent = w; s.style.setProperty('--i', i + 1); return s; }));
-			row.querySelector('.ach-bd').textContent = a.desc;
-			row.querySelector('.ach-bd').style.setProperty('--i', words.length + 1);
-			row.querySelector('em').style.setProperty('--i', words.length + 2);
-			row.querySelector('em').textContent = '+0 crowns';
-			stack.appendChild(row);
-			return { a, row };
-		});
-		if (more > 0) { const m = document.createElement('div'); m.className = 'ach-more'; m.textContent = `+${more} more`; stack.appendChild(m); rows[rows.length - 1].more = m; }
-		document.body.appendChild(t);
-		// The glow is a huge ellipse hanging from above the screen: only its bottom quarter shows, reaching a little below the
-		// stack, about 80% of the window wide (wider for a tall stack, so it stays a shallow arc). Its soft edge is kept ~90px deep
-		// whatever its size (--f, as a share of its radius), so the dark part covers all of the text.
-		const glow = t.querySelector('.ach-glow'), shows = t.offsetTop + stack.offsetHeight + GLOW_BELOW, gh = shows * 4;
-		glow.style.width = `${Math.round(Math.max(760, window.innerWidth * 0.82, gh * 1.15))}px`;
-		glow.style.height = `${Math.round(gh)}px`;
-		glow.style.bottom = `${-GLOW_BELOW}px`;
-		glow.style.setProperty('--f', `${((90 / (gh / 2)) * 100).toFixed(2)}%`);
-		t.getBoundingClientRect();   // its starting place, so that 'on' animates from it
-		t.classList.add('on');
-
-		const now = performance.now(), arrive = 380;   // the glow first, then the rows
-		const still = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-		const fx = still ? null : new Burst(t.querySelector('canvas'), rows.map((r, i) => ({ el: r.row.querySelector('.ach-badge'), color: TIER_FX[tier(r.a)][0], power: TIER_FX[tier(r.a)][1], tier: Object.keys(TIER_FX).indexOf(tier(r.a)), at: now + arrive + i * FX_STAGGER_MS })));
-		const animated = !!(fx && fx.ok);
-		if (animated) {
-			this.toastFx = fx;
-			const tick = (ts) => { if (this.toast !== t) return; this.toastRaf = requestAnimationFrame(tick); fx.draw(ts); };
-			this.toastRaf = requestAnimationFrame(tick);
-		} else { fx?.destroy(); t.querySelector('canvas').remove(); }
-
-		const count = (em, total, t1) => (ts) => { if (this.toast !== t) return; const f = Math.min(1, (ts - t1) / 650); em.textContent = `+${fmt(total * ease(f))} crowns`; if (f < 1) requestAnimationFrame(count(em, total, t1)); };
-		const at = (ms, fn) => this.toastT.push(setTimeout(fn, ms));
-		let last = 0;
-		rows.forEach(({ a, row, more: m }, i) => {
-			const open = arrive + i * FX_STAGGER_MS, lit = open + (animated ? BURST_MS : 0);
-			last = lit;
-			at(open, () => row.classList.add('in'));
-			at(lit, () => {
-				row.classList.add('lit'); m?.classList.add('lit');
-				if (i === 0) this.mascot?.celebrate(performance.now());
-				requestAnimationFrame(count(row.querySelector('em'), a.crowns, performance.now()));
-			});
-		});
-		const stay = 2600 + Math.min(4, rows.length - 1) * 350;   // a little longer when there is more to read
-		at(last + stay, () => t.classList.add('out'));
-		at(last + stay + 600, () => this.endToast());
+	/** The sound of a new achievement (a soft synth chime, sound/unlock.mp3), unless it was muted (`Achievements: mute or unmute the sound`). */
+	chime(volume = 0.55) {
+		try {
+			if (localStorage.getItem(MUTE_KEY) === '1') return;
+			const a = new Audio(SOUND); a.volume = volume; a.play().catch(() => { /* the browser may not allow sound yet */ });
+		} catch (e) { /* no sound */ }
 	}
 
-	endToast() {
-		this.toastT.forEach(clearTimeout); this.toastT = [];
-		cancelAnimationFrame(this.toastRaf);
-		this.toastFx?.destroy(); this.toastFx = null;
-		this.toast?.remove(); this.toast = null;
+	/**
+	 * A new achievement is only announced, never shown in the middle of your writing: a small note comes down at the top right with its
+	 * picture half hidden, grey and frosted under a gradient from the right that says "Unlock new achievement" - not which one. Click it and
+	 * the achievement opens (claim, below). Ignore it and it slides away after a few seconds; the mascot keeps a faint glow until it is
+	 * claimed. `preview` is for the panel's test buttons: nothing is recorded.
+	 */
+	announce(list, opts = {}) {
+		this.endNote(false);
+		if (!opts.preview) { for (const a of list) if (!this.st.pending.includes(a.id)) this.st.pending.push(a.id); this.save(); }
+		const n = this.note = document.createElement('div');
+		n.className = 'ach-note';
+		n.innerHTML = '<img alt=""><i class="ach-nsh"></i><div class="ach-nt"><b></b></div>';
+		n.querySelector('img').src = pictureOf(list[0]);
+		n.querySelector('b').textContent = list.length > 1 ? `Unlock new achievements · ${list.length}` : 'Unlock new achievement';
+		n.addEventListener('click', () => this.claim(list, opts));
+		const arm = (ms) => { clearTimeout(this.noteT); this.noteT = setTimeout(() => this.endNote(true), ms); };
+		n.addEventListener('pointerenter', () => clearTimeout(this.noteT));
+		n.addEventListener('pointerleave', () => arm(3000));
+		document.body.appendChild(n);
+		n.getBoundingClientRect();   // its starting place, so that 'on' animates from it
+		n.classList.add('on');
+		arm(8000);
+		this.chime();
+		this.refreshUi();
+	}
+
+	endNote(animated) {
+		clearTimeout(this.noteT);
+		const n = this.note;
+		this.note = null;
+		if (n) { if (animated) { n.classList.add('out'); setTimeout(() => n.remove(), 700); } else n.remove(); }
+		if (this.widget) this.refreshUi();
+	}
+
+	/** Opens what is waiting (or `list`): the note goes and the achievements open as cards over the screen. */
+	claim(list, opts = {}) {
+		const l = list || ACHIEVEMENTS.filter((a) => this.st.pending.includes(a.id));
+		this.endNote(true);
+		if (!l.length) return;
+		this.reveal(l, opts.style);
+		if (!opts.preview) { this.st.pending = this.st.pending.filter((id) => !l.some((a) => a.id === id)); this.save(); }
+		this.refreshUi();
+	}
+
+	/** Writes what an achievement is into a card (its tier, name, what it asks and, in the viewer, when it was won and what it paid). */
+	fillCard(el, a, date) {
+		el.style.setProperty('--c', TIER_FX[tier(a)][0]);
+		el.querySelector('small').textContent = tier(a);
+		el.querySelector('b').textContent = a.name;
+		el.querySelector('span').textContent = a.desc;
+		const em = el.querySelector('em');
+		em.textContent = date ? `${new Date(date).toLocaleDateString()} \u00b7 \u25ce +${fmt(a.crowns)}` : '';
+	}
+
+	/** One achievement as a card: its picture (the shader's canvas goes over it while it opens) and, under it, what it is. */
+	card(a, date) {
+		const el = document.createElement('div');
+		el.className = 'ach-cd';
+		el.style.setProperty('--c', TIER_FX[tier(a)][0]);
+		el.innerHTML = '<div class="ach-cdi"><div class="ach-cd-ph"><img alt=""><canvas></canvas></div><div class="ach-cd-tx"><small></small><b></b><span></span><em></em></div></div>';
+		el.querySelector('img').src = pictureOf(a);
+		this.fillCard(el, a, date);
+		return el;
+	}
+
+	/** The dark screen both the opening and the viewer use; a click, or Escape, closes it. `onKey` gets the other keys. */
+	stage(onKey) {
+		this.endReveal(false);
+		const ov = this.rev = document.createElement('div');
+		ov.className = 'ach-rv';
+		document.body.appendChild(ov);
+		this.revKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.endReveal(true); } else if (onKey && onKey(e)) e.stopPropagation(); };
+		document.addEventListener('keydown', this.revKey, true);
+		return ov;
+	}
+
+	/**
+	 * The opening: the achievements fly in from the top right, turning to face you, and land scattered over the screen (one big in the
+	 * middle when it is alone), each a picture with what it is written under it. The pictures develop under their own shader
+	 * (REVEAL_STYLES, in the tier's colour) from the grey, frosted look of the note, and the cards lean towards the pointer with a
+	 * soft glare. A click, Escape or ten seconds closes it. Without WebGL, or with reduced motion, the pictures are simply there.
+	 */
+	reveal(list, style) {
+		const ov = this.stage();
+		const shown = list.slice(0, FX_MAX), more = list.length - shown.length, n = shown.length, vw = window.innerWidth, vh = window.innerHeight;
+		const cols = Math.max(1, Math.round(Math.sqrt(n * vw / vh))), rows = Math.ceil(n / cols), cw = vw / cols, chh = (vh - 40) / rows;
+		const W = Math.round(Math.max(130, Math.min(520, cw * 0.82, (chh * 0.84 - 92) / 0.667)));
+		const cells = [...Array(cols * rows).keys()].sort(() => Math.random() - 0.5).slice(0, n).sort((x, y) => x - y);   // which cells of the grid they take
+		const tilt = [-3, 2.4, -1.4, 3.2, -2.2, 1.6];
+		const cards = shown.map((a, i) => {
+			const el = this.card(a), c = cells[i];
+			const x = (c % cols) * cw + cw / 2 + (n > 1 ? (Math.random() - 0.5) * cw * 0.1 : 0), y = 20 + Math.floor(c / cols) * chh + chh / 2 + (n > 1 ? (Math.random() - 0.5) * chh * 0.1 : 0);
+			el.style.cssText += `;--w:${W}px;--fs:${Math.round(Math.max(14, Math.min(24, W * 0.058)))}px;--x:${Math.round(x)}px;--y:${Math.round(y)}px;--rot:${n > 1 ? tilt[i % 6] : 0}deg;--fx:${Math.round(vw - 70 - x)}px;--fy:${Math.round(46 - y)}px;--d:${(i * 0.15).toFixed(2)}s`;
+			ov.appendChild(el);
+			return { a, el };
+		});
+		if (more > 0) { const m = document.createElement('div'); m.className = 'ach-more'; m.textContent = `+${more} more`; ov.appendChild(m); }
+		this.revCards = cards;
+		const still = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+		for (const [i, c] of cards.entries()) {
+			const cv = c.el.querySelector('canvas'), rv = still ? null : new Reveal(cv, c.el.querySelector('img'), TIER_FX[tier(c.a)][0], revealStyle(c.a, style, i));
+			if (rv && rv.ok) { c.rv = rv; c.el.classList.add('fx'); } else cv.remove();
+		}
+		ov.getBoundingClientRect();
+		ov.classList.add('on');
+		const born = performance.now();
+		const tick = (ts) => {
+			if (this.rev !== ov) return;
+			this.revRaf = requestAnimationFrame(tick);
+			for (const c of cards) if (c.rv) { c.rv.draw(ts); if (c.rv.done(ts)) { c.el.classList.remove('fx'); c.rv.destroy(); c.rv = null; c.el.querySelector('canvas').remove(); } }
+		};
+		this.revRaf = requestAnimationFrame(tick);
+		ov.addEventListener('pointermove', (e) => {   // the cards lean towards the pointer, a glare follows it
+			for (const c of cards) {
+				const r = c.el.getBoundingClientRect(), dx = (e.clientX - (r.left + r.width / 2)) / r.width, dy = (e.clientY - (r.top + r.height / 2)) / r.height, near = Math.abs(dx) < 0.9 && Math.abs(dy) < 0.9;
+				const inner = c.el.firstChild;
+				inner.style.setProperty('--ry', `${near ? Math.max(-1, Math.min(1, dx)) * 7 : 0}deg`); inner.style.setProperty('--rx', `${near ? -Math.max(-1, Math.min(1, dy)) * 7 : 0}deg`);
+				inner.style.setProperty('--gx', `${Math.round(((e.clientX - r.left) / r.width) * 100)}%`); inner.style.setProperty('--gy', `${Math.round(((e.clientY - r.top) / r.height) * 100)}%`); inner.style.setProperty('--go', near ? '1' : '0');
+			}
+		});
+		const at = (ms, fn) => this.revT.push(setTimeout(fn, ms));
+		let last = 0;
+		cards.forEach((c, i) => {
+			const open = 640 + i * 150, lit = open + 420;
+			last = lit;
+			at(open, () => c.rv?.start(performance.now()));
+			at(lit, () => { c.el.classList.add('lit'); if (i === 0) this.mascot?.celebrate(performance.now()); });
+		});
+		ov.addEventListener('click', () => { if (performance.now() - born > 600) this.endReveal(true); });
+		at(last + 9000, () => this.endReveal(true));
+	}
+
+	/**
+	 * One unlocked achievement, looked at: the picture big, nothing moving, and under it what it is, when it was won and what it paid.
+	 * Left and right (or the arrows) go through `list`, the ones the list shows.
+	 */
+	view(a, list = [a]) {
+		let i = Math.max(0, list.findIndex((x) => x.id === a.id));
+		const vw = window.innerWidth, vh = window.innerHeight, W = Math.round(Math.max(200, Math.min(700, vw * 0.84, (vh * 0.82 - 110) / 0.667)));
+		let morph = null, turn = 0;
+		const finish = () => {   // a change that is not over yet jumps to its end
+			if (!morph) return;
+			const m = morph; morph = null;
+			cancelAnimationFrame(this.morphRaf);
+			m.final();
+		};
+		const go = async (d) => {
+			i = (i + d + list.length) % list.length;
+			const mine = ++turn, next = list[i];
+			finish();
+			const el = ov.querySelector('.ach-cd');
+			if (!el) return;
+			const nb = new Image();
+			nb.src = pictureOf(next);
+			try { await nb.decode(); } catch (e) { /* shown anyway */ }
+			if (mine !== turn || this.rev !== ov) return;
+			const ph = el.querySelector('.ach-cd-ph'), img = ph.querySelector('img'), tx = el.querySelector('.ach-cd-tx'), cv = document.createElement('canvas');
+			ph.appendChild(cv);
+			const m = new Morph(cv, img, nb, d);
+			tx.classList.add('swap');   // the words fade out, change, and fade in again while the picture changes
+			setTimeout(() => { if (mine !== turn) return; this.fillCard(el, next, this.st.unlocked[next.id]); tx.classList.remove('swap'); }, 300);
+			if (!m.ok) { m.destroy(); cv.remove(); img.src = nb.src; return; }
+			m.final = () => { img.src = nb.src; img.decode().then(() => cv.remove(), () => cv.remove()); m.destroy(); this.fillCard(el, next, this.st.unlocked[next.id]); tx.classList.remove('swap'); };
+			morph = m;
+			m.start(performance.now());
+			const tick = (ts) => { if (morph !== m) return; m.draw(ts); if (m.done(ts)) finish(); else this.morphRaf = requestAnimationFrame(tick); };
+			this.morphRaf = requestAnimationFrame(tick);
+		};
+		const ov = this.stage((e) => { if (list.length > 1 && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { go(e.key === 'ArrowLeft' ? -1 : 1); return true; } return false; });
+		this.morphKill = () => { cancelAnimationFrame(this.morphRaf); morph?.destroy(); morph = null; };   // set after stage(), which clears the last one
+		const first = this.card(list[i], this.st.unlocked[list[i].id]);
+		first.classList.add('view', 'enter');
+		first.style.cssText += `;--w:${W}px;--fs:${Math.round(Math.max(16, Math.min(26, W * 0.04)))}px;--x:${Math.round(vw / 2)}px;--y:${Math.round(vh / 2)}px`;
+		first.querySelector('canvas').remove();
+		ov.appendChild(first);
+		void first.offsetWidth;
+		first.classList.remove('enter');
+		if (list.length > 1) for (const d of [-1, 1]) {
+			const b = document.createElement('button');
+			b.className = 'ach-arr ' + (d < 0 ? 'l' : 'r'); b.setAttribute('aria-label', d < 0 ? 'Previous' : 'Next');
+			b.innerHTML = `<svg viewBox="0 0 24 24"><path d="${d < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'}"/></svg>`;
+			b.addEventListener('click', (e) => { e.stopPropagation(); go(d); });
+			ov.appendChild(b);
+		}
+		ov.addEventListener('click', () => this.endReveal(true));
+		ov.getBoundingClientRect();
+		ov.classList.add('on');
+	}
+
+	endReveal(animated) {
+		this.revT.forEach(clearTimeout); this.revT = [];
+		cancelAnimationFrame(this.revRaf);
+		this.morphKill?.(); this.morphKill = null;
+		if (this.revKey) document.removeEventListener('keydown', this.revKey, true);
+		this.revKey = null;
+		const ov = this.rev, cards = this.revCards || [];
+		this.rev = null; this.revCards = null;
+		if (!ov) return;
+		const gone = () => { cards.forEach((c) => c.rv?.destroy()); ov.remove(); };
+		if (animated) { ov.classList.add('out'); setTimeout(gone, 450); } else gone();
 	}
 
 	// ---- The list ----------------------------------------------------------------------------------------------------------
@@ -950,14 +1134,28 @@ class Plugin extends AppPlugin {
 		const cs = getComputedStyle(document.body);
 		const ov = document.createElement('div');
 		ov.className = 'ach-ov';
-		ov.innerHTML = '<div class="ach-box"><div-scrollable class="ach-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="ach-in"><div class="ach-head"><div class="ach-por"><canvas></canvas></div><div><div class="ach-title">Achievements</div><div class="ach-sub"></div></div><button class="ach-x" aria-label="Close">✕</button></div><div class="ach-test"><span>Test</span><button data-t="one">Notify</button><button data-t="three">Notify x3</button><button data-t="unlock">Unlock next</button><button data-t="relock">Re-lock last</button></div><div class="ach-pbar"><i></i></div><div class="ach-grid"></div></div></div-scrollable></div>';
+		this.pf = this.pf || { show: 'all', tiers: new Set() };   // the list's filters
+		ov.innerHTML = `<div class="ach-box"><div-scrollable class="ach-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="ach-in">
+<div class="ach-head"><div class="ach-por"><canvas></canvas></div><div class="ach-ht"><div class="ach-title">Achievements</div><div class="ach-sub"></div></div><button class="ach-tg" data-a="test">Test</button><button class="ach-x" aria-label="Close">✕</button></div>
+<div class="ach-pbar"><i></i></div>
+<div class="ach-tools"><div class="ach-seg">${[['all', 'All'], ['done', 'Done'], ['todo', 'To do']].map(([k, l]) => `<button data-f="${k}">${l}<em></em></button>`).join('')}</div><div class="ach-chips">${Object.keys(TIER_FX).map((t) => `<button data-tf="${t}" data-tier="${t.toLowerCase()}"><i></i>${t}</button>`).join('')}</div></div>
+<div class="ach-testbox" hidden><div class="ach-test"><span>Test</span><button data-t="one">Notify</button><button data-t="three">Notify x3</button><button data-t="unlock">Unlock next</button><button data-t="relock">Re-lock last</button></div><div class="ach-test"><span>Opening</span>${REVEAL_STYLES.map((n, i) => `<button data-t="fx${i}">${n}</button>`).join('')}<button data-t="tour">Tour</button></div></div>
+<div class="ach-grid"></div></div></div-scrollable></div>`;
 		const box = ov.querySelector('.ach-box');
 		box.style.color = cs.color;
 		box.style.background = cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : 'Canvas';
 		ov.addEventListener('mousedown', (e) => { if (e.target === ov) this.closePanel(); });
 		ov.querySelector('.ach-x').onclick = () => this.closePanel();
-		ov.querySelector('.ach-test').onclick = (e) => { const t = e.target.closest('button')?.dataset.t; if (t) this.test(t); };
-		this.panelKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.closePanel(); } };
+		ov.addEventListener('click', (e) => {
+			const hit = (sel) => e.target.closest(sel);
+			let el;
+			if ((el = hit('[data-t]'))) this.test(el.dataset.t);
+			else if ((el = hit('[data-f]'))) { this.pf.show = el.dataset.f; this.renderPanel(); }
+			else if ((el = hit('[data-tf]'))) { const t = el.dataset.tf; this.pf.tiers.has(t) ? this.pf.tiers.delete(t) : this.pf.tiers.add(t); this.renderPanel(); }
+			else if (hit('[data-a="test"]')) { const tb = ov.querySelector('.ach-testbox'); tb.hidden = !tb.hidden; }
+			else if ((el = hit('.ach-t.got'))) { const a = ACHIEVEMENTS.find((x) => x.id === el.dataset.id); if (a) this.view(a, this.panelList); }   // an unlocked one is looked at, big
+		});
+		this.panelKey = (e) => { if (e.key === 'Escape' && !this.rev) { e.stopPropagation(); this.closePanel(); } };   // while a card is open, Escape closes only that
 		document.addEventListener('keydown', this.panelKey, true);
 		document.body.appendChild(ov);
 		this.panel = ov;
@@ -971,16 +1169,18 @@ class Plugin extends AppPlugin {
 	/** The panel's test buttons: show the notification without changing anything, or really unlock (and re-lock) one. */
 	test(what) {
 		const pick = (n) => [...ACHIEVEMENTS].sort(() => Math.random() - 0.5).slice(0, n);
-		if (what === 'one') this.celebrate(pick(1));
-		else if (what === 'three') this.celebrate(pick(3));
+		if (what === 'one') this.announce(pick(1), { preview: true });   // the note, and then the opening on a click
+		else if (what === 'three') this.announce(pick(3), { preview: true });
+		else if (what.startsWith('fx')) this.reveal(pick(1), +what.slice(2));   // straight to the opening, in this style
+		else if (what === 'tour') this.reveal(pick(FX_MAX), [...REVEAL_STYLES.keys()].sort(() => Math.random() - 0.5));   // as many pictures as fit, each in another style
 		else if (what === 'unlock') {
 			const a = ACHIEVEMENTS.find((x) => !this.st.unlocked[x.id]);
 			if (!a) return;
-			this.st.unlocked[a.id] = Date.now(); this.save(); this.celebrate([a]); this.refreshUi();
+			this.st.unlocked[a.id] = Date.now(); this.st.pending.push(a.id); this.save(); this.announce([a]); this.refreshUi();
 		} else if (what === 'relock') {
 			const last = ACHIEVEMENTS.filter((x) => this.st.unlocked[x.id]).sort((x, y) => this.st.unlocked[y.id] - this.st.unlocked[x.id])[0];
 			if (!last) return;
-			delete this.st.unlocked[last.id]; this.save(); this.refreshUi();
+			delete this.st.unlocked[last.id]; this.st.pending = this.st.pending.filter((id) => id !== last.id); this.save(); this.refreshUi();
 		}
 	}
 
@@ -1001,26 +1201,28 @@ class Plugin extends AppPlugin {
 	renderPanel() {
 		const p = this.panel;
 		if (!p) return;
-		const m = measures(this.st), got = this.unlockedCount();
+		const m = measures(this.st), got = this.unlockedCount(), pf = this.pf, pr = (a) => Math.min(1, m[a.stat] / a.target), un = {};
+		for (const a of ACHIEVEMENTS) if (this.claimed(a)) un[a.id] = this.st.unlocked[a.id];   // one that is still waiting looks locked here
 		p.querySelector('.ach-sub').innerHTML = `${got} of ${ACHIEVEMENTS.length} unlocked · <span>◎ ${fmt(this.crowns())} crowns</span> · ${fmt(this.st.words)} words`;
 		p.querySelector('.ach-pbar i').style.width = `${(got / ACHIEVEMENTS.length) * 100}%`;
+		const counts = { all: ACHIEVEMENTS.length, done: got, todo: ACHIEVEMENTS.length - got };
+		p.querySelectorAll('[data-f]').forEach((b) => { b.classList.toggle('on', pf.show === b.dataset.f); b.querySelector('em').textContent = counts[b.dataset.f]; });
+		p.querySelectorAll('[data-tf]').forEach((b) => b.classList.toggle('on', pf.tiers.has(b.dataset.tf)));
 		const grid = p.querySelector('.ach-grid');
 		grid.textContent = '';
-		const order = [...ACHIEVEMENTS].sort((a, b) => (this.st.unlocked[b.id] ? 1 : 0) - (this.st.unlocked[a.id] ? 1 : 0) || Math.min(1, m[b.stat] / b.target) - Math.min(1, m[a.stat] / a.target));
-		for (const a of order) {
-			const on = !!this.st.unlocked[a.id], pr = Math.min(1, m[a.stat] / a.target);
-			const c = document.createElement('div');
-			c.className = 'ach-card2 ' + (on ? 'got' : 'lock');
-			c.dataset.tier = tier(a).toLowerCase();
-			c.innerHTML = '<div class="ach-ic"></div><div style="flex:1;min-width:0"><div class="ach-cn"></div><div class="ach-ds"></div><div class="ach-rw"></div><div class="ach-pr"><i></i></div></div>';
-			c.querySelector('.ach-ic').textContent = a.icon;
-			c.querySelector('.ach-cn').textContent = a.name;
-			c.querySelector('.ach-ds').textContent = on ? a.desc : '???';   // locked ones keep their task and target secret, so they are found rather than speedrun
-			c.querySelector('.ach-rw').innerHTML = '<span></span><b class="ach-tier"></b>';
-			c.querySelector('.ach-rw span').textContent = on ? `◎ +${a.crowns} · ${new Date(this.st.unlocked[a.id]).toLocaleDateString()}` : `◎ +${a.crowns}`;
-			c.querySelector('.ach-tier').textContent = tier(a);
-			c.querySelector('.ach-pr i').style.width = `${pr * 100}%`;
+		const rows = ACHIEVEMENTS.filter((a) => (pf.show === 'all' || (pf.show === 'done') === !!un[a.id]) && (!pf.tiers.size || pf.tiers.has(tier(a))))
+			.sort((a, b) => (un[b.id] ? 1 : 0) - (un[a.id] ? 1 : 0) || (un[a.id] && un[b.id] ? un[b.id] - un[a.id] : pr(b) - pr(a)));   // the newest unlock first, then the nearest to unlocking
+		this.panelList = rows.filter((a) => un[a.id]);   // what the viewer goes through
+		for (const a of rows) {
+			const on = !!un[a.id], c = document.createElement('div');
+			c.className = 'ach-t ' + (on ? 'got' : 'lock'); c.dataset.tier = tier(a).toLowerCase(); c.dataset.id = a.id;
+			c.innerHTML = '<img alt="" loading="lazy" decoding="async"><div class="ach-tc"><b></b><span></span></div>';
+			c.querySelector('img').src = pictureOf(a);
+			c.querySelector('b').textContent = on ? a.name : '???';   // a locked one keeps its name, task and target secret, so it is found rather than speedrun
+			c.querySelector('span').textContent = `◎ ${fmt(a.crowns)}`;
+			if (!on) { const bar = document.createElement('div'); bar.className = 'ach-tp'; bar.innerHTML = '<i></i>'; bar.firstChild.style.width = `${pr(a) * 100}%`; c.appendChild(bar); }
 			grid.appendChild(c);
 		}
+		if (!rows.length) { const e = document.createElement('div'); e.className = 'ach-none'; e.textContent = 'Nothing here'; grid.appendChild(e); }
 	}
 }

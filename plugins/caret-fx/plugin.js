@@ -13,7 +13,7 @@
  *
  * Five special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
  * (tiny star glints that twinkle on the caret, like a gem), Prism (two crescents of spectrum flanking the caret, light
- * through a lens), Health (thin pluses and beams of light floating up as you write, as if you were gaining health) and Zephyr (an anime-style wind skill: speed lines and leaves swept up round the caret) and Tide
+ * through a lens), Health (tiny pluses rising out of the caret as you write, each with a trail of light, as if you were gaining health) and Zephyr (an anime-style wind skill: speed lines and leaves swept up round the caret) and Tide
  * (a stylized water skill: sprays of teardrops and drifting bubbles). Pick them in "Caret FX: set preset…" under Special.
  *
  * Scope: the Thymer editor only. The plugin follows Thymer's own caret element
@@ -369,7 +369,8 @@ function lineEdit(before, after, caret) {
 //   - preview(plugin, pv, caret, now): optional; spawn demo items into pv.items for the dialog preview. Without one, the
 //     preview types for the effect: onMove is called with a letter's step (typed) now and then and a jump once in a while.
 //   - Effects that keep state or take over the caret: plugin.state(id) is their state bag, plugin.ensureItem(id) their one
-//     long-lived item, plugin.hideCaret(id, on) hides Thymer's caret while they draw their own. keepsState: true has the
+//     long-lived item, plugin.hideCaret(id, on) hides Thymer's caret while they draw their own; ownsCaret: true says the
+//     effect is the caret whenever it runs (Motion smear then stands aside). keepsState: true has the
 //     core drop all three when the effect is switched off or the plugin unloads.
 // =====================================================================================
 const EFFECTS = {};
@@ -496,12 +497,14 @@ EFFECTS.bounce = {
 // caret; a jump (a click elsewhere, a new line) is one long sweep that collapses toward where the caret landed. A step by
 // arrow key or mouse lets go of the ribbon, which fades where it is, and the next letter starts a new one. When the page
 // scrolls the ribbon goes along with the text.
-// Settings: trailMs (how long the ribbon lingers; 1400 is normal), trailMinWidths (a move farther than this many caret
+// Settings: trailMs (how long the ribbon lingers; 1400 is normal), trailReach (how far back it reaches while typing, in caret
+// heights; 3 is normal - a sweep keeps its whole length), trailMinWidths (a move farther than this many caret
 // heights is a jump).
 const TRAIL_PIECE_PX = 9;     // the ribbon is drawn in pieces about this long, each with its own width and fade
 const TRAIL_MAX_PTS = 160;    // the most points of the path kept
 const TRAIL_EDGE_PX = 1.5;    // half the width of a stretch that runs straight up or down (it has no caret height to spread over)
 const TRAIL_HOLD = 0.35;      // the share of its time a piece of the ribbon stays at full strength before it eases away
+const TRAIL_END = 0.72;       // from this share of a ribbon's reach back, its tail eases out to nothing
 
 /** How long the ribbon lingers, from the settings. */
 const trailDur = (plugin) => clamp(Number(plugin.cfg.trailMs) || 1400, 200, 5000);
@@ -509,7 +512,7 @@ const trailDur = (plugin) => clamp(Number(plugin.cfg.trailMs) || 1400, 200, 5000
 /** The item that holds the path of `host` (the plugin, or the dialog's preview). */
 function trailOf(host) {
 	const item = host.ensureItem('trail');
-	if (!item.pts) { item.pts = []; item.broken = false; }
+	if (!item.pts) { item.pts = []; item.broken = false; item.attached = false; }
 	return item;
 }
 
@@ -523,7 +526,7 @@ const trailPoint = (r, t, gap) => ({ x: r.x + 1, y: r.y + r.h / 2, h: r.h, t, ga
  * the caret's height where the ribbon runs along the line, and a little sideways where it runs up or down the page.
  * Three passes: the halo, the body, the thread.
  */
-function drawRibbon(ctx, ribbon, now, dur, K, col, acc, core) {
+function drawRibbon(ctx, ribbon, now, dur, reach, K, col, acc, core) {
 	const nodes = [];
 	for (let a = 0; a + 1 < ribbon.length; a++) {
 		const p = ribbon[a], q = ribbon[a + 1], n = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / TRAIL_PIECE_PX));
@@ -532,12 +535,12 @@ function drawRibbon(ctx, ribbon, now, dur, K, col, acc, core) {
 	const last = nodes.length - 1;
 	let L = 0;
 	for (let a = last; a >= 0; a--) { if (a < last) L += Math.hypot(nodes[a + 1].x - nodes[a].x, nodes[a + 1].y - nodes[a].y); nodes[a].d = L; }   // the way back from the head
-	const span = Math.max(L, nodes[last].h * 2);   // a short ribbon (a letter or two) is hardly tapered at all
+	const span = Math.min(Math.max(L, nodes[last].h * 2), reach);   // a short ribbon (a letter or two) is hardly tapered at all; a long one is cut to its reach
 	for (let a = 0; a <= last; a++) {
 		const n = nodes[a], u = clamp01((now - n.t) / dur), s = Math.min(1, n.d / span);
 		const f = u < TRAIL_HOLD ? 1 : 1 - smoothStep((u - TRAIL_HOLD) / (1 - TRAIL_HOLD));   // full for a while, then eased away
 		n.hh = n.h * 0.46 * (0.08 + 0.92 * Math.sqrt(f) * Math.pow(1 - s, 0.7));   // a little inside the caret's height at the head
-		n.a = f * (1 - 0.6 * s);
+		n.a = f * (1 - 0.5 * s) * (s < TRAIL_END ? 1 : 1 - smoothStep((s - TRAIL_END) / (1 - TRAIL_END)));   // and out to nothing at the end of its reach
 		n.yy = n.y + Math.sin(now * 0.012 + n.d * 0.08) * n.h * 0.18 * Math.min(1, u * 1.5) * s;
 		const b = nodes[Math.min(last, a + 1)], c = nodes[Math.max(0, a - 1)], dx = b.x - c.x, dy = b.y - c.y, len = Math.hypot(dx, dy);
 		let nx = 0, ny = 1;
@@ -575,17 +578,24 @@ function drawRibbon(ctx, ribbon, now, dur, K, col, acc, core) {
 
 EFFECTS.trail = {
 	id: 'trail', label: 'Trail', mode: 'always',
-	defaults: { trailMinWidths: 1.5, trailMs: 1400 },
+	defaults: { trailMinWidths: 1.5, trailMs: 1400, trailReach: 3 },
 	blend: 'lighter',
 	onMove(plugin, prev, cur, info) {
 		const far = info.dist > cur.h * plugin.cfg.trailMinWidths;
 		const item = trailOf(plugin);
-		if (!(far || info.typed)) { item.broken = true; return; }   // a step by arrow key or mouse: the ribbon lets go of the caret and fades where it is
-		const dur = trailDur(plugin), pts = item.pts;
-		// Where a ribbon begins is given some age at once, so a sweep is a comet from its first frame and collapses toward the caret.
-		if (item.broken || !pts.length) { pts.push(trailPoint(prev, info.now - dur * 0.3, true)); item.broken = false; }
-		if (far) { const p = pts[pts.length - 1]; p.t = Math.min(p.t, info.now - dur * 0.45); }
-		pts.push(trailPoint(cur, info.now, false));
+		if (!(far || info.typed)) { item.broken = true; item.attached = false; return; }   // a step by arrow key or mouse: the ribbon lets go of the caret and fades where it is
+		const dur = trailDur(plugin), pts = item.pts, now = info.now;
+		if (far) {
+			// A sweep is a ribbon of its own: from where the caret was - given some age at once, so it collapses toward the
+			// caret from its first frame - to where it landed. Typing after it starts a ribbon afresh.
+			pts.push(trailPoint(prev, now - dur * 0.45, true));
+			pts.push({ ...trailPoint(cur, now, false), sweep: true });
+			item.broken = true;
+		} else {
+			if (item.broken || !pts.length) { pts.push(trailPoint(prev, now - dur * 0.3, true)); item.broken = false; }
+			pts.push(trailPoint(cur, now, false));
+		}
+		item.attached = true;   // the newest point is the caret
 		if (pts.length > TRAIL_MAX_PTS) pts.splice(0, pts.length - TRAIL_MAX_PTS);
 	},
 	onShift(plugin, dx, dy) {   // the page scrolled: the ribbon goes with the text
@@ -598,21 +608,29 @@ EFFECTS.trail = {
 		if (item) { item.pts = []; item.done = true; }
 	},
 	draw(plugin, ctx, item, p, k, now) {
-		const dur = trailDur(plugin), pts = item.pts;
-		while (pts.length && now - pts[0].t >= dur) pts.shift();
+		const dur = trailDur(plugin), reach = Math.max(0.5, Number(plugin.cfg.trailReach) || 3);
+		// A point past its time goes - unless the point after it, in the same ribbon, is still alive: then it stays as the far
+		// end of that stretch, which fades toward the live end rather than vanishing whole.
+		const dead = (q) => now - q.t >= dur, all = item.pts, pts = [];
+		for (let i = 0; i < all.length; i++) {
+			const q = all[i], next = all[i + 1];
+			if (!dead(q) || (next && !next.gap && !dead(next))) pts.push(q);
+			else if (q.gap && next) next.gap = true;   // the ribbon still begins where it began
+		}
+		item.pts = pts;
 		if (!pts.length) { item.done = true; return; }
 		const dark = plugin.dark, K = Math.min(k, 1.5) * (dark ? 1 : 0.55), col = plugin.col(), acc = plugin.acc(), core = dark ? '#ffffff' : lighten(col, 0.45);
 		if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing: drawn as a (fainter) band of color instead
 		// While Motion smear carries the caret across (its leading point still on its way), the ribbon ends on the smear, not
 		// ahead of it at the place the caret will arrive.
-		const sm = plugin.fxState.smear, lead = !item.broken && sm && sm.lead && plugin.items.some((it) => it.effect === 'smear' && !it.done) ? sm.lead : null;
+		const sm = plugin.fxState.smear, lead = sm && sm.lead && plugin.items.some((it) => it.effect === 'smear' && !it.done) ? sm.lead : null;
 		for (let i = 0; i < pts.length;) {   // ribbon by ribbon: a gap begins a new one
 			let j = i + 1;
 			while (j < pts.length && !pts[j].gap) j++;
 			if (j - i >= 2) {
 				const ribbon = pts.slice(i, j);
-				if (lead && j === pts.length) { const head = ribbon[ribbon.length - 1]; ribbon[ribbon.length - 1] = { ...head, x: lead.x + 1, y: lead.y + head.h / 2 }; }
-				drawRibbon(ctx, ribbon, now, dur, K, col, acc, core);
+				if (lead && item.attached && j === pts.length) { const head = ribbon[ribbon.length - 1]; ribbon[ribbon.length - 1] = { ...head, x: lead.x + 1, y: lead.y + head.h / 2 }; }
+				drawRibbon(ctx, ribbon, now, dur, ribbon.some((q) => q.sweep) ? Infinity : reach * ribbon[ribbon.length - 1].h, K, col, acc, core);
 			}
 			i = j;
 		}
@@ -855,11 +873,14 @@ function finishSmear(plugin, item) {
 	plugin.hideCaret('smear', false);
 }
 
+/** Whether another effect has the caret - Back-man while it eats, or the signature effect in use when it draws the caret itself (Slime): Motion smear stands aside, or there would be two carets. */
+function caretTaken(plugin) { return backManBusy(plugin) || !!(EFFECTS[plugin.cfg.fx] && EFFECTS[plugin.cfg.fx].ownsCaret); }
+
 EFFECTS.smear = {
 	id: 'smear', label: 'Motion smear', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
 	defaults: { smearStiffness: 0.6, smearTrailingStiffness: 0.4, smearDamping: 0.8 },
 	onMove(plugin, prev, cur, info) {
-		if (backManBusy(plugin)) return;   // the creature has the caret
+		if (caretTaken(plugin)) return;   // the creature, or the jelly, has the caret
 		const S = plugin.state('smear');
 		const dx = Math.abs(cur.x - prev.x), dy = Math.abs(cur.y - prev.y);
 		// A letter's step: along the row (a little jitter in the text's box allowed) by at most a couple of letters, measured
@@ -883,7 +904,7 @@ EFFECTS.smear = {
 	},
 	draw(plugin, ctx, item, p, k, now, dt) {
 		const S = plugin.state('smear'), rect = caretBox(plugin);
-		if (!rect || !S.lead || backManBusy(plugin)) return finishSmear(plugin, item);
+		if (!rect || !S.lead || caretTaken(plugin)) return finishSmear(plugin, item);
 		const { corners, moving } = stepSmear(S, rect, dt / 1000, plugin.cfg, now - (S.stepT || 0) < SMEAR_KEY_STEP_MS);
 		if (!moving) return finishSmear(plugin, item);
 		plugin.hideCaret('smear', true);   // hidden only in a frame that draws the quad, so the caret never blinks out between the two
@@ -1898,16 +1919,17 @@ EFFECTS.prism = {
 };
 
 // ---- Effect: Health ------------------------------------------------------------------------------------------------
-// Writing heals, slowly: thin glowing pluses float up out of the caret, thin beams of light rise through them, tiny
-// motes drift up - the look of a healing spell in a game. All of it
-// is in the preset's colors, green; with other colors it is whatever you like (a red cross, say).
-const HEALTH_LIFE_MS = [2200, 3400];  // how long a plus floats: the shortest and the longest
-const HEALTH_MAX = 8;                 // the most pluses alive at once
-const HEALTH_GAP_MS = 320;            // the least time between two bursts, so a fast typist is not buried in them
-const HEALTH_PULSE_MS = 1100;         // how long the caret's glow takes to open and fade
-const HEALTH_ARM = 0.14;              // a plus's arm half-thickness against its arm length: lower is thinner
-const HEALTH_BEAMS_MAX = 5;           // the most beams of light alive at once
-const HEALTH_MOTES_MAX = 22;          // the most motes alive at once
+// Writing heals, quietly: tiny pluses - a few pixels across, like Holy's glints - rise slowly out of the caret as you
+// write, swaying a little, each with a short trail of light behind it, and a soft glow opens on the caret. Nothing more.
+// All of it is in the preset's colors, green; with other colors it is whatever you like (a red cross, say).
+// Settings: healthSize (1 is normal).
+const HEALTH_LIFE_MS = [1500, 2400];  // how long a plus floats: the shortest and the longest
+const HEALTH_MAX = 12;                // the most pluses alive at once
+const HEALTH_GAP_MS = 160;            // the least time between two pluses, so a fast typist is not buried in them
+const HEALTH_PULSE_MS = 900;          // how long the caret's glow takes to open and fade
+const HEALTH_PX = [1.5, 2.6];         // a plus's arm length, in px: tiny, like stars
+const HEALTH_TRAIL_STEPS = 7;         // how many steps back along its path the trail of a plus is drawn...
+const HEALTH_TRAIL_MS = 45;           // ...each this far back in time
 
 /** The colors of a plus, from the caret's: its top, its body (the glow's too) and its edge. */
 function healthPalette(plugin) {
@@ -1922,14 +1944,20 @@ function tracePlus(ctx, l, t) {
 	else { ctx.rect(-l, -t, 2 * l, 2 * t); ctx.rect(-t, -l, 2 * t, 2 * l); }
 }
 
-/** The item that holds the pluses, beams and motes of `host` (the plugin, or the dialog's preview). */
+/** The item that holds the pluses of `host` (the plugin, or the dialog's preview). */
 function pluses(host) {
 	const item = host.ensureItem('health');
-	if (!item.parts) { item.parts = []; item.beams = []; item.motes = []; item.lastAt = 0; item.pulseAt = -1e9; }
+	if (!item.parts) { item.parts = []; item.lastAt = 0; item.pulseAt = -1e9; }
 	return item;
 }
 
-/** A burst out of the caret `rect` (two pluses with `twin`): pluses floating up from a little off its middle, now and then a beam, a mote or two; and the ring. */
+/** Where a plus is `age` ms into its life: rising, a little slower as it goes, swaying. Pure, so its trail can be read off its past. */
+function healthPos(q, age) {
+	const f = age / q.life;
+	return { x: q.x + q.drift * f + Math.sin(q.phase + age / 420) * q.sway, y: q.y - q.rise * f * (1.3 - 0.3 * f) };
+}
+
+/** A plus (two with `twin`) out of the caret `rect`, from a little off its middle; and the glow. */
 function healPlus(host, rect, now, twin) {
 	const item = pluses(host);
 	item.pulseAt = now;
@@ -1938,27 +1966,12 @@ function healPlus(host, rect, now, twin) {
 	const h = rect.h, cx = rect.x + rect.w / 2;
 	for (let i = 0; i < (twin ? 2 : 1) && item.parts.length < HEALTH_MAX; i++) {
 		item.parts.push({
-			x: cx + (Math.random() - 0.5) * h * 1.6, y: rect.y + h * 0.15,
-			rise: h * (1.8 + Math.random() * 1.2),                     // how far it floats in all
-			drift: (Math.random() - 0.5) * h * 0.8,                    // and how far it wanders sideways
-			sway: h * (0.05 + Math.random() * 0.06), phase: Math.random() * 6.28,
-			l: h * (0.22 + Math.random() * 0.16),                      // an arm's length
+			x: cx + (Math.random() - 0.5) * h * 1.1, y: rect.y + h * (0.2 + Math.random() * 0.5),
+			rise: h * (1.1 + Math.random() * 0.9),                      // how far it floats in all
+			drift: (Math.random() - 0.5) * h * 0.5,                     // and how far it wanders sideways
+			sway: h * (0.03 + Math.random() * 0.04), phase: Math.random() * 6.28,
+			r: lerp(HEALTH_PX[0], HEALTH_PX[1], Math.random()),         // an arm's length
 			t0: now, life: lerp(HEALTH_LIFE_MS[0], HEALTH_LIFE_MS[1], Math.random()),
-		});
-	}
-	if (item.beams.length < HEALTH_BEAMS_MAX && Math.random() < 0.45) {
-		item.beams.push({
-			x: cx + (Math.random() - 0.5) * h * 2.4, y: rect.y + h,
-			len: h * (2.2 + Math.random() * 2), rise: h * (0.8 + Math.random() * 0.8), w: 0.8 + Math.random() * 0.8,
-			t0: now, life: lerp(1800, 2800, Math.random()),
-		});
-	}
-	for (let i = 0, n = Math.random() < 0.5 ? 2 : 1; i < n && item.motes.length < HEALTH_MOTES_MAX; i++) {
-		item.motes.push({
-			x: cx + (Math.random() - 0.5) * h * 2.6, y: rect.y + h * (0.3 + Math.random() * 0.7),
-			rise: h * (1.2 + Math.random() * 1.4), drift: (Math.random() - 0.5) * h * 0.5,
-			phase: Math.random() * 6.28, r: 0.7 + Math.random() * 0.9,
-			t0: now, life: lerp(2400, 3800, Math.random()),
 		});
 	}
 }
@@ -1966,80 +1979,69 @@ function healPlus(host, rect, now, twin) {
 EFFECTS.health = {
 	id: 'health', label: 'Health', mode: 'signature', keepsState: true, blend: 'lighter',
 	preset: { name: 'Health', color: '#7dff9b', accent: '#12b04a' },
-	defaults: {},
+	defaults: { healthSize: 1 },
 	onMove(plugin, prev, cur, info) {
 		if (!isWriting(info)) return;
-		healPlus(plugin, cur, info.now, false);
+		healPlus(plugin, cur, info.now, Math.random() < 0.25);
 	},
 	draw(plugin, ctx, item, p, k, now) {
-		const alive = (q) => now - q.t0 < q.life;
-		item.parts = item.parts.filter(alive); item.beams = item.beams.filter(alive); item.motes = item.motes.filter(alive);
+		item.parts = item.parts.filter((q) => now - q.t0 < q.life);
 		const pulse = (now - item.pulseAt) / HEALTH_PULSE_MS;
-		if (!item.parts.length && !item.beams.length && !item.motes.length && pulse >= 1) { item.done = true; return; }
-		const pal = healthPalette(plugin), rect = plugin.last, power = Math.min(1, 0.6 + 0.4 * k);
-		if (!plugin.dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
-		if (rect && pulse < 1) {   // the caret's glow: it opens and fades slowly
-			const cx = rect.x + rect.w / 2, e = easeOutCubic(pulse), fade = 1 - pulse;
-			const r = rect.h * (1 + 0.8 * e), cy = rect.y + rect.h / 2;
+		if (!item.parts.length && pulse >= 1) { item.done = true; return; }
+		const pal = healthPalette(plugin), rect = plugin.last, dark = plugin.dark;
+		const size = (plugin.cfg.healthSize || 1) * (0.85 + 0.2 * Math.min(k, 1.6)), power = Math.min(1, 0.55 + 0.45 * k);
+		if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
+		if (rect && pulse < 1) {   // the caret's glow: small, it opens and fades
+			const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, e = easeOutCubic(pulse), fade = 1 - pulse, r = rect.h * (0.7 + 0.5 * e);
 			const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-			g.addColorStop(0, rgba(pal.mid, 0.24 * power * fade * fade));
+			g.addColorStop(0, rgba(pal.mid, (dark ? 0.22 : 0.12) * power * fade * fade));
 			g.addColorStop(1, rgba(pal.mid, 0));
 			ctx.fillStyle = g;
 			ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
 		}
-		for (const q of item.beams) {   // thin beams of light, bright in the middle of their length, rising and fading
-			const f = (now - q.t0) / q.life, a = Math.sin(Math.PI * f) * power;
-			const y1 = q.y - q.rise * f, y0 = y1 - q.len;
-			const g = ctx.createLinearGradient(0, y0, 0, y1);
-			g.addColorStop(0, rgba(pal.top, 0));
-			g.addColorStop(0.6, rgba(pal.top, 0.8 * a));
-			g.addColorStop(1, rgba(pal.mid, 0));
-			ctx.fillStyle = g;
-			ctx.fillRect(q.x - q.w / 2, y0, q.w, q.len);
-			ctx.globalAlpha = 0.18;   // and a wider, fainter one round it
-			ctx.fillRect(q.x - q.w * 2, y0, q.w * 4, q.len);
-			ctx.globalAlpha = 1;
-		}
-		for (const q of item.motes) {   // tiny glowing specks drifting up
-			const age = now - q.t0, f = age / q.life, a = Math.sin(Math.PI * f) * power;
-			ctx.save();
-			ctx.shadowColor = rgba(pal.mid, 0.9);
-			ctx.shadowBlur = 4;
-			ctx.fillStyle = rgba(pal.top, 0.9 * a);
-			ctx.beginPath();
-			ctx.arc(q.x + q.drift * f + Math.sin(q.phase + age / 520) * 1.5, q.y - q.rise * f, q.r, 0, Math.PI * 2);
-			ctx.fill();
-			ctx.restore();
-		}
+		ctx.save();
+		ctx.lineCap = 'round';
 		for (const q of item.parts) {
 			const age = now - q.t0, f = age / q.life;
-			const pop = easeOutBack(clamp01(age / 320)) * (1 - 0.15 * f);   // pops out a little too big, then settles and shrinks as it goes
-			const alpha = Math.min(1, f / 0.1) * (f < 0.6 ? 1 : 1 - (f - 0.6) / 0.4) * power;
+			const alpha = Math.min(1, f / 0.08) * (f < 0.55 ? 1 : 1 - (f - 0.55) / 0.45) * power;
 			if (alpha <= 0.01) continue;
-			const l = q.l * pop * (0.9 + 0.15 * Math.min(k, 1.6)), t = Math.max(0.55, l * HEALTH_ARM);
+			const l = q.r * size * easeOutBack(clamp01(age / 240)), t = Math.max(0.5, l * 0.3), at = healthPos(q, age);
+			// The trail: its path over the last moments, thinner and fainter the farther back.
+			let from = at;
+			for (let i = 1; i <= HEALTH_TRAIL_STEPS && age - i * HEALTH_TRAIL_MS > 0; i++) {
+				const to = healthPos(q, age - i * HEALTH_TRAIL_MS), back = 1 - i / (HEALTH_TRAIL_STEPS + 1);
+				ctx.strokeStyle = rgba(i < 3 ? pal.top : pal.mid, alpha * 0.55 * back * back);
+				ctx.lineWidth = Math.max(0.5, l * 0.55 * back);
+				ctx.beginPath();
+				ctx.moveTo(from.x, from.y);
+				ctx.lineTo(to.x, to.y);
+				ctx.stroke();
+				from = to;
+			}
+			// The plus: the preset's green, lit at the top, with a white heart.
 			ctx.save();
-			ctx.translate(q.x + q.drift * f + Math.sin(q.phase + age / 480) * q.sway, q.y - q.rise * f * (1.25 - 0.25 * f));
+			ctx.translate(at.x, at.y);
 			ctx.globalAlpha = alpha;
-			ctx.shadowColor = rgba(pal.mid, 0.8);
-			ctx.shadowBlur = l * 0.8;
+			ctx.shadowColor = rgba(pal.mid, 0.9);
+			ctx.shadowBlur = l * 1.2;
 			tracePlus(ctx, l, t);
 			const g = ctx.createLinearGradient(0, -l, 0, l);
 			g.addColorStop(0, pal.top);
-			g.addColorStop(0.5, pal.mid);
-			g.addColorStop(1, pal.edge);
+			g.addColorStop(1, pal.mid);
 			ctx.fillStyle = g;
 			ctx.fill();
 			ctx.shadowBlur = 0;
-			tracePlus(ctx, l * 0.55, t * 0.5);   // a lighter plus inside: the shine
-			ctx.fillStyle = rgba(pal.top, 0.7);
+			tracePlus(ctx, l * 0.5, t * 0.55);
+			ctx.fillStyle = dark ? 'rgba(255,255,255,0.95)' : rgba(lighten(pal.top, 0.5), 0.95);
 			ctx.fill();
 			ctx.restore();
 		}
+		ctx.restore();
 	},
 	preview(plugin, pv, caret, now) {
 		if (now < (pv.healthNext || 0)) return;
-		pv.healthNext = now + 1100;
-		healPlus(pv, caret, now, false);
+		pv.healthNext = now + 650;
+		healPlus(pv, caret, now, Math.random() < 0.3);
 	},
 };
 
@@ -2405,7 +2407,7 @@ function drawSlime(plugin, ctx, item, now, dt) {
 }
 
 EFFECTS.slime = {
-	id: 'slime', label: 'Slime', mode: 'signature', keepsState: true, blend: 'source-over',
+	id: 'slime', label: 'Slime', mode: 'signature', keepsState: true, ownsCaret: true, blend: 'source-over',   // ownsCaret: it is the caret, so Motion smear stands aside
 	preset: { name: 'Slime', color: '#59f939', accent: '#15803d' },
 	defaults: { slimeIdle: 1 },
 	onSample(plugin, cur) { if (cur) plugin.ensureItem('slime'); },   // alive whenever there is a caret

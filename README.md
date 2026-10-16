@@ -61,7 +61,7 @@ The caret itself takes your chosen color, even when you are not typing, and reac
 
 - **Glow** – a soft halo opens round the caret on each keystroke (taller than wide, hugging the caret) and the caret flares for an instant
 - **Bounce** – caret hops with a damped spring
-- **Trail** – a comet ribbon the caret draws behind itself: the caret's full height where it is, narrowing and fading toward where it was, fluttering a little as it goes; typing draws it out letter by letter, a jump or a new line is one long sweep that collapses toward the caret, and it stays about a second (`trailMs`). When the page scrolls it goes along with the text
+- **Trail** – a comet ribbon the caret draws behind itself: the caret's full height where it is, narrowing and fading toward where it was, fluttering a little as it goes; typing draws it out letter by letter and it reaches a few letters back (`trailReach`, in caret heights), a jump or a new line is one long sweep that collapses toward the caret, and it stays about a second (`trailMs`). When the page scrolls it goes along with the text
 
 ### Effects from Cursor-Smith
 
@@ -106,7 +106,7 @@ Run `Caret FX: set preset…` from the command palette. The dialog has:
   | Back-man | the caret eats what Backspace and Delete take (see above) |
   | Holy | tiny golden star glints (a couple of pixels) twinkle slowly on and around the caret, in place, like light catching a gem, and the caret keeps glinting for a moment after you stop |
   | Prism | a burst of light through glass: every letter flashes on the caret with a thin blue-white lens streak and a violet lens-orb, and flings chunky glowing stars (gold, orange, some cyan with tails, some violet) that slow down, spin and fade, with embers drifting among them; a new line or a jump is a big burst |
-  | Health | thin glowing pluses float slowly up out of the caret as you write, with thin beams of light and tiny motes, like a healing spell, a few at a time; in the preset's greens, or a red cross if you pick red colors |
+  | Health | tiny glowing pluses, a few pixels across like Holy's glints, rise slowly out of the caret as you write, each with a short trail of light behind it, and a soft glow opens on the caret; in the preset's greens, or a red cross if you pick red colors |
   | Zephyr | an anime-style wind skill: pointed, cel-shaded leaves are swept up round the caret and off behind it, fluttering, while thin speed lines streak back from the caret; a new line or a jump is a full gust |
   | Tide | a stylized water skill: every letter flicks a small spray of teardrops (round head, tapering tail, white glint) out of the caret to arc up and fall back, and now and then a bubble drifts up and pops; a new line or a jump is a big splash |
   | Combo | typing as a game: every letter in a run adds one to a counter above the caret that pops with each hit and runs down if you pause (NICE, GREAT, SUPER, ULTRA at 10, 25, 50, 100); the caret itself changes color with the count - red from 10, orange from 25, blue from 50, white-hot blue from 100 - and throws sparks, more of them the higher you go; a broken run of ten or more drops away |
@@ -132,6 +132,7 @@ What you choose in the dialogs and commands (preset, switches, intensity) is rem
   "bounce": true,
   "trail": true,
   "trailMs": 1400,
+  "trailReach": 3,
   "intensity": 1
 }
 ```

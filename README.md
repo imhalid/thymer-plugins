@@ -59,9 +59,9 @@ Other commands: `Daily Garden: set daily word goal`, `Daily Garden: reset today'
 
 The caret itself takes your chosen color, even when you are not typing, and reacts while you type:
 
-- **Glow** – soft pulse around the caret on each keystroke
+- **Glow** – a soft halo opens round the caret on each keystroke (taller than wide, hugging the caret) and the caret flares for an instant
 - **Bounce** – caret hops with a damped spring
-- **Trail** – every typed character leaves a short blaze-style streak; long jumps leave a full one
+- **Trail** – a comet ribbon the caret draws behind itself: the caret's full height where it is, narrowing and fading toward where it was, fluttering a little as it goes; typing draws it out letter by letter, a jump or a new line is one long sweep that collapses toward the caret, and it stays about a second (`trailMs`). When the page scrolls it goes along with the text
 
 ### Effects from Cursor-Smith
 
@@ -93,14 +93,14 @@ The plugin SDK has no caret, selection or text-layout API, so Fresh ink, Bracket
 Run `Caret FX: set preset…` from the command palette. The dialog has:
 
 - **Colors** – plain presets: Amber, Sunset, Rose, Violet, Ice, Ocean, Mint, Lime, Mono
-- **Special** – presets that bring their own effect, previewed live in the dialog:
+- **Special** – presets that bring their own effect, previewed live in the dialog (the preview types by itself, so the glow, the trail and the smear show too):
 
   | Preset | Effect |
   | --- | --- |
-  | Lightning | blue crackles jump off the caret now and then while typing, and a bolt strikes when the caret changes line |
-  | Sakura | pink petals drift off the caret |
-  | Autumn | orange and red leaves fall |
-  | Paper | green leaves fall |
+  | Lightning | blue crackles jump off the caret now and then while typing, and a bolt strikes when the caret changes line, with a flash where it lands |
+  | Sakura | pink petals drift off the caret; a new line shakes a few loose at once |
+  | Autumn | orange and red leaves fall, likewise |
+  | Paper | green leaves fall, likewise |
   | Fresh ink | what you type stays wet in the caret color, then dries (see above) |
   | Bracket tether | a line under the matching brackets or quotes around the caret (see above) |
   | Back-man | the caret eats what Backspace and Delete take (see above) |
@@ -131,6 +131,7 @@ What you choose in the dialogs and commands (preset, switches, intensity) is rem
   "fx": null,
   "bounce": true,
   "trail": true,
+  "trailMs": 1400,
   "intensity": 1
 }
 ```

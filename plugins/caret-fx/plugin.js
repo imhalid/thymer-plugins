@@ -1,8 +1,8 @@
 /**
  * Caret FX
  *
- * Animated caret effects while you type: glow pulse, neovide-style hop, a blaze
- * trail when the caret moves, and signature effects (lightning, falling petals and leaves).
+ * Animated caret effects while you type: a glow that flares on each key, a neovide-style hop, a comet ribbon the
+ * caret draws behind itself as it moves, and signature effects (lightning, falling petals and leaves).
  * Inspired by the Ghostty cursor_blaze / cursor_lightning shaders.
  *
  * Four more effects - Motion smear, Fresh ink, Bracket tether and Back-man (the caret that eats what
@@ -361,10 +361,13 @@ function lineEdit(before, after, caret) {
 //     info = { typed, moved, now }. For effects that watch the text (what was typed, what is bracketed).
 //   - onKey(plugin, e, now): on a keydown in the editor, before the editor has acted on it (the DOM is still as it was).
 //   - onPulse(plugin, rect, now): optional; a gentle "show the current look" trigger (theme/config change).
+//   - onShift(plugin, dx, dy, now): optional; the page scrolled under a still caret, which moved by (dx, dy) on screen
+//     without moving in the text. An effect that keeps screen positions (the trail's path) moves them along; it is not a move.
 //   - draw(plugin, ctx, item, p, k, now, dt): p = progress 0..1, k = intensity, dt = ms since last frame.
 //     Items are removed when p >= 1 or item.done = true. blend: 'lighter' | 'source-over' (set by the core).
 //     A still item (item.rest = true) is redrawn whenever a frame runs but does not ask for frames of its own.
-//   - preview(plugin, pv, caret, now): optional; spawn demo items into pv.items for the dialog preview.
+//   - preview(plugin, pv, caret, now): optional; spawn demo items into pv.items for the dialog preview. Without one, the
+//     preview types for the effect: onMove is called with a letter's step (typed) now and then and a jump once in a while.
 //   - Effects that keep state or take over the caret: plugin.state(id) is their state bag, plugin.ensureItem(id) their one
 //     long-lived item, plugin.hideCaret(id, on) hides Thymer's caret while they draw their own. keepsState: true has the
 //     core drop all three when the effect is switched off or the plugin unloads.
@@ -405,6 +408,15 @@ function drawBolt(plugin, ctx, { from, to, seed, small }, p, k) {
 		forks.push([root, el, tip]);
 	}
 
+	if (!plugin.dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
+	if (!small) {   // where the bolt lands, a flash that fades with it
+		const R = Math.max(to.h, 16) * 1.3 * k, g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, R);
+		g.addColorStop(0, rgba(plugin.col(), 0.5 * flash));
+		g.addColorStop(0.4, rgba(plugin.acc(), 0.22 * flash));
+		g.addColorStop(1, rgba(plugin.acc(), 0));
+		ctx.fillStyle = g;
+		ctx.fillRect(b.x - R, b.y - R, R * 2, R * 2);
+	}
 	ctx.shadowColor = rgba(plugin.acc(), flash);
 	ctx.shadowBlur = 14 * k;
 	stroke(main, 5 * k, rgba(plugin.acc(), 0.35 * flash));
@@ -415,6 +427,8 @@ function drawBolt(plugin, ctx, { from, to, seed, small }, p, k) {
 }
 
 // ---- Effect: Glow ----------------------------------------------------------------------
+// A soft halo opens round the caret with each key - taller than it is wide, so it hugs the caret rather than sitting on it
+// like a coin - and the caret itself flares white-hot for an instant.
 EFFECTS.glow = {
 	id: 'glow', label: 'Glow', mode: 'always', toggleable: false, defaults: {}, blend: 'lighter',
 	onMove(plugin, prev, cur, info) {
@@ -428,15 +442,25 @@ EFFECTS.glow = {
 	draw(plugin, ctx, item, p, k) {
 		const rect = plugin.last;
 		if (!rect) return;
-		const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
-		const r = rect.h * (0.9 + p * 1.6) * k;
-		const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-		const a = (1 - p) * (1 - p) * 0.55 * Math.min(k, 1.5);
+		if (!plugin.dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing: a fainter halo of color instead
+		const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, K = Math.min(k, 1.5) * (plugin.dark ? 1 : 0.6);
+		const r = rect.h * (0.9 + p * 1.6) * k, a = (1 - p) * (1 - p) * 0.55 * K;
+		ctx.save();
+		ctx.translate(cx, cy);
+		ctx.scale(0.7, 1);
+		const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
 		g.addColorStop(0, rgba(plugin.col(), a));
 		g.addColorStop(0.45, rgba(plugin.acc(), a * 0.35));
 		g.addColorStop(1, rgba(plugin.acc(), 0));
 		ctx.fillStyle = g;
-		ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+		ctx.fillRect(-r, -r, r * 2, r * 2);
+		ctx.restore();
+		// The flare, on the caret for a few frames - not while an effect draws the caret in a shape of its own (Slime, the smear, Back-man).
+		const flare = Math.pow(1 - p, 4) * (plugin.cfg.style === 'block' ? 0.3 : 0.8) * K;
+		if (flare > 0.02 && !plugin.caretHolders.size) {
+			ctx.fillStyle = plugin.dark ? `rgba(255,255,255,${flare})` : rgba(plugin.col(), flare);
+			ctx.fillRect(rect.x - 0.5, rect.y, rect.w + 1, rect.h);
+		}
 	},
 };
 
@@ -451,6 +475,7 @@ EFFECTS.bounce = {
 	draw(plugin, ctx, item, p, k) {
 		const rect = plugin.last;
 		if (!rect) return;
+		if (!plugin.dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
 		const spring = Math.exp(-4 * p) * Math.sin(p * Math.PI * 2.5); // starts at the caret, no ghost
 		const lift = -rect.h * 0.42 * k * spring;
 		const stretch = 1 + 0.35 * spring * k;
@@ -463,39 +488,126 @@ EFFECTS.bounce = {
 	},
 };
 
-// ---- Effect: Trail (blaze: parallelogram swept between the previous and current caret, shrinking toward the new position) ----
+// ---- Effect: Trail (a comet ribbon the caret draws behind itself) ----------------------------------------------------
+// The caret's path is kept for a moment and drawn as one ribbon: the caret's full height where it is now, narrowing to a
+// point and fading toward where it was, a soft halo in the accent color round it and a bright thread down its middle. The
+// tail flutters a little as it fades, like a ribbon let go in the air. Typing draws it out letter by letter behind the
+// caret; a jump (a click elsewhere, a new line) is one long sweep that collapses toward where the caret landed. A step by
+// arrow key or mouse lets go of the ribbon, which fades where it is, and the next letter starts a new one. When the page
+// scrolls the ribbon goes along with the text.
+// Settings: trailMs (how long the ribbon lingers; 1400 is normal), trailMinWidths (a move farther than this many caret
+// heights is a jump).
+const TRAIL_PIECE_PX = 9;     // the ribbon is drawn in pieces about this long, each with its own width and fade
+const TRAIL_MAX_PTS = 160;    // the most points of the path kept
+const TRAIL_EDGE_PX = 1.5;    // half the width of a stretch that runs straight up or down (it has no caret height to spread over)
+const TRAIL_HOLD = 0.35;      // the share of its time a piece of the ribbon stays at full strength before it eases away
+
+/** How long the ribbon lingers, from the settings. */
+const trailDur = (plugin) => clamp(Number(plugin.cfg.trailMs) || 1400, 200, 5000);
+
+/** The item that holds the path of `host` (the plugin, or the dialog's preview). */
+function trailOf(host) {
+	const item = host.ensureItem('trail');
+	if (!item.pts) { item.pts = []; item.broken = false; }
+	return item;
+}
+
+/** A point of the path: the caret's left edge and middle, its height, when it was there; `gap` begins a new ribbon there. */
+const trailPoint = (r, t, gap) => ({ x: r.x + 1, y: r.y + r.h / 2, h: r.h, t, gap });
+
+/**
+ * One ribbon of the path (two points or more, oldest first), resampled into short pieces. Each piece has its own half
+ * height - the caret's at the head, down to nothing at the tail, by its age and by how far back along the ribbon it is -
+ * its own fade, and its own flutter, a wave that grows toward the tail as the ribbon ages. Its edge runs up and down over
+ * the caret's height where the ribbon runs along the line, and a little sideways where it runs up or down the page.
+ * Three passes: the halo, the body, the thread.
+ */
+function drawRibbon(ctx, ribbon, now, dur, K, col, acc, core) {
+	const nodes = [];
+	for (let a = 0; a + 1 < ribbon.length; a++) {
+		const p = ribbon[a], q = ribbon[a + 1], n = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / TRAIL_PIECE_PX));
+		for (let s = a ? 1 : 0; s <= n; s++) { const f = s / n; nodes.push({ x: lerp(p.x, q.x, f), y: lerp(p.y, q.y, f), h: lerp(p.h, q.h, f), t: lerp(p.t, q.t, f) }); }
+	}
+	const last = nodes.length - 1;
+	let L = 0;
+	for (let a = last; a >= 0; a--) { if (a < last) L += Math.hypot(nodes[a + 1].x - nodes[a].x, nodes[a + 1].y - nodes[a].y); nodes[a].d = L; }   // the way back from the head
+	const span = Math.max(L, nodes[last].h * 2);   // a short ribbon (a letter or two) is hardly tapered at all
+	for (let a = 0; a <= last; a++) {
+		const n = nodes[a], u = clamp01((now - n.t) / dur), s = Math.min(1, n.d / span);
+		const f = u < TRAIL_HOLD ? 1 : 1 - smoothStep((u - TRAIL_HOLD) / (1 - TRAIL_HOLD));   // full for a while, then eased away
+		n.hh = (n.h / 2) * (0.08 + 0.92 * Math.sqrt(f) * Math.pow(1 - s, 0.7));
+		n.a = f * (1 - 0.6 * s);
+		n.yy = n.y + Math.sin(now * 0.012 + n.d * 0.08) * n.h * 0.18 * Math.min(1, u * 1.5) * s;
+		const b = nodes[Math.min(last, a + 1)], c = nodes[Math.max(0, a - 1)], dx = b.x - c.x, dy = b.y - c.y, len = Math.hypot(dx, dy);
+		let nx = 0, ny = 1;
+		if (len > 1e-6) { nx = -dy / len; ny = dx / len; if (ny < 0 || (ny === 0 && nx < 0)) { nx = -nx; ny = -ny; } }   // always the same side up, so a ribbon that turns back never twists
+		n.ex = nx * TRAIL_EDGE_PX; n.ey = ny;
+	}
+	const quad = (p, q, wp, wq, m) => {
+		ctx.beginPath();
+		ctx.moveTo(p.x - p.ex * m, p.yy - p.ey * wp); ctx.lineTo(q.x - q.ex * m, q.yy - q.ey * wq);
+		ctx.lineTo(q.x + q.ex * m, q.yy + q.ey * wq); ctx.lineTo(p.x + p.ex * m, p.yy + p.ey * wp);
+		ctx.closePath();
+		ctx.fill();
+	};
+	for (let a = 0; a < last; a++) {   // the halo, wide and faint
+		const p = nodes[a], q = nodes[a + 1], al = (p.a + q.a) / 2;
+		if (al < 0.01) continue;
+		ctx.fillStyle = rgba(acc, 0.18 * al * K);
+		quad(p, q, p.hh * 1.7 + 1.5, q.hh * 1.7 + 1.5, 2.2);
+	}
+	for (let a = 0; a < last; a++) {   // the body
+		const p = nodes[a], q = nodes[a + 1], al = (p.a + q.a) / 2;
+		if (al < 0.01) continue;
+		ctx.fillStyle = rgba(col, 0.52 * al * K);
+		quad(p, q, p.hh, q.hh, 1);
+	}
+	ctx.lineWidth = 1;
+	ctx.lineCap = 'butt';
+	for (let a = 0; a < last; a++) {   // the thread
+		const p = nodes[a], q = nodes[a + 1], al = Math.pow((p.a + q.a) / 2, 1.6) * 0.9 * K;
+		if (al < 0.01) continue;
+		ctx.strokeStyle = rgba(core, al);
+		ctx.beginPath(); ctx.moveTo(p.x, p.yy); ctx.lineTo(q.x, q.yy); ctx.stroke();
+	}
+}
+
 EFFECTS.trail = {
 	id: 'trail', label: 'Trail', mode: 'always',
-	defaults: { trailMinWidths: 1.5 },   // trail appears for jumps farther than this many caret-heights
+	defaults: { trailMinWidths: 1.5, trailMs: 1400 },
 	blend: 'lighter',
 	onMove(plugin, prev, cur, info) {
 		const far = info.dist > cur.h * plugin.cfg.trailMinWidths;
-		if (!(far || info.typed)) return;
-		// Every typed character leaves its own short streak; long jumps get the full blaze.
-		plugin.items.push({ effect: 'trail', t0: info.now, dur: far ? 500 : 420, from: prev, to: cur });
+		const item = trailOf(plugin);
+		if (!(far || info.typed)) { item.broken = true; return; }   // a step by arrow key or mouse: the ribbon lets go of the caret and fades where it is
+		const dur = trailDur(plugin), pts = item.pts;
+		// Where a ribbon begins is given some age at once, so a sweep is a comet from its first frame and collapses toward the caret.
+		if (item.broken || !pts.length) { pts.push(trailPoint(prev, info.now - dur * 0.3, true)); item.broken = false; }
+		if (far) { const p = pts[pts.length - 1]; p.t = Math.min(p.t, info.now - dur * 0.45); }
+		pts.push(trailPoint(cur, info.now, false));
+		if (pts.length > TRAIL_MAX_PTS) pts.splice(0, pts.length - TRAIL_MAX_PTS);
 	},
-	draw(plugin, ctx, { from, to }, p, k) {
-		const e = Math.pow(1 - p, 3); // ease out
-		const sx = to.x + (from.x - to.x) * e, sy = to.y + (from.y - to.y) * e;
-		const w = 3;
-		ctx.beginPath();
-		ctx.moveTo(to.x, to.y);
-		ctx.lineTo(to.x + w, to.y);
-		ctx.lineTo(sx + w, sy);
-		ctx.lineTo(sx, sy);
-		ctx.lineTo(sx, sy + from.h);
-		ctx.lineTo(sx + w, sy + from.h);
-		ctx.lineTo(to.x + w, to.y + to.h);
-		ctx.lineTo(to.x, to.y + to.h);
-		ctx.closePath();
-		const g = ctx.createLinearGradient(to.x, to.y, sx, sy);
-		g.addColorStop(0, rgba(plugin.col(), 0.85 * (1 - p) * Math.min(k, 1.5)));
-		g.addColorStop(1, rgba(plugin.acc(), 0.0));
-		ctx.fillStyle = g;
-		ctx.shadowColor = rgba(plugin.acc(), 0.8 * (1 - p));
-		ctx.shadowBlur = 12 * k;
-		ctx.fill();
-		ctx.shadowBlur = 0;
+	onShift(plugin, dx, dy) {   // the page scrolled: the ribbon goes with the text
+		const item = plugin.items.find((it) => it.effect === 'trail' && !it.done);
+		if (item && item.pts) for (const q of item.pts) { q.x += dx; q.y += dy; }
+	},
+	onSample(plugin, cur) {   // the caret gone (another page): nothing may stay drawn where it was
+		if (cur) return;
+		const item = plugin.items.find((it) => it.effect === 'trail' && !it.done);
+		if (item) { item.pts = []; item.done = true; }
+	},
+	draw(plugin, ctx, item, p, k, now) {
+		const dur = trailDur(plugin), pts = item.pts;
+		while (pts.length && now - pts[0].t >= dur) pts.shift();
+		if (!pts.length) { item.done = true; return; }
+		const dark = plugin.dark, K = Math.min(k, 1.5) * (dark ? 1 : 0.55), col = plugin.col(), acc = plugin.acc(), core = dark ? '#ffffff' : lighten(col, 0.45);
+		if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing: drawn as a (fainter) band of color instead
+		for (let i = 0; i < pts.length;) {   // ribbon by ribbon: a gap begins a new one
+			let j = i + 1;
+			while (j < pts.length && !pts[j].gap) j++;
+			if (j - i >= 2) drawRibbon(ctx, pts.slice(i, j), now, dur, K, col, acc, core);
+			i = j;
+		}
 	},
 };
 
@@ -541,33 +653,37 @@ EFFECTS.lightning = {
 // One long-lived item per effect holds the particle array; physics run inside draw().
 function makeParticleEffect(def) {
 	const id = def.id, pd = def.particle;
-	const spawn = (host, r, force, now) => {
+	// `n` petals or leaves off the caret `r`; a `gust` (a new line) flings them up and out, one after another.
+	const spawn = (host, r, n, now, gust) => {
 		const k = Math.min(host.cfg.intensity, 1.6);
-		// Roughly one in three keystrokes drops a single petal or leaf.
-		const n = force || Math.random() < 0.18 + 0.12 * k ? 1 : 0;
-		if (!n) return;
 		let item = host.items.find((i) => i.effect === id && !i.done);
 		if (!item) { item = { effect: id, t0: now, dur: Infinity, parts: [] }; host.items.push(item); }
 		for (let i = 0; i < n && item.parts.length < 40; i++) {
 			item.parts.push({
 				def: pd, tone: pd.tones[Math.floor(Math.random() * pd.tones.length)],
 				x: r.x + (Math.random() - 0.5) * 6, y: r.y + r.h * (0.15 + Math.random() * 0.5),
-				vx: (Math.random() - 0.25) * 0.09, vy: -0.05 - Math.random() * 0.1,   // px/ms, pops up a little first
+				vx: gust ? (Math.random() - 0.5) * 0.3 : (Math.random() - 0.25) * 0.09,   // px/ms, pops up a little first; a gust flings it
+				vy: gust ? -0.1 - Math.random() * 0.16 : -0.05 - Math.random() * 0.1,
 				size: (pd.size[0] + Math.random() * (pd.size[1] - pd.size[0])) * (0.8 + 0.25 * k),
 				rot: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 0.006,
 				flip: Math.random() * 6, flipSpd: 0.004 + Math.random() * 0.005,       // flutter: turns edge-on
 				phase: Math.random() * 6.28, sway: (0.00022 + Math.random() * 0.00022) * pd.sway,
-				t0: now, life: 1700 + Math.random() * 1500,
+				t0: now + (gust ? i * 30 : 0), life: 1700 + Math.random() * 1500,
 			});
 		}
 	};
 	return {
 		id, label: def.label, mode: 'signature', preset: def.preset, defaults: {}, blend: 'source-over',
-		onMove(plugin, prev, cur, info) { if (info.typed) spawn(plugin, cur, false, info.now); },
+		onMove(plugin, prev, cur, info) {
+			if (!info.typed) return;
+			if (info.dy >= cur.h * 0.8) spawn(plugin, cur, 3 + Math.floor(Math.random() * 3), info.now, true);   // a new line shakes a few loose
+			else if (Math.random() < 0.18 + 0.12 * Math.min(plugin.cfg.intensity, 1.6)) spawn(plugin, cur, 1, info.now, false);   // roughly one letter in three drops one
+		},
 		draw(plugin, ctx, item, p, k, now, dt) {
 			item.parts = item.parts.filter((q) => now - q.t0 < q.life && q.y < window.innerHeight + 20);
 			if (!item.parts.length) { item.done = true; return; }
 			for (const q of item.parts) {
+				if (now < q.t0) continue;   // not yet loose
 				const age = (now - q.t0) / q.life, s = q.size, [a, b] = q.tone;
 				q.vy = Math.min(q.vy + 0.00016 * dt, q.def.fall);   // gravity, capped so they float down
 				q.vx += Math.sin(now * q.sway + q.phase) * 0.00005 * dt * q.def.sway;
@@ -603,7 +719,7 @@ function makeParticleEffect(def) {
 		preview(plugin, pv, caret, now) {
 			if (now < (pv.partNext || 0)) return;
 			pv.partNext = now + 750;
-			spawn(pv, caret, true, now);
+			spawn(pv, caret, 1, now, false);
 		},
 	};
 }
@@ -750,12 +866,18 @@ EFFECTS.smear = {
 		S.cx = prev.x + prev.w / 2; S.cy = prev.y + prev.h / 2; S.dir = null;
 		plugin.items.push({ effect: 'smear', t0: info.now, dur: Infinity });
 	},
+	onShift(plugin, dx, dy) {   // the page scrolled: the smear's points go along, so nothing seems to have moved
+		const S = plugin.state('smear');
+		if (!S.lead) return;
+		S.lead.x += dx; S.lead.y += dy; S.trail.x += dx; S.trail.y += dy; S.cx += dx; S.cy += dy;
+	},
 	draw(plugin, ctx, item, p, k, now, dt) {
 		const S = plugin.state('smear'), rect = caretBox(plugin);
 		if (!rect || !S.lead || backManBusy(plugin)) return finishSmear(plugin, item);
 		const { corners, moving } = stepSmear(S, rect, dt / 1000, plugin.cfg, now - (S.stepT || 0) < SMEAR_KEY_STEP_MS);
 		if (!moving) return finishSmear(plugin, item);
 		plugin.hideCaret('smear', true);   // hidden only in a frame that draws the quad, so the caret never blinks out between the two
+		item.hidesCaret = true;
 		const block = plugin.cfg.style === 'block';
 		ctx.save();
 		ctx.beginPath();
@@ -1982,7 +2104,7 @@ function drawZephyr(plugin, ctx, item, now, k) {
 	for (const q of item.streaks) {   // speed lines: thin, straight back from the caret, sliding away as they fade
 		const f = (now - q.t0) / q.life;
 		if (f < 0) continue;
-		const head = cx - 5 - 18 * easeOutCubic(f), tail = head - q.len * (1 - 0.4 * f), y = cy + q.dy;
+		const u = h / 24, head = cx - (5 + 18 * easeOutCubic(f)) * u, tail = head - q.len * u * (1 - 0.4 * f), y = cy + q.dy;
 		const g = ctx.createLinearGradient(tail, y, head, y);
 		g.addColorStop(0, rgba(core, 0));
 		g.addColorStop(1, rgba(core, 0.85 * power * (1 - f)));
@@ -2232,7 +2354,7 @@ function wobbleSlime(plugin, prev, cur) {
 
 function drawSlime(plugin, ctx, item, now, dt) {
 	const rect = caretBox(plugin);
-	if (!rect) { item.done = true; if (!plugin.isPreview) plugin.hideCaret('slime', false); return; }
+	if (!rect) { item.done = true; plugin.hideCaret('slime', false); return; }
 	const S = slimeState(item), idle = plugin.cfg.slimeIdle ?? 1;
 	const w = Math.max(rect.cw || 9, 8), h = rect.h, cx = rect.x + w / 2, base = rect.y + h;
 	// What the middle is pulled toward: nothing but the rest sway, which is two slow waves out of step.
@@ -2250,7 +2372,7 @@ function drawSlime(plugin, ctx, item, now, dt) {
 		S.vy += (-ws * ws * (S.sy - breathe) - 2 * zs * ws * S.vy) * s; S.sy += S.vy * s;
 	}
 	item.hidesCaret = true;
-	if (!plugin.isPreview) plugin.hideCaret('slime', true);   // only the jelly is seen, never the line caret under it
+	plugin.hideCaret('slime', true);   // only the jelly is seen, never the line caret under it
 	const hw = (w * S.sx) / 2, hh = h * S.sy;
 	const bulge = clamp((1 - S.sy) * w * 0.9, -w * 0.5, w * 0.6);
 	// The spine: the base fixed, then three joints that each lag the one below, so the body bends in a soft curve. The
@@ -2457,6 +2579,8 @@ for (const e of Object.values(EFFECTS)) {
 }
 
 
+let EFFECT_ORDER = null;   // each effect's place in the registry, for the draw order (filled on the first frame)
+
 class Plugin extends AppPlugin {
 	cfg = { ...DEFAULTS };
 	canvas = null;
@@ -2493,7 +2617,7 @@ class Plugin extends AppPlugin {
 		listen(document, 'input', () => requestAnimationFrame(() => this.sample(true)), cap);
 		listen(document, 'keydown', (e) => {
 			if (!this.caretEl) return; // typing in the palette, a rename field or another plugin: not ours
-			const typing = (e.key.length === 1 && !e.ctrlKey && !e.metaKey) || e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Enter';
+			const key = e.key || '', typing = (key.length === 1 && !e.ctrlKey && !e.metaKey) || key === 'Backspace' || key === 'Delete' || key === 'Enter';
 			if (typing) { this.lastTypeKey = performance.now(); setTimeout(() => this.sample(true), 0); }
 			if (document.querySelector(MODAL_SEL)) return;
 			const now = performance.now();
@@ -2502,7 +2626,7 @@ class Plugin extends AppPlugin {
 		listen(document, 'keyup', nav, cap);
 		listen(document, 'click', nav, cap);
 		listen(document, 'selectionchange', nav);
-		listen(document, 'scroll', () => { this.clipT = 0; nav(); }, cap);
+		listen(document, 'scroll', () => { this.clipT = 0; this.scrollAt = performance.now(); nav(); }, cap);   // a move seen right after this is the page moving, not the caret (see sample)
 		listen(window, 'resize', () => { this.resize(); this.clipT = 0; nav(); });
 
 		this.installCaretObserver();
@@ -2529,6 +2653,8 @@ class Plugin extends AppPlugin {
 		this.running = new Set();
 		this.canvas?.remove();
 		this.closeDialog();
+		this.caretHolders.clear();
+		document.body.classList.remove('cfx-caret-off');
 		this.caretStyle?.remove();
 		this.block?.remove();
 		this.block = null;
@@ -2539,7 +2665,7 @@ class Plugin extends AppPlugin {
 	// Thymer moves its caret element with style/data attributes; watch only those elements, not the whole document.
 	installCaretObserver() {
 		const attached = new WeakSet();
-		const observers = [];
+		const observers = [];   // [observer, caret element] for each one watched
 		let pending = false;
 		const poke = () => {
 			if (pending) return;
@@ -2551,22 +2677,30 @@ class Plugin extends AppPlugin {
 			attached.add(el);
 			const mo = new MutationObserver(poke);
 			mo.observe(el, { attributes: true, attributeFilter: ['data-x', 'data-y', 'style', 'class'] });
-			observers.push(mo);
+			observers.push([mo, el]);
 			poke();
 		};
 		const tree = new MutationObserver((muts) => {
+			let gone = false;
 			for (const m of muts) {
 				for (const node of m.addedNodes) {
 					if (!(node instanceof Element)) continue;
 					if (node.matches(CARET_SEL)) attach(node);
 					else node.querySelectorAll?.(CARET_SEL).forEach(attach);
 				}
-				if (m.removedNodes.length && this.caretEl && !this.caretEl.isConnected) { this.caretEl = null; this.clipT = 0; poke(); }   // look again: its page may be gone
+				if (m.removedNodes.length) gone = true;
 			}
+			if (!gone) return;
+			for (let i = observers.length - 1; i >= 0; i--) {   // a page closed: its caret's observer goes with it (and the element may be watched afresh if it comes back)
+				const [mo, el] = observers[i];
+				if (el.isConnected) continue;
+				mo.disconnect(); attached.delete(el); observers.splice(i, 1);
+			}
+			if (this.caretEl && !this.caretEl.isConnected) { this.caretEl = null; this.clipT = 0; poke(); }   // look again: its page may be gone
 		});
 		tree.observe(document.body, { childList: true, subtree: true });
 		document.querySelectorAll(CARET_SEL).forEach(attach);
-		this.cleanup.push(() => { tree.disconnect(); observers.forEach((o) => o.disconnect()); observers.length = 0; });
+		this.cleanup.push(() => { tree.disconnect(); observers.forEach(([o]) => o.disconnect()); observers.length = 0; });
 	}
 
 	installThemeObserver() {
@@ -2633,7 +2767,7 @@ class Plugin extends AppPlugin {
 	// sight while it does; they come back when the last of them lets go.
 	hideCaret(id, on) {
 		if (on) this.caretHolders.add(id); else this.caretHolders.delete(id);
-		document.body.classList.toggle('cfx-caret-off', this.caretHolders.size > 0);
+		if (!this.isPreview) document.body.classList.toggle('cfx-caret-off', this.caretHolders.size > 0);   // the dialog's preview keeps its own count and touches no caret of the page
 	}
 
 	// What an effect that keeps state leaves behind when it stops: its items, its state, its hold on the caret.
@@ -2771,7 +2905,9 @@ class Plugin extends AppPlugin {
 		});
 	}
 
-	// Plays the active effects' previews inside the dialog, on a mini canvas, through the same registry draw().
+	// Plays the active effects' previews inside the dialog, on a mini canvas, through the same registry draw(). An effect
+	// with a preview hook of its own runs that; for the rest the preview types - a letter's step now and then, a jump once
+	// in a while - so the glow, the trail and the smear show what they do.
 	startPreview(host) {
 		const cv = document.createElement('canvas');
 		host.appendChild(cv);
@@ -2781,16 +2917,28 @@ class Plugin extends AppPlugin {
 		pv.ctx = cv.getContext('2d');
 		pv.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		pv.items = []; pv.lastT = 0; pv.isPreview = true;
-		const caret = { x: 186, y: 28, w: 2.5, h: 28 };
-		pv.last = caret;
+		pv.fxState = {}; pv.caretHolders = new Set();   // its own: an effect's springs and marks here must not be the live caret's
+		const caretAt = () => ({ x: 186, y: 28, w: this.cfg.style === 'block' ? 14 : 2.5, h: 28, cw: 14, lw: 2.5 });   // as .cfx-caret is laid out
+		const sim = { next: performance.now() + 500, n: 0 };
 		const tick = () => {
 			if (!this.dlg || !cv.isConnected) return;
-			const now = performance.now();
-			for (const e of this.activeEffects()) e.preview?.(this, pv, caret, now);
+			const now = performance.now(), caret = caretAt();
+			pv.last = caret;
+			let move = null;
+			if (now >= sim.next) {
+				const jump = ++sim.n % 6 === 0;
+				sim.next = now + (jump ? 1100 : 320 + Math.random() * 220);
+				const prev = { ...caret, x: jump ? 40 : caret.x - 9 }, dx = caret.x - prev.x;
+				move = { prev, info: { typed: !jump, dist: dx, dx, dy: 0, now } };
+			}
+			for (const e of this.activeEffects()) {
+				if (e.preview) e.preview(this, pv, caret, now);
+				else if (move) pv.callHook(e, 'onMove', move.prev, caret, move.info);
+			}
 			pv.ctx.clearRect(0, 0, W, H);
 			const live = new Set(this.activeEffects().map((e) => e.id));
-			pv.items = pv.items.filter((it) => live.has(it.effect));
-			host.classList.toggle('cfx-nocaret', pv.items.some((it) => it.hidesCaret));   // an effect that draws the caret itself: the preview's own is hidden too   // what was switched off must not linger in the preview
+			pv.items = pv.items.filter((it) => live.has(it.effect));   // what was switched off must not linger in the preview
+			host.classList.toggle('cfx-nocaret', pv.items.some((it) => it.hidesCaret));   // an effect that draws the caret itself: the preview's own is hidden too
 			pv.renderItems(now);
 			requestAnimationFrame(tick);
 		};
@@ -2800,7 +2948,7 @@ class Plugin extends AppPlugin {
 	presetDialog() {
 		this.dialog('Caret preset', (box) => {
 			const html = (h) => { const t = document.createElement('div'); t.innerHTML = h; return t.firstElementChild; };
-			const preview = html('<div class="cfx-preview"><span>Typing something…</span><div class="cfx-trail"></div><div class="cfx-caret"></div></div>');
+			const preview = html('<div class="cfx-preview"><span>Typing something…</span><div class="cfx-caret"></div></div>');
 			box.appendChild(preview);
 			this.startPreview(preview);
 
@@ -2874,10 +3022,11 @@ class Plugin extends AppPlugin {
 		});
 	}
 
-	// Cycles the colour presets, then the special presets from the registry.
+	// Cycles the colour presets, then the special presets from the registry, from the one in use (a custom color: from the first).
 	nextPreset() {
 		const list = this.presetList();
-		this.preset = (this.preset + 1) % list.length;
+		const cur = list.findIndex(([, color, accent, fx]) => color === this.cfg.color && accent === this.cfg.accent && (fx || null) === (this.cfg.fx || null));
+		this.preset = (cur + 1) % list.length;
 		const [name, color, accent, fx] = list[this.preset];
 		this.update({ color, accent, fx });
 		this.ui.addToaster({ title: 'Caret FX', message: `Color: ${name}`, dismissible: true, autoDestroyTime: 1500 });
@@ -2963,7 +3112,15 @@ class Plugin extends AppPlugin {
 		const dist = Math.hypot(dx, dy);
 		if (!moved) return; // same position: key repeat/blink/duplicate events must not stack effects
 
-		const info = { typed, dist, dx, dy, now: performance.now() };
+		const now = performance.now();
+		// The page scrolled under a still caret: on screen it moved, in the text it did not. That is no move - it would draw a
+		// sweep at every turn of the wheel - but what keeps screen positions (the trail's path, the smear) goes along with it.
+		if (!typed && now - (this.scrollAt || 0) < 150) {
+			for (const e of this.activeEffects()) this.callHook(e, 'onShift', dx, dy, now);
+			this.kick();
+			return;
+		}
+		const info = { typed, dist, dx, dy, now };
 		for (const e of this.activeEffects()) this.callHook(e, 'onMove', prev, cur, info);
 		this.kick();
 	}
@@ -3021,8 +3178,8 @@ class Plugin extends AppPlugin {
 		this.lastT = now;
 		this.items = this.items.filter((it) => !it.done && now - it.t0 < it.dur);
 		// Draw in registry order (not insertion order): a long-lived particle item must not sink under newer items.
-		const order = Object.keys(EFFECTS);
-		this.items.sort((a, b) => order.indexOf(a.effect) - order.indexOf(b.effect));
+		const order = EFFECT_ORDER || (EFFECT_ORDER = new Map(Object.keys(EFFECTS).map((id, i) => [id, i])));
+		this.items.sort((a, b) => (order.get(a.effect) ?? 99) - (order.get(b.effect) ?? 99));
 		for (const it of this.items) {
 			const e = EFFECTS[it.effect];
 			if (!e) { it.done = true; continue; }

@@ -9,11 +9,10 @@
 .cfx-x:hover { opacity: 1; background: rgba(127,127,127,.18); }
 .cfx-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .55; margin: 14px 0 7px; }
 .cfx-preview { position: relative; height: 84px; border-radius: 12px; overflow: hidden; background: rgba(127,127,127,.12); border: 1px solid rgba(127,127,127,.2); display: flex; align-items: center; padding: 0 16px; font-size: 15px; letter-spacing: .02em; }
-.cfx-preview .cfx-trail { position: absolute; left: 118px; top: 31px; width: 70px; height: 22px; background: linear-gradient(90deg, transparent, var(--a)); opacity: .55; filter: blur(2px); }
 .cfx-preview .cfx-caret { position: absolute; left: 186px; top: 28px; width: 2.5px; height: 28px; border-radius: 2px; background: var(--c); box-shadow: 0 0 10px var(--c), 0 0 22px var(--a); animation: cfx-blink 1.1s steps(1) infinite; }
 @keyframes cfx-blink { 50% { opacity: .35; } }
 .cfx-preview.block .cfx-caret { width: 14px; border-radius: 2px; background: color-mix(in srgb, var(--c) 42%, transparent); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 8px color-mix(in srgb, var(--c) 45%, transparent); }
-.cfx-preview.cfx-nocaret .cfx-caret, .cfx-preview.cfx-nocaret .cfx-trail { opacity: 0; animation: none; }
+.cfx-preview.cfx-nocaret .cfx-caret { opacity: 0; animation: none; }
 .cfx-preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .cfx-opts { display: grid; gap: 1px; margin: 0 -8px; }
 .cfx-opt { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 8px; border-radius: 9px; cursor: pointer; }

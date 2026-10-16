@@ -12,8 +12,7 @@ here only as the mascot of a personal plugin. The source files it was made from 
 **If this repository is ever made public, or the plugin is shared: remove `knight.json` and `achievements.js` (the built plugin
 contains the model) first, or replace the model with your own.**
 
-## The previous mascot: Sonic (no longer used)
+## The previous mascot: Sonic (removed)
 
-`sonic-adventure-sonic/` and `../sonic.json` are the Sonic model from **Sonic Adventure** (SEGA, 1998, Dreamcast), ripped by
-**Spectro**; copyrighted by SEGA, with the ripper's terms in `sonic-adventure-sonic/README.txt` (free to use for SFM, GMod, fan games
-and animations, with credit to Spectro if re-uploaded). `build.mjs` no longer embeds it, so both can be deleted.
+The mascot used to be the Sonic model from **Sonic Adventure** (SEGA, 1998), ripped by **Spectro**. It was removed from the tree; it
+remains in the git history (the commits before the knight), so a public repository would need that history cleaned too.

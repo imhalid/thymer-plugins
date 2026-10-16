@@ -5,7 +5,7 @@ Personal plugins for [Thymer](https://thymer.com).
 | Plugin | What it does |
 | --- | --- |
 | [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning, Holy, Prism, Health, Zephyr, Tide) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
-| [`achievements`](plugins/achievements) | 62 writing achievements, from easy to legendary (words, speed, streaks, tasks, night owl, ...) that pay rings, with a small 3D mascot drawn in plain WebGL in the top-left corner: it spins, runs faster while you type, and hops with a banner when something unlocks |
+| [`achievements`](plugins/achievements) | 62 writing achievements, from easy to legendary (words, speed, streaks, tasks, night owl, ...) that pay crowns, with a small 3D knight drawn in plain WebGL in the top-left corner: its head follows the pointer, nods while you type, and it salutes with a banner when something unlocks |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 | [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
 | [`home`](plugins/home) | A dashboard opened from a Home button beside Tasks: a full-width WebGL sky (a nebula, a neural field or a star atlas, in one of six biomes) in which every day you changed something is a star, brighter the more changed, days in a row joined by lines that pass light along; then the last 30 days, today's journal and recently edited pages |
@@ -19,11 +19,21 @@ Personal plugins for [Thymer](https://thymer.com).
 
 ## Achievements
 
-A character card at the top of the sidebar and 62 achievements for writing: total words, words in a day, in a minute and in one sitting, long lines, lines added, day streaks, finished tasks (in total and in a day), night, early and midnight writing, hours of the day, weekends, days written, comebacks, and unlocking the others. Each pays rings, and each is marked Easy, Medium, Hard or Legendary by what it pays.
+A character card at the top of the sidebar and 62 achievements for writing: total words, words in a day, in a minute and in one sitting, long lines, lines added, day streaks, finished tasks (in total and in a day), night, early and midnight writing, hours of the day, weekends, days written, comebacks, and unlocking the others. Each pays crowns, and each is marked Easy, Medium, Hard or Legendary by what it pays.
 
-The card is a window onto the mascot's head (low-poly, drawn with plain WebGL, looking at the pointer, nodding while you type). Below it sits Thymer's own workspace row, and the card's Search and Jump to buttons press Thymer's own Search and Jump To rows (hidden while the card is on); the sidebar's content is pushed down to make room. Click the portrait (or run `Achievements: open`) for the full list; `Achievements: show or hide the mascot` hides the card. When something unlocks, a notification drops in at the top centre of the screen on a black radial glow: each badge gathers a ring of energy in its tier's colour while the icon waits small, then bursts into a shockwave and sparks as the icon springs open and the words bounce in (a WebGL fragment shader drawing from small CC0 textures by Kenney and Screaming Brain Studios, see `fx/LICENSE.md`; skipped with reduced motion). Several unlocks at once open as a staggered stack, top to bottom. `Achievements: replay the last unlock` plays it again. Progress is kept per device in the app's local storage.
+The card is a window onto the knight's head (low-poly, drawn with plain WebGL: the head turns to the pointer on its own while the body stays put, and nods while you type; at an unlock the knight salutes, the model blending between its idle and salute poses). The portrait sits on a card background (`card-bg.jpg`, inlined in `plugin.css`). Below it sits Thymer's own workspace row, and the card's Search and Jump to buttons press Thymer's own Search and Jump To rows (hidden while the card is on); the sidebar's content is pushed down to make room. Click the portrait (or run `Achievements: open`) for the full list; `Achievements: show or hide the mascot` hides the card. When something unlocks, a notification drops in at the top centre of the screen on a black radial glow: each badge gathers a ring of energy in its tier's colour while the icon waits small, then bursts into a shockwave and sparks as the icon springs open and the words bounce in (a WebGL fragment shader drawing from small CC0 textures by Kenney and Screaming Brain Studios, see `fx/LICENSE.md`; skipped with reduced motion). Several unlocks at once open as a staggered stack, top to bottom. `Achievements: replay the last unlock` plays it again. Progress is kept per device in the app's local storage.
 
-To install: paste `achievements.js` (the built plugin, model included) into a new global plugin's code tab and `plugin.css` into its CSS tab. To rebuild after editing `achievements.src.js`: `node build.mjs` (it embeds `sonic.json`). The model is a ripped Sonic Adventure asset; see `model/LICENSE.md` for its credits and for what to remove before this repository is ever made public.
+To install: paste `achievements.js` (the built plugin, model included) into a new global plugin's code tab and `plugin.css` into its CSS tab. To rebuild after editing `achievements.src.js`: `node build.mjs` (it embeds `knight.json`). The model is a Spiral Knights asset; see `model/LICENSE.md` for its credits and for what to remove before this repository is ever made public.
+
+### Changing the mascot
+
+The knight is made from a [Kozmas](https://www.kozmas.gg) costume by `tools/costume2thymer`, so another costume is one command:
+
+```sh
+python3 plugins/achievements/tools/costume2thymer/costume2thymer.py https://www.kozmas.gg/costumes/proto-blade --push
+```
+
+It reads the costume's pieces from the page and downloads them (into the git-ignored `tools/costume2thymer/.cache/`), rebuilds the knight's skeleton and poses in headless Blender, writes `knight.json`, builds `achievements.js` and pushes it to Thymer through the desktop app's MCP server (backing up the live plugin first). Without `--push` it stops after writing `knight.json`; `--build` also builds. See `tools/costume2thymer/README.md`.
 
 ## Digital Garden
 

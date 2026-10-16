@@ -2,7 +2,7 @@
  * Achievements
  *
  * Trophies for writing, and a character card in the top-left corner: a window onto the mascot's head, looking out at you (it
- * follows the pointer, nods while you type, and spins when something unlocks), with its name, level, an
+ * follows the pointer with its head, nods while you type, and salutes when something unlocks), with its name, level, an
  * achievement progress bar and three buttons below - search, jump to, and the full list. The head is a low-poly model
  * drawn with plain WebGL (no libraries, no network); everything else is HTML and CSS.
  *
@@ -10,81 +10,81 @@
  * Everything is kept per device in localStorage ("achievements:v1").
  */
 
-const SONIC = __SONIC__;
+const KNIGHT = __KNIGHT__;   // the mascot: parts, textures and framing, baked by build.mjs from knight.json
 
 const STORE_KEY = 'achievements:v1';
 const HIDE_KEY = 'achievements:hidden';
 const STREAK_MIN_WORDS = 30;   // a day counts toward the streak from this many words
 
 // ---- The list ------------------------------------------------------------------------------------------------------------
-// stat: what is measured; target: where it unlocks; rings: what it pays.
+// stat: what is measured; target: where it unlocks; crowns: what it pays.
 const ACHIEVEMENTS = [
-	{ id: 'w1', name: 'First Ring', desc: 'Write your first word', stat: 'words', target: 1, rings: 5, icon: '💍' },
-	{ id: 'w25', name: 'Warm Up', desc: 'Write 25 words', stat: 'words', target: 25, rings: 5, icon: '🏃' },
-	{ id: 'w100', name: 'Ring Collector', desc: 'Write 100 words', stat: 'words', target: 100, rings: 10, icon: '💍' },
-	{ id: 'w500', name: 'Gold Rush', desc: 'Write 500 words', stat: 'words', target: 500, rings: 20, icon: '🥇' },
-	{ id: 'w1000', name: 'Ring Master', desc: 'Write 1,000 words', stat: 'words', target: 1000, rings: 40, icon: '🏅' },
-	{ id: 'w5000', name: 'Rings Everywhere', desc: 'Write 5,000 words', stat: 'words', target: 5000, rings: 80, icon: '🌟' },
-	{ id: 'w10000', name: 'Super Rings', desc: 'Write 10,000 words', stat: 'words', target: 10000, rings: 150, icon: '👑' },
-	{ id: 'w25000', name: 'Hyper Rings', desc: 'Write 25,000 words', stat: 'words', target: 25000, rings: 300, icon: '💫' },
-	{ id: 'w50000', name: 'Hyper Form', desc: 'Write 50,000 words', stat: 'words', target: 50000, rings: 500, icon: '🌈' },
-	{ id: 'w100000', name: 'Ultimate Life Form', desc: 'Write 100,000 words', stat: 'words', target: 100000, rings: 1000, icon: '🖤' },
-	{ id: 'd250', name: 'Spin Dash', desc: 'Write 250 words in one day', stat: 'bestDay', target: 250, rings: 15, icon: '🌀' },
-	{ id: 'd1000', name: 'Boost', desc: 'Write 1,000 words in one day', stat: 'bestDay', target: 1000, rings: 50, icon: '🚀' },
-	{ id: 'd2500', name: 'Super Form', desc: 'Write 2,500 words in one day', stat: 'bestDay', target: 2500, rings: 120, icon: '✨' },
-	{ id: 'd5000', name: 'Sonic Boom', desc: 'Write 5,000 words in one day', stat: 'bestDay', target: 5000, rings: 250, icon: '💥' },
-	{ id: 'm1000', name: 'Speed Highway', desc: 'Write 1,000 words without a 10-minute break', stat: 'bestSession', target: 1000, rings: 60, icon: '🛣️' },
-	{ id: 'm3000', name: 'Final Rush', desc: 'Write 3,000 words without a 10-minute break', stat: 'bestSession', target: 3000, rings: 180, icon: '☄️' },
-	{ id: 'p25', name: 'Fast Enough', desc: '25 words in a minute', stat: 'peak', target: 25, rings: 10, icon: '👟' },
-	{ id: 'p40', name: 'Gotta Go Fast', desc: '40 words in a minute', stat: 'peak', target: 40, rings: 30, icon: '⚡' },
-	{ id: 'p60', name: 'Faster Than Sound', desc: '60 words in a minute', stat: 'peak', target: 60, rings: 80, icon: '💨' },
-	{ id: 'p80', name: 'Light Speed', desc: '80 words in a minute', stat: 'peak', target: 80, rings: 150, icon: '🌠' },
-	{ id: 'ln50', name: 'Rail Grind', desc: 'Write 50 words in a single line', stat: 'longLine', target: 50, rings: 10, icon: '🛤️' },
-	{ id: 'ln200', name: 'Rail Canyon', desc: 'Write 200 words in a single line', stat: 'longLine', target: 200, rings: 50, icon: '🚂' },
-	{ id: 'l10', name: 'Spring', desc: 'Add 10 lines', stat: 'lines', target: 10, rings: 5, icon: '🦘' },
-	{ id: 'l1000', name: 'Loop-de-Loop', desc: 'Add 1,000 lines', stat: 'lines', target: 1000, rings: 60, icon: '➰' },
-	{ id: 'l5000', name: 'Carnival Night', desc: 'Add 5,000 lines', stat: 'lines', target: 5000, rings: 200, icon: '🎡' },
-	{ id: 's3', name: 'First Emerald', desc: 'Write 3 days in a row', stat: 'bestStreak', target: 3, rings: 15, icon: '💚' },
-	{ id: 's7', name: 'Seven Emeralds', desc: 'Write 7 days in a row', stat: 'bestStreak', target: 7, rings: 50, icon: '💎' },
-	{ id: 's14', name: 'Master Emerald', desc: 'Write 14 days in a row', stat: 'bestStreak', target: 14, rings: 100, icon: '🔷' },
-	{ id: 's30', name: 'Chaos Control', desc: 'Write 30 days in a row', stat: 'bestStreak', target: 30, rings: 250, icon: '🌌' },
-	{ id: 's60', name: 'Angel Island', desc: 'Write 60 days in a row', stat: 'bestStreak', target: 60, rings: 400, icon: '🏝️' },
-	{ id: 's100', name: 'Hidden Palace', desc: 'Write 100 days in a row', stat: 'bestStreak', target: 100, rings: 600, icon: '🏛️' },
-	{ id: 's365', name: 'Super Emeralds', desc: 'Write 365 days in a row', stat: 'bestStreak', target: 365, rings: 2000, icon: '🔮' },
-	{ id: 't1', name: 'Checkpoint', desc: 'Finish a task', stat: 'tasks', target: 1, rings: 5, icon: '🚩' },
-	{ id: 't5', name: 'Starpost', desc: 'Finish 5 tasks', stat: 'tasks', target: 5, rings: 10, icon: '📍' },
-	{ id: 't10', name: 'Zone Clear', desc: 'Finish 10 tasks', stat: 'tasks', target: 10, rings: 20, icon: '✅' },
-	{ id: 't50', name: 'Act Complete', desc: 'Finish 50 tasks', stat: 'tasks', target: 50, rings: 60, icon: '🏁' },
-	{ id: 't100', name: 'Time Attack', desc: 'Finish 100 tasks', stat: 'tasks', target: 100, rings: 120, icon: '⏱️' },
-	{ id: 't250', name: 'Badnik Buster', desc: 'Finish 250 tasks', stat: 'tasks', target: 250, rings: 200, icon: '🤖' },
-	{ id: 't1000', name: 'Death Egg Down', desc: 'Finish 1,000 tasks', stat: 'tasks', target: 1000, rings: 700, icon: '💣' },
-	{ id: 'td5', name: 'Combo', desc: 'Finish 5 tasks in one day', stat: 'bestTaskDay', target: 5, rings: 15, icon: '🔗' },
-	{ id: 'td20', name: 'Boss Rush', desc: 'Finish 20 tasks in one day', stat: 'bestTaskDay', target: 20, rings: 80, icon: '⚔️' },
-	{ id: 'night', name: 'Night Owl', desc: 'Write 100 words between 22:00 and 04:00', stat: 'night', target: 100, rings: 25, icon: '🌙' },
-	{ id: 'night1k', name: 'Mystic Cave', desc: 'Write 1,000 words between 22:00 and 04:00', stat: 'night', target: 1000, rings: 80, icon: '🦇' },
-	{ id: 'early', name: 'Early Bird', desc: 'Write 100 words between 04:00 and 08:00', stat: 'early', target: 100, rings: 25, icon: '🌅' },
-	{ id: 'early1k', name: 'Sky Sanctuary', desc: 'Write 1,000 words between 04:00 and 08:00', stat: 'early', target: 1000, rings: 80, icon: '☀️' },
-	{ id: 'midnight', name: 'Werehog', desc: 'Write a word at midnight sharp (00:00)', stat: 'midnight', target: 1, rings: 40, icon: '🐺' },
-	{ id: 'h12', name: 'Sunset Hill', desc: 'Write in 12 different hours of the day', stat: 'hours', target: 12, rings: 40, icon: '🌇' },
-	{ id: 'h24', name: 'Day and Night', desc: 'Write in every hour of the day, 00 to 23', stat: 'hours', target: 24, rings: 200, icon: '🌗' },
-	{ id: 'wkend', name: 'Casino Night', desc: 'Write 500 words on weekends', stat: 'weekend', target: 500, rings: 25, icon: '🎰' },
-	{ id: 'wk7', name: 'Zone Tour', desc: 'Write on every day of the week, Monday to Sunday', stat: 'weekdays', target: 7, rings: 30, icon: '📅' },
-	{ id: 'ny', name: 'New Game', desc: "Write on New Year's Day", stat: 'newYear', target: 1, rings: 30, icon: '🎆' },
-	{ id: 'back', name: 'Extra Life', desc: 'Come back and write after 7 or more days away', stat: 'comeback', target: 7, rings: 20, icon: '🆙' },
-	{ id: 'a3', name: 'Emerald Coast', desc: 'Write on 3 different days', stat: 'daysActive', target: 3, rings: 10, icon: '🏖️' },
-	{ id: 'a10', name: 'Green Hill', desc: 'Write on 10 different days', stat: 'daysActive', target: 10, rings: 30, icon: '🌿' },
-	{ id: 'a30', name: 'Chemical Plant', desc: 'Write on 30 different days', stat: 'daysActive', target: 30, rings: 90, icon: '🧪' },
-	{ id: 'a100', name: 'Final Egg', desc: 'Write on 100 different days', stat: 'daysActive', target: 100, rings: 300, icon: '🥚' },
-	{ id: 'a200', name: 'Station Square', desc: 'Write on 200 different days', stat: 'daysActive', target: 200, rings: 500, icon: '🏙️' },
-	{ id: 'a365', name: 'Space Colony ARK', desc: 'Write on 365 different days', stat: 'daysActive', target: 365, rings: 1000, icon: '🛰️' },
-	{ id: 'peek', name: 'Ring Box', desc: 'Open the achievements list', stat: 'opens', target: 1, rings: 2, icon: '📦' },
-	{ id: 'got10', name: 'Chao Garden', desc: 'Unlock 10 achievements', stat: 'got', target: 10, rings: 30, icon: '🐣' },
-	{ id: 'got30', name: 'Emblem Hunter', desc: 'Unlock 30 achievements', stat: 'got', target: 30, rings: 150, icon: '🎖️' },
+	{ id: 'w1', name: 'First Crown', desc: 'Write your first word', stat: 'words', target: 1, crowns: 5, icon: '👑' },
+	{ id: 'w25', name: 'Warm Up', desc: 'Write 25 words', stat: 'words', target: 25, crowns: 5, icon: '🏃' },
+	{ id: 'w100', name: 'Crown Collector', desc: 'Write 100 words', stat: 'words', target: 100, crowns: 10, icon: '🪙' },
+	{ id: 'w500', name: 'Gold Rush', desc: 'Write 500 words', stat: 'words', target: 500, crowns: 20, icon: '🥇' },
+	{ id: 'w1000', name: 'Crown Master', desc: 'Write 1,000 words', stat: 'words', target: 1000, crowns: 40, icon: '🏅' },
+	{ id: 'w5000', name: 'Crowns Everywhere', desc: 'Write 5,000 words', stat: 'words', target: 5000, crowns: 80, icon: '🌟' },
+	{ id: 'w10000', name: 'Royal Crowns', desc: 'Write 10,000 words', stat: 'words', target: 10000, crowns: 150, icon: '👑' },
+	{ id: 'w25000', name: 'Crown Vault', desc: 'Write 25,000 words', stat: 'words', target: 25000, crowns: 300, icon: '💰' },
+	{ id: 'w50000', name: 'Treasure Hoard', desc: 'Write 50,000 words', stat: 'words', target: 50000, crowns: 500, icon: '🏆' },
+	{ id: 'w100000', name: 'Spiral Legend', desc: 'Write 100,000 words', stat: 'words', target: 100000, crowns: 1000, icon: '🌀' },
+	{ id: 'd250', name: 'Quick Slash', desc: 'Write 250 words in one day', stat: 'bestDay', target: 250, crowns: 15, icon: '🗡️' },
+	{ id: 'd1000', name: 'Charge Attack', desc: 'Write 1,000 words in one day', stat: 'bestDay', target: 1000, crowns: 50, icon: '⚡' },
+	{ id: 'd2500', name: 'Full Charge', desc: 'Write 2,500 words in one day', stat: 'bestDay', target: 2500, crowns: 120, icon: '🔋' },
+	{ id: 'd5000', name: 'Proto Blade Unleashed', desc: 'Write 5,000 words in one day', stat: 'bestDay', target: 5000, crowns: 250, icon: '⚔️' },
+	{ id: 'm1000', name: 'Clockwork Sprint', desc: 'Write 1,000 words without a 10-minute break', stat: 'bestSession', target: 1000, crowns: 60, icon: '🏃' },
+	{ id: 'm3000', name: 'Deep Dive', desc: 'Write 3,000 words without a 10-minute break', stat: 'bestSession', target: 3000, crowns: 180, icon: '🕳️' },
+	{ id: 'p25', name: 'Quick Hands', desc: '25 words in a minute', stat: 'peak', target: 25, crowns: 10, icon: '✋' },
+	{ id: 'p40', name: 'Gremlin Dash', desc: '40 words in a minute', stat: 'peak', target: 40, crowns: 30, icon: '💨' },
+	{ id: 'p60', name: 'Lightning Reflexes', desc: '60 words in a minute', stat: 'peak', target: 60, crowns: 80, icon: '⚡' },
+	{ id: 'p80', name: 'Light Speed', desc: '80 words in a minute', stat: 'peak', target: 80, crowns: 150, icon: '🌠' },
+	{ id: 'ln50', name: 'Clockwork Corridor', desc: 'Write 50 words in a single line', stat: 'longLine', target: 50, crowns: 10, icon: '🚪' },
+	{ id: 'ln200', name: 'Endless Corridor', desc: 'Write 200 words in a single line', stat: 'longLine', target: 200, crowns: 50, icon: '♾️' },
+	{ id: 'l10', name: 'Shield Bash', desc: 'Add 10 lines', stat: 'lines', target: 10, crowns: 5, icon: '🛡️' },
+	{ id: 'l1000', name: 'Gear Grinder', desc: 'Add 1,000 lines', stat: 'lines', target: 1000, crowns: 60, icon: '⚙️' },
+	{ id: 'l5000', name: 'Clockwork Factory', desc: 'Add 5,000 lines', stat: 'lines', target: 5000, crowns: 200, icon: '🏭' },
+	{ id: 's3', name: 'First Crystal', desc: 'Write 3 days in a row', stat: 'bestStreak', target: 3, crowns: 15, icon: '💎' },
+	{ id: 's7', name: 'Seven Crystals', desc: 'Write 7 days in a row', stat: 'bestStreak', target: 7, crowns: 50, icon: '💠' },
+	{ id: 's14', name: 'Crystal Cluster', desc: 'Write 14 days in a row', stat: 'bestStreak', target: 14, crowns: 100, icon: '🔷' },
+	{ id: 's30', name: 'Heat Wave', desc: 'Write 30 days in a row', stat: 'bestStreak', target: 30, crowns: 250, icon: '🔥' },
+	{ id: 's60', name: 'Depth Delver', desc: 'Write 60 days in a row', stat: 'bestStreak', target: 60, crowns: 400, icon: '⛏️' },
+	{ id: 's100', name: 'Hall of Heroes', desc: 'Write 100 days in a row', stat: 'bestStreak', target: 100, crowns: 600, icon: '🏛️' },
+	{ id: 's365', name: 'Everlasting Crystal', desc: 'Write 365 days in a row', stat: 'bestStreak', target: 365, crowns: 2000, icon: '🔮' },
+	{ id: 't1', name: 'First Gremlin', desc: 'Finish a task', stat: 'tasks', target: 1, crowns: 5, icon: '👾' },
+	{ id: 't5', name: 'Gremlin Pack', desc: 'Finish 5 tasks', stat: 'tasks', target: 5, crowns: 10, icon: '🤖' },
+	{ id: 't10', name: 'Floor Cleared', desc: 'Finish 10 tasks', stat: 'tasks', target: 10, crowns: 20, icon: '✅' },
+	{ id: 't50', name: 'Depth Complete', desc: 'Finish 50 tasks', stat: 'tasks', target: 50, crowns: 60, icon: '🏁' },
+	{ id: 't100', name: 'Clockworks Conqueror', desc: 'Finish 100 tasks', stat: 'tasks', target: 100, crowns: 120, icon: '⚙️' },
+	{ id: 't250', name: 'Gremlin Slayer', desc: 'Finish 250 tasks', stat: 'tasks', target: 250, crowns: 200, icon: '🗡️' },
+	{ id: 't1000', name: 'Vanaduke Down', desc: 'Finish 1,000 tasks', stat: 'tasks', target: 1000, crowns: 700, icon: '👹' },
+	{ id: 'td5', name: 'Combo', desc: 'Finish 5 tasks in one day', stat: 'bestTaskDay', target: 5, crowns: 15, icon: '🔗' },
+	{ id: 'td20', name: 'Boss Rush', desc: 'Finish 20 tasks in one day', stat: 'bestTaskDay', target: 20, crowns: 80, icon: '⚔️' },
+	{ id: 'night', name: 'Night Owl', desc: 'Write 100 words between 22:00 and 04:00', stat: 'night', target: 100, crowns: 25, icon: '🌙' },
+	{ id: 'night1k', name: 'Midnight Clockworks', desc: 'Write 1,000 words between 22:00 and 04:00', stat: 'night', target: 1000, crowns: 80, icon: '🦇' },
+	{ id: 'early', name: 'Early Bird', desc: 'Write 100 words between 04:00 and 08:00', stat: 'early', target: 100, crowns: 25, icon: '🌅' },
+	{ id: 'early1k', name: 'Dawn Over Haven', desc: 'Write 1,000 words between 04:00 and 08:00', stat: 'early', target: 1000, crowns: 80, icon: '☀️' },
+	{ id: 'midnight', name: 'Midnight Knight', desc: 'Write a word at midnight sharp (00:00)', stat: 'midnight', target: 1, crowns: 40, icon: '🌑' },
+	{ id: 'h12', name: 'Sunset Over Haven', desc: 'Write in 12 different hours of the day', stat: 'hours', target: 12, crowns: 40, icon: '🌇' },
+	{ id: 'h24', name: 'Day and Night', desc: 'Write in every hour of the day, 00 to 23', stat: 'hours', target: 24, crowns: 200, icon: '🌗' },
+	{ id: 'wkend', name: 'Weekend Patrol', desc: 'Write 500 words on weekends', stat: 'weekend', target: 500, crowns: 25, icon: '🛡️' },
+	{ id: 'wk7', name: 'Grand Tour', desc: 'Write on every day of the week, Monday to Sunday', stat: 'weekdays', target: 7, crowns: 30, icon: '📅' },
+	{ id: 'ny', name: 'New Game', desc: "Write on New Year's Day", stat: 'newYear', target: 1, crowns: 30, icon: '🎆' },
+	{ id: 'back', name: 'Extra Life', desc: 'Come back and write after 7 or more days away', stat: 'comeback', target: 7, crowns: 20, icon: '🆙' },
+	{ id: 'a3', name: 'First Steps', desc: 'Write on 3 different days', stat: 'daysActive', target: 3, crowns: 10, icon: '👣' },
+	{ id: 'a10', name: 'Haven Resident', desc: 'Write on 10 different days', stat: 'daysActive', target: 10, crowns: 30, icon: '🏠' },
+	{ id: 'a30', name: 'Clockworks Regular', desc: 'Write on 30 different days', stat: 'daysActive', target: 30, crowns: 90, icon: '⚙️' },
+	{ id: 'a100', name: 'Spiral Veteran', desc: 'Write on 100 different days', stat: 'daysActive', target: 100, crowns: 300, icon: '🧭' },
+	{ id: 'a200', name: 'Haven Hero', desc: 'Write on 200 different days', stat: 'daysActive', target: 200, crowns: 500, icon: '🏙️' },
+	{ id: 'a365', name: 'Eternal Knight', desc: 'Write on 365 different days', stat: 'daysActive', target: 365, crowns: 1000, icon: '🗡️' },
+	{ id: 'peek', name: 'Crown Chest', desc: 'Open the achievements list', stat: 'opens', target: 1, crowns: 2, icon: '📦' },
+	{ id: 'got10', name: 'Guild Hall', desc: 'Unlock 10 achievements', stat: 'got', target: 10, crowns: 30, icon: '🏰' },
+	{ id: 'got30', name: 'Trophy Hunter', desc: 'Unlock 30 achievements', stat: 'got', target: 30, crowns: 150, icon: '🎖️' },
 ];
-ACHIEVEMENTS.push({ id: 'all', name: 'Super Sonic', desc: 'Unlock every other achievement', stat: 'got', target: ACHIEVEMENTS.length, rings: 1500, icon: '🦔' });
+ACHIEVEMENTS.push({ id: 'all', name: 'Heavenly Guardian', desc: 'Unlock every other achievement', stat: 'got', target: ACHIEVEMENTS.length, crowns: 1500, icon: '👼' });
 
 /** How hard an achievement is, read from what it pays. */
-const tier = (a) => (a.rings <= 10 ? 'Easy' : a.rings <= 40 ? 'Medium' : a.rings <= 150 ? 'Hard' : 'Legendary');
+const tier = (a) => (a.crowns <= 10 ? 'Easy' : a.crowns <= 40 ? 'Medium' : a.crowns <= 150 ? 'Hard' : 'Legendary');
 
 // ---- Small helpers -------------------------------------------------------------------------------------------------------
 /**
@@ -127,7 +127,7 @@ function measures(st) {
 	};
 }
 
-// ---- The mascot: a tiny WebGL renderer for the baked model -----------------------------------------------------------------
+// ---- The mascot: a tiny WebGL renderer for the baked model (a knight; the head turns on its own, the body stays) -----------------------------------------------------------------
 const mat = {
 	mul(a, b) { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; },
 	persp(fov, asp, n, f) { const t = 1 / Math.tan(fov / 2), o = new Float32Array(16); o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = (2 * f * n) / (n - f); return o; },
@@ -140,10 +140,10 @@ const mat = {
 const unb64 = (s, T) => { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return new T(u.buffer); };
 
 const VERT = `#version 300 es
-in vec3 aPos; in vec3 aNrm; in vec2 aUv;
-uniform mat4 uMVP; uniform mat3 uRot;
+in vec3 aPos; in vec3 aNrm; in vec3 aPos2; in vec3 aNrm2; in vec2 aUv;
+uniform mat4 uMVP; uniform mat3 uRot; uniform float uMix;
 out vec3 vN; out vec2 vUv;
-void main() { vN = uRot * aNrm; vUv = aUv; gl_Position = uMVP * vec4(aPos, 1.0); }`;
+void main() { vN = uRot * normalize(mix(aNrm, aNrm2, uMix)); vUv = aUv; gl_Position = uMVP * vec4(mix(aPos, aPos2, uMix), 1.0); }`;
 const FRAG = `#version 300 es
 precision mediump float;
 in vec3 vN; in vec2 vUv;
@@ -157,22 +157,25 @@ void main() {
 	o = vec4(t.rgb * uColor * (0.66 + 0.62 * d) + rim + uGlow, 1.0);
 }`;
 
+const SALUTE_MS = 1700;   // a notification: the knight snaps a salute, holds it, and lowers its hand
+
 class Mascot {
 	constructor(canvas, head = true) {
 		this.canvas = canvas; this.head = head; this.look = { x: 0, y: 0 }; this.lx = 0; this.ly = 0; this.nod = 0;
 		this.gl = canvas.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true });
 		this.ok = !!this.gl;
-		this.yaw = 0.6; this.t0 = performance.now(); this.hop = null; this.speed = 0;
+		this.t0 = performance.now(); this.hop = null; this.speed = 0;
 		if (!this.ok) return;
 		const gl = this.gl, sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
 		const p = this.prog = gl.createProgram();
 		gl.attachShader(p, sh(gl.VERTEX_SHADER, VERT)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FRAG)); gl.linkProgram(p);
 		if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { this.ok = false; return; }
-		this.u = Object.fromEntries(['uMVP', 'uRot', 'uTex', 'uColor', 'uHasTex', 'uGlow'].map((n) => [n, gl.getUniformLocation(p, n)]));
-		const [lo, hi] = SONIC.box;
-		this.center = head ? [-0.6, 2.45, 0] : [0, 1, 2].map((i) => (lo[i] + hi[i]) / 2);   // the head, or the whole body
-		this.fit = head ? 1 / 4.9 : 1 / Math.max(hi[1] - lo[1], hi[0] - lo[0]);   // scaled to a unit tall
-		this.textures = SONIC.textures.map((src) => {
+		this.u = Object.fromEntries(['uMVP', 'uRot', 'uTex', 'uColor', 'uHasTex', 'uGlow', 'uMix'].map((n) => [n, gl.getUniformLocation(p, n)]));
+		const [lo, hi] = KNIGHT.box;
+		this.center = head ? KNIGHT.head.center : [0, 1, 2].map((i) => (lo[i] + hi[i]) / 2);   // the head, or the whole body
+		this.fit = head ? 1 / KNIGHT.head.span : 1 / Math.max(hi[1] - lo[1], hi[0] - lo[0]);   // scaled to a unit tall
+		this.pivot = KNIGHT.pivot;   // where the head turns (idle pose, salute pose)
+		this.textures = KNIGHT.textures.map((src) => {
 			const t = gl.createTexture(), img = new Image();
 			gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));
 			const rec = { t, ready: false };
@@ -186,45 +189,52 @@ class Mascot {
 			img.src = src;
 			return rec;
 		});
-		this.parts = SONIC.parts.map((q) => {
+		this.parts = KNIGHT.parts.map((q) => {
 			const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
 			const buf = (data, loc, size) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0); };
 			buf(unb64(q.pos, Float32Array), gl.getAttribLocation(p, 'aPos'), 3); buf(unb64(q.nrm, Float32Array), gl.getAttribLocation(p, 'aNrm'), 3);
+			buf(unb64(q.pos2 || q.pos, Float32Array), gl.getAttribLocation(p, 'aPos2'), 3); buf(unb64(q.nrm2 || q.nrm, Float32Array), gl.getAttribLocation(p, 'aNrm2'), 3);
 			if (q.uv) buf(unb64(q.uv, Float32Array), gl.getAttribLocation(p, 'aUv'), 2);
 			const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, unb64(q.idx, Uint16Array), gl.STATIC_DRAW);
 			gl.bindVertexArray(null);
-			return { vao, n: q.n, tex: q.tex, color: q.color };
+			return { vao, n: q.n, tex: q.tex, color: q.color, head: !!q.h };
 		});
 	}
 
-	/** A celebration: a hop with a double spin. */
-	celebrate(now) { this.hop = { t0: now, ms: 1100 }; }
+	/** A celebration: the knight salutes. */
+	celebrate(now) { this.hop = { t0: now, ms: SALUTE_MS }; }
 
-	/** Draws one frame at `now`; `speed` (0..1) is how busy the writing is (it nods), `glow` lights it up. */
+	/** Draws one frame at `now`; `speed` (0..1) is how busy the writing is (the head nods), `glow` lights it up. */
 	draw(now, speed, glow = 0) {
 		if (!this.ok) return;
 		const gl = this.gl, c = this.canvas, dt = Math.min(50, now - (this.last || now)); this.last = now;
 		this.speed += (speed - this.speed) * Math.min(1, dt / 250);
 		this.lx += (this.look.x - this.lx) * Math.min(1, dt / 140); this.ly += (this.look.y - this.ly) * Math.min(1, dt / 140);
-		let y = 0.008 * Math.sin(now / 520), spin = 0, hopY = 0;
-		if (this.hop) {
+		let y = 0.008 * Math.sin(now / 520), sal = 0;
+		if (this.hop) {   // 0 -> 1 quickly, held, then back down
 			const f = (now - this.hop.t0) / this.hop.ms;
-			if (f >= 1) this.hop = null; else { hopY = 0.1 * 4 * f * (1 - f); spin = ease(Math.min(1, f * 1.1)) * Math.PI * 2; }
+			if (f >= 1) this.hop = null; else sal = f < 0.12 ? ease(f / 0.12) : f < 0.72 ? 1 : 1 - ease((f - 0.72) / 0.28);
 		}
-		// front on (this model's nose points down -x), turned a little toward the pointer, swaying, nodding while it writes
-		const yaw = Math.PI / 2 + this.lx * 0.55 + 0.05 * Math.sin(now / 1100) + spin, pitch = 0.06 + this.ly * 0.3 + this.speed * 0.07 * Math.sin(now / 95);
+		// the body stays put (a faint sway); only the head turns toward the pointer and nods while it writes. At the salute it faces front.
+		const free = 1 - 0.85 * sal, lx = this.lx * free, ly = this.ly * free;
+		const bodyYaw = lx * 0.1 + 0.04 * Math.sin(now / 1100), bodyPitch = 0.05;
+		const headYaw = lx * 0.75, headPitch = 0.02 + ly * 0.4 + this.speed * 0.07 * Math.sin(now / 95);
 		if (c.width !== c.clientWidth * 2 && c.clientWidth) { c.width = c.clientWidth * 2; c.height = c.clientHeight * 2; }
 		gl.viewport(0, 0, c.width, c.height);
 		gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
 		gl.useProgram(this.prog);
-		const rot = mat.mul(mat.rotx(pitch), mat.roty(yaw));
-		const model = mat.mul(mat.trans(0, y + hopY, 0), mat.mul(rot, mat.mul(mat.scale(this.fit), mat.trans(-this.center[0], -this.center[1], -this.center[2]))));
+		const rot = mat.mul(mat.rotx(bodyPitch), mat.roty(bodyYaw));
+		const model = mat.mul(mat.trans(0, y, 0), mat.mul(rot, mat.mul(mat.scale(this.fit), mat.trans(-this.center[0], -this.center[1], -this.center[2]))));
 		const mvp = mat.mul(mat.persp(0.5, c.width / c.height, 0.1, 10), mat.mul(mat.trans(0, 0, -2.15), model));
-		gl.uniformMatrix4fv(this.u.uMVP, false, mvp);
-		gl.uniformMatrix3fv(this.u.uRot, false, mat.rot3(rot));
-		gl.uniform1f(this.u.uGlow, glow);
+		const [pa, pb] = this.pivot, pv = [0, 1, 2].map((i) => pa[i] + (pb[i] - pa[i]) * sal);
+		const headRot = mat.mul(mat.rotx(headPitch), mat.roty(headYaw));
+		const headMvp = mat.mul(mvp, mat.mul(mat.trans(pv[0], pv[1], pv[2]), mat.mul(headRot, mat.trans(-pv[0], -pv[1], -pv[2]))));
+		const bodyN = mat.rot3(rot), headN = mat.rot3(mat.mul(rot, headRot));
+		gl.uniform1f(this.u.uGlow, glow); gl.uniform1f(this.u.uMix, sal);
 		for (const q of this.parts) {
+			gl.uniformMatrix4fv(this.u.uMVP, false, q.head ? headMvp : mvp);
+			gl.uniformMatrix3fv(this.u.uRot, false, q.head ? headN : bodyN);
 			const tx = q.tex >= 0 ? this.textures[q.tex] : null;
 			gl.uniform1f(this.u.uHasTex, tx && tx.ready ? 1 : 0);
 			if (tx && tx.ready) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tx.t); gl.uniform1i(this.u.uTex, 0); }
@@ -569,7 +579,7 @@ class Plugin extends AppPlugin {
 		this.refreshUi();
 	}
 
-	rings() { return ACHIEVEMENTS.reduce((n, a) => n + (this.st.unlocked[a.id] ? a.rings : 0), 0); }
+	crowns() { return ACHIEVEMENTS.reduce((n, a) => n + (this.st.unlocked[a.id] ? a.crowns : 0), 0); }
 	unlockedCount() { return ACHIEVEMENTS.filter((a) => this.st.unlocked[a.id]).length; }
 
 	// ---- The mascot and the notification ---------------------------------------------------------------------------------------
@@ -701,7 +711,7 @@ class Plugin extends AppPlugin {
 	refreshUi() {
 		const w = this.widget, got = this.unlockedCount(), total = ACHIEVEMENTS.length;
 		if (w) {
-			w.querySelector('.ach-rg').textContent = `◎ ${fmt(this.rings())}`;
+			w.querySelector('.ach-rg').textContent = `◎ ${fmt(this.crowns())}`;
 			const m = measures(this.st), next = ACHIEVEMENTS.filter((a) => !this.st.unlocked[a.id]).sort((a, b) => m[b.stat] / b.target - m[a.stat] / a.target)[0];
 			w.querySelector('.ach-por').title = `Achievements ${got}/${total}` + (next ? ` - next: ${next.name}` : '');   // what it asks for stays secret until it unlocks
 		}
@@ -837,7 +847,7 @@ class Plugin extends AppPlugin {
 			row.querySelector('.ach-bd').textContent = a.desc;
 			row.querySelector('.ach-bd').style.setProperty('--i', words.length + 1);
 			row.querySelector('em').style.setProperty('--i', words.length + 2);
-			row.querySelector('em').textContent = '+0 rings';
+			row.querySelector('em').textContent = '+0 crowns';
 			stack.appendChild(row);
 			return { a, row };
 		});
@@ -864,7 +874,7 @@ class Plugin extends AppPlugin {
 			this.toastRaf = requestAnimationFrame(tick);
 		} else { fx?.destroy(); t.querySelector('canvas').remove(); }
 
-		const count = (em, total, t1) => (ts) => { if (this.toast !== t) return; const f = Math.min(1, (ts - t1) / 650); em.textContent = `+${fmt(total * ease(f))} rings`; if (f < 1) requestAnimationFrame(count(em, total, t1)); };
+		const count = (em, total, t1) => (ts) => { if (this.toast !== t) return; const f = Math.min(1, (ts - t1) / 650); em.textContent = `+${fmt(total * ease(f))} crowns`; if (f < 1) requestAnimationFrame(count(em, total, t1)); };
 		const at = (ms, fn) => this.toastT.push(setTimeout(fn, ms));
 		let last = 0;
 		rows.forEach(({ a, row, more: m }, i) => {
@@ -874,7 +884,7 @@ class Plugin extends AppPlugin {
 			at(lit, () => {
 				row.classList.add('lit'); m?.classList.add('lit');
 				if (i === 0) this.mascot?.celebrate(performance.now());
-				requestAnimationFrame(count(row.querySelector('em'), a.rings, performance.now()));
+				requestAnimationFrame(count(row.querySelector('em'), a.crowns, performance.now()));
 			});
 		});
 		const stay = 2600 + Math.min(4, rows.length - 1) * 350;   // a little longer when there is more to read
@@ -947,7 +957,7 @@ class Plugin extends AppPlugin {
 		const p = this.panel;
 		if (!p) return;
 		const m = measures(this.st), got = this.unlockedCount();
-		p.querySelector('.ach-sub').innerHTML = `${got} of ${ACHIEVEMENTS.length} unlocked · <span>◎ ${fmt(this.rings())} rings</span> · ${fmt(this.st.words)} words`;
+		p.querySelector('.ach-sub').innerHTML = `${got} of ${ACHIEVEMENTS.length} unlocked · <span>◎ ${fmt(this.crowns())} crowns</span> · ${fmt(this.st.words)} words`;
 		p.querySelector('.ach-pbar i').style.width = `${(got / ACHIEVEMENTS.length) * 100}%`;
 		const grid = p.querySelector('.ach-grid');
 		grid.textContent = '';
@@ -962,7 +972,7 @@ class Plugin extends AppPlugin {
 			c.querySelector('.ach-cn').textContent = a.name;
 			c.querySelector('.ach-ds').textContent = on ? a.desc : '???';   // locked ones keep their task and target secret, so they are found rather than speedrun
 			c.querySelector('.ach-rw').innerHTML = '<span></span><b class="ach-tier"></b>';
-			c.querySelector('.ach-rw span').textContent = on ? `◎ +${a.rings} · ${new Date(this.st.unlocked[a.id]).toLocaleDateString()}` : `◎ +${a.rings}`;
+			c.querySelector('.ach-rw span').textContent = on ? `◎ +${a.crowns} · ${new Date(this.st.unlocked[a.id]).toLocaleDateString()}` : `◎ +${a.crowns}`;
 			c.querySelector('.ach-tier').textContent = tier(a);
 			c.querySelector('.ach-pr i').style.width = `${pr * 100}%`;
 			grid.appendChild(c);

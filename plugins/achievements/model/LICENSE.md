@@ -1,13 +1,19 @@
 # Model credits and terms
 
-`sonic-adventure-sonic/` is the Sonic model from **Sonic Adventure** (SEGA, 1998, Dreamcast), ripped by **Spectro**. It is
-copyrighted by SEGA; this repository is private and the model is used here only as the mascot of a personal plugin.
+## The mascot: a Spiral Knights knight (current)
 
-The ripper's own terms are in `sonic-adventure-sonic/README.txt`: free to use for SFM, GMod, fan games and animations, with
-credit to Spectro if you re-upload it.
+`knight.json` (one level up) is the mascot model baked for the plugin: the head and shoulders of a costume from **Spiral Knights**,
+as two poses per vertex (idle and salute), with the textures downscaled to 256 px and palettized. It is produced by
+`../tools/costume2thymer` from the costume's files on [Kozmas](https://www.kozmas.gg), an independent fan site for the game.
 
-**If this repository is ever made public, or the plugin is shared: remove `model/`, `sonic.json` and `achievements.js`
-(the built plugin contains the model) first, or replace the model with your own.**
+Spiral Knights and its assets are copyrighted by **Grey Havens** (the game's owner). This repository is private and the model is used
+here only as the mascot of a personal plugin. The source files it was made from are kept out of git (`tools/costume2thymer/.cache/`).
 
-`sonic.json` is the model baked for the plugin: world-space positions, normals and UVs per part, and the textures
-downscaled to 64 px. It was produced from `sonic-adventure-sonic/Sonic.dae` and is what `build.mjs` embeds.
+**If this repository is ever made public, or the plugin is shared: remove `knight.json` and `achievements.js` (the built plugin
+contains the model) first, or replace the model with your own.**
+
+## The previous mascot: Sonic (no longer used)
+
+`sonic-adventure-sonic/` and `../sonic.json` are the Sonic model from **Sonic Adventure** (SEGA, 1998, Dreamcast), ripped by
+**Spectro**; copyrighted by SEGA, with the ripper's terms in `sonic-adventure-sonic/README.txt` (free to use for SFM, GMod, fan games
+and animations, with credit to Spectro if re-uploaded). `build.mjs` no longer embeds it, so both can be deleted.

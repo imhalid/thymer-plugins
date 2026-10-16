@@ -494,10 +494,10 @@ EFFECTS.bounce = {
 // point and fading toward where it was, never taller than the caret, a soft halo in the accent color round it and a bright
 // thread down its middle. The
 // tail flutters a little as it fades, like a ribbon let go in the air. Typing draws it out letter by letter behind the
-// caret; a jump (a click elsewhere, a new line) is one long sweep that collapses toward where the caret landed. A step by
-// arrow key or mouse lets go of the ribbon, which fades where it is, and the next letter starts a new one. When the page
-// scrolls the ribbon goes along with the text.
-// Settings: trailMs (how long the ribbon lingers; 1400 is normal), trailReach (how far back it reaches while typing, in caret
+// caret, and so does any move along the line (a word skipped, a click farther on); a move to another line (Enter, a click
+// elsewhere) is one sweep, short-lived, that collapses toward where the caret landed. A line up or down by arrow key lets
+// go of the ribbon, which fades where it is. When the page scrolls the ribbon goes along with the text.
+// Settings: trailMs (how long the ribbon lingers; 900 is normal), trailReach (how far back it reaches while typing, in caret
 // heights; 3 is normal - a sweep keeps its whole length), trailMinWidths (a move farther than this many caret
 // heights is a jump).
 const TRAIL_PIECE_PX = 9;     // the ribbon is drawn in pieces about this long, each with its own width and fade
@@ -505,9 +505,10 @@ const TRAIL_MAX_PTS = 160;    // the most points of the path kept
 const TRAIL_EDGE_PX = 1.5;    // half the width of a stretch that runs straight up or down (it has no caret height to spread over)
 const TRAIL_HOLD = 0.35;      // the share of its time a piece of the ribbon stays at full strength before it eases away
 const TRAIL_END = 0.72;       // from this share of a ribbon's reach back, its tail eases out to nothing
+const TRAIL_SWEEP = 0.55;     // a sweep (to another line) lives this share of the ribbon's time: a flash of a blaze, not a stripe left on the page
 
 /** How long the ribbon lingers, from the settings. */
-const trailDur = (plugin) => clamp(Number(plugin.cfg.trailMs) || 1400, 200, 5000);
+const trailDur = (plugin) => clamp(Number(plugin.cfg.trailMs) || 900, 200, 5000);
 
 /** The item that holds the path of `host` (the plugin, or the dialog's preview). */
 function trailOf(host) {
@@ -578,23 +579,24 @@ function drawRibbon(ctx, ribbon, now, dur, reach, K, col, acc, core) {
 
 EFFECTS.trail = {
 	id: 'trail', label: 'Trail', mode: 'always',
-	defaults: { trailMinWidths: 1.5, trailMs: 1400, trailReach: 3 },
+	defaults: { trailMinWidths: 1.5, trailMs: 900, trailReach: 3 },
 	blend: 'lighter',
 	onMove(plugin, prev, cur, info) {
-		const far = info.dist > cur.h * plugin.cfg.trailMinWidths;
-		const item = trailOf(plugin);
-		if (!(far || info.typed)) { item.broken = true; item.attached = false; return; }   // a step by arrow key or mouse: the ribbon lets go of the caret and fades where it is
-		const dur = trailDur(plugin), pts = item.pts, now = info.now;
-		if (far) {
-			// A sweep is a ribbon of its own: from where the caret was - given some age at once, so it collapses toward the
-			// caret from its first frame - to where it landed. Typing after it starts a ribbon afresh.
-			pts.push(trailPoint(prev, now - dur * 0.45, true));
-			pts.push({ ...trailPoint(cur, now, false), sweep: true });
-			item.broken = true;
-		} else {
+		const item = trailOf(plugin), dur = trailDur(plugin), pts = item.pts, now = info.now;
+		const sameLine = Math.abs(info.dy) < cur.h * 0.6, far = info.dist > cur.h * plugin.cfg.trailMinWidths;
+		if (sameLine) {
+			// Along the line the ribbon simply follows the caret - a letter typed, a word skipped with the arrow keys, a click
+			// farther along: one ribbon, reaching a few letters back (a stub left at every word would not be a trail).
 			if (item.broken || !pts.length) { pts.push(trailPoint(prev, now - dur * 0.3, true)); item.broken = false; }
 			pts.push(trailPoint(cur, now, false));
-		}
+		} else if (far || info.typed) {
+			// Another line: a sweep, a short-lived ribbon of its own from where the caret was - given some age at once, so it
+			// collapses toward the caret from its first frame - to where it landed. The next move along the line starts afresh.
+			const life = dur * TRAIL_SWEEP;
+			pts.push({ ...trailPoint(prev, now - life * 0.4, true), sweep: true });
+			pts.push({ ...trailPoint(cur, now, false), sweep: true });
+			item.broken = true;
+		} else { item.broken = true; item.attached = false; return; }   // a line up or down by arrow key: nothing, the ribbon lets go
 		item.attached = true;   // the newest point is the caret
 		if (pts.length > TRAIL_MAX_PTS) pts.splice(0, pts.length - TRAIL_MAX_PTS);
 	},
@@ -611,7 +613,7 @@ EFFECTS.trail = {
 		const dur = trailDur(plugin), reach = Math.max(0.5, Number(plugin.cfg.trailReach) || 3);
 		// A point past its time goes - unless the point after it, in the same ribbon, is still alive: then it stays as the far
 		// end of that stretch, which fades toward the live end rather than vanishing whole.
-		const dead = (q) => now - q.t >= dur, all = item.pts, pts = [];
+		const dead = (q) => now - q.t >= (q.sweep ? dur * TRAIL_SWEEP : dur), all = item.pts, pts = [];
 		for (let i = 0; i < all.length; i++) {
 			const q = all[i], next = all[i + 1];
 			if (!dead(q) || (next && !next.gap && !dead(next))) pts.push(q);
@@ -630,7 +632,8 @@ EFFECTS.trail = {
 			if (j - i >= 2) {
 				const ribbon = pts.slice(i, j);
 				if (lead && item.attached && j === pts.length) { const head = ribbon[ribbon.length - 1]; ribbon[ribbon.length - 1] = { ...head, x: lead.x + 1, y: lead.y + head.h / 2 }; }
-				drawRibbon(ctx, ribbon, now, dur, ribbon.some((q) => q.sweep) ? Infinity : reach * ribbon[ribbon.length - 1].h, K, col, acc, core);
+				const sweep = ribbon.some((q) => q.sweep);
+				drawRibbon(ctx, ribbon, now, sweep ? dur * TRAIL_SWEEP : dur, sweep ? Infinity : reach * ribbon[ribbon.length - 1].h, K, col, acc, core);
 			}
 			i = j;
 		}

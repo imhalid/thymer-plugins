@@ -61,7 +61,7 @@ The caret itself takes your chosen color, even when you are not typing, and reac
 
 - **Glow** – a soft halo opens round the caret on each keystroke (taller than wide, hugging the caret) and the caret flares for an instant
 - **Bounce** – caret hops with a damped spring
-- **Trail** – a comet ribbon the caret draws behind itself: the caret's full height where it is, narrowing and fading toward where it was, fluttering a little as it goes; typing draws it out letter by letter and it reaches a few letters back (`trailReach`, in caret heights), a jump or a new line is one long sweep that collapses toward the caret, and it stays about a second (`trailMs`). When the page scrolls it goes along with the text
+- **Trail** – a comet ribbon the caret draws behind itself: the caret's full height where it is, narrowing and fading toward where it was, fluttering a little as it goes; it follows the caret along the line (typing, a word skipped with the arrow keys, a click farther on) reaching a few letters back (`trailReach`, in caret heights), a new line or a click elsewhere is one short-lived sweep that collapses toward the caret, and it fades within a second (`trailMs`). When the page scrolls it goes along with the text
 
 ### Effects from Cursor-Smith
 
@@ -131,7 +131,7 @@ What you choose in the dialogs and commands (preset, switches, intensity) is rem
   "fx": null,
   "bounce": true,
   "trail": true,
-  "trailMs": 1400,
+  "trailMs": 900,
   "trailReach": 3,
   "intensity": 1
 }

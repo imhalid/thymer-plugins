@@ -490,7 +490,8 @@ EFFECTS.bounce = {
 
 // ---- Effect: Trail (a comet ribbon the caret draws behind itself) ----------------------------------------------------
 // The caret's path is kept for a moment and drawn as one ribbon: the caret's full height where it is now, narrowing to a
-// point and fading toward where it was, a soft halo in the accent color round it and a bright thread down its middle. The
+// point and fading toward where it was, never taller than the caret, a soft halo in the accent color round it and a bright
+// thread down its middle. The
 // tail flutters a little as it fades, like a ribbon let go in the air. Typing draws it out letter by letter behind the
 // caret; a jump (a click elsewhere, a new line) is one long sweep that collapses toward where the caret landed. A step by
 // arrow key or mouse lets go of the ribbon, which fades where it is, and the next letter starts a new one. When the page
@@ -535,7 +536,7 @@ function drawRibbon(ctx, ribbon, now, dur, K, col, acc, core) {
 	for (let a = 0; a <= last; a++) {
 		const n = nodes[a], u = clamp01((now - n.t) / dur), s = Math.min(1, n.d / span);
 		const f = u < TRAIL_HOLD ? 1 : 1 - smoothStep((u - TRAIL_HOLD) / (1 - TRAIL_HOLD));   // full for a while, then eased away
-		n.hh = (n.h / 2) * (0.08 + 0.92 * Math.sqrt(f) * Math.pow(1 - s, 0.7));
+		n.hh = n.h * 0.46 * (0.08 + 0.92 * Math.sqrt(f) * Math.pow(1 - s, 0.7));   // a little inside the caret's height at the head
 		n.a = f * (1 - 0.6 * s);
 		n.yy = n.y + Math.sin(now * 0.012 + n.d * 0.08) * n.h * 0.18 * Math.min(1, u * 1.5) * s;
 		const b = nodes[Math.min(last, a + 1)], c = nodes[Math.max(0, a - 1)], dx = b.x - c.x, dy = b.y - c.y, len = Math.hypot(dx, dy);
@@ -554,7 +555,7 @@ function drawRibbon(ctx, ribbon, now, dur, K, col, acc, core) {
 		const p = nodes[a], q = nodes[a + 1], al = (p.a + q.a) / 2;
 		if (al < 0.01) continue;
 		ctx.fillStyle = rgba(acc, 0.18 * al * K);
-		quad(p, q, p.hh * 1.7 + 1.5, q.hh * 1.7 + 1.5, 2.2);
+		quad(p, q, Math.min(p.hh * 1.25 + 0.5, p.h / 2), Math.min(q.hh * 1.25 + 0.5, q.h / 2), 2.2);   // never taller than the caret
 	}
 	for (let a = 0; a < last; a++) {   // the body
 		const p = nodes[a], q = nodes[a + 1], al = (p.a + q.a) / 2;
@@ -602,10 +603,17 @@ EFFECTS.trail = {
 		if (!pts.length) { item.done = true; return; }
 		const dark = plugin.dark, K = Math.min(k, 1.5) * (dark ? 1 : 0.55), col = plugin.col(), acc = plugin.acc(), core = dark ? '#ffffff' : lighten(col, 0.45);
 		if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing: drawn as a (fainter) band of color instead
+		// While Motion smear carries the caret across (its leading point still on its way), the ribbon ends on the smear, not
+		// ahead of it at the place the caret will arrive.
+		const sm = plugin.fxState.smear, lead = !item.broken && sm && sm.lead && plugin.items.some((it) => it.effect === 'smear' && !it.done) ? sm.lead : null;
 		for (let i = 0; i < pts.length;) {   // ribbon by ribbon: a gap begins a new one
 			let j = i + 1;
 			while (j < pts.length && !pts[j].gap) j++;
-			if (j - i >= 2) drawRibbon(ctx, pts.slice(i, j), now, dur, K, col, acc, core);
+			if (j - i >= 2) {
+				const ribbon = pts.slice(i, j);
+				if (lead && j === pts.length) { const head = ribbon[ribbon.length - 1]; ribbon[ribbon.length - 1] = { ...head, x: lead.x + 1, y: lead.y + head.h / 2 }; }
+				drawRibbon(ctx, ribbon, now, dur, K, col, acc, core);
+			}
 			i = j;
 		}
 	},
@@ -854,7 +862,9 @@ EFFECTS.smear = {
 		if (backManBusy(plugin)) return;   // the creature has the caret
 		const S = plugin.state('smear');
 		const dx = Math.abs(cur.x - prev.x), dy = Math.abs(cur.y - prev.y);
-		if (dy < 1 && dx > 0.5 && dx <= SMEAR_KEY_STEP_CHARS * cur.cw) S.stepT = info.now;
+		// A letter's step: along the row (a little jitter in the text's box allowed) by at most a couple of letters, measured
+		// against the line height as well as the letter under the caret, which may be a narrow one when the one just typed was wide.
+		if (dy < cur.h * 0.5 && dx > 0.5 && dx <= SMEAR_KEY_STEP_CHARS * Math.max(cur.cw, cur.h * 0.5)) S.stepT = info.now;
 		if (dy > cur.h * SMEAR_LINE_CHANGE) {
 			// Another line: the caret is simply there.
 			if (S.lead) { S.lead = { x: cur.x, y: cur.y, vx: 0, vy: 0 }; S.trail = { x: cur.x, y: cur.y }; }

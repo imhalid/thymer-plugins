@@ -62,8 +62,8 @@ personal colour `Silver`, pose `sword`.
 
 ### 1.3 The picture for the card background
 Supplied by the user in chat (226 x 263, a dark teal spotlight with a faint helm emblem; it looks like Kozmas'
-`game-data/knight-preview/backing.png`, assumed). Stored as `plugins/achievements/card-bg.jpg` (JPEG q86, 4 KB) and inlined as a
-data URL in `plugin.css`.
+`game-data/knight-preview/backing.png`, assumed). It was used as the card background for one iteration (`card-bg.jpg`, inlined in
+`plugin.css`), then **replaced at the user's request** by a mask + god rays (section 4) and deleted; it is in git history (commit `eda5785`).
 
 ## 2. What the game files are like (findings that drive the code)
 
@@ -152,13 +152,26 @@ Placed pieces: `matrix_parent_inverse = (arm · B · T(0, length, 0))⁻¹`, `ma
   `yaw = lx·0.1 + 0.04·sin(now/1100)`, `pitch = 0.05`. The pointer influence is multiplied by `1 - 0.85·salute`.
 * Salute: `celebrate(now)` is called by the notification (and the old unlock path); `SALUTE_MS = 1700`; blend 0 -> 1 over the first
   12 % (ease-out cubic), held to 72 %, back to 0 over the last 28 %. The vertex shader does the morph.
-* Card CSS (`plugin.css`): `.ach-por` background = the picture, `50% 0 / cover`; its `::before` stripes are off. `.ach-por` is
-  124 x 118 px in the card and 84 x 84 in the list's header.
-* Currency rings -> **crowns** (field `rings` -> `crowns`, `rings()` -> `crowns()`, texts). Progress is stored per device in
-  `localStorage["achievements:v1"]` by achievement **id**; ids were not changed, so progress survives the renames.
-* Renamed achievements (Spiral Knights words: Crowns, Clockworks, Gremlin, Vanaduke, Haven, Depth, Heat, crystals): see the
-  `ACHIEVEMENTS` list; `all` ("Unlock every other") is now **Heavenly Guardian** (the costume's armor). Generic names
-  (Warm Up, Gold Rush, Combo, Boss Rush, Night Owl, Early Bird, Light Speed, Day and Night, New Game, Extra Life) were kept.
+* Card CSS (`plugin.css`): `.ach-por` has no background and no frame (the old inset ring and bottom shadow, `::after`, and the
+  `::before` stripes are gone); `.ach-por canvas` carries the user's mask `linear-gradient(to top, transparent 0%, black 20%, black 100%)`
+  (both `-webkit-mask-image` and `mask-image`), on the canvas only so the crown counter `.ach-rg` (bottom right of the portrait) stays
+  readable. `.ach-por` is 124 x 118 px in the card and 84 x 84 in the list's header. **Hover zoom**: the portrait used to scale the whole canvas 1.04× in CSS (`.ach-por:hover canvas`, 0.2 s), which also zoomed the god rays; the user wanted the knight only, so the CSS rule is gone and `Mascot` does it: `hover` (set by `pointerenter`/`pointerleave` on `.ach-por`, for the card's and the list header's mascot) eases `zoom` toward 1.04 (time constant 90 ms) and the model scale is `fit·zoom`; the rays are drawn separately and do not scale.
+* **God rays**: a second tiny program in the same WebGL context (`RAY_VERT`/`RAY_FRAG`), a full-canvas quad drawn before the model with
+  premultiplied blending (`ONE, ONE_MINUS_SRC_ALPHA`) and no depth. A light just above the card's top left corner, (0.04, 1.25) in card UV
+  (aspect-corrected); the angle `a` round it (0 = the middle of a cone that points down and to the right, offset 0.5 rad) feeds two
+  waves, `w1 = sin(5a + 0.16t + 0.8)` and `w2 = sin(8a - 0.11t + 2.1)`, thresholded with `smoothstep(0.35,1,w1) + 0.6·smoothstep(0.55,1,w2)`
+  so that there are a few **wide shafts with dark between them** that **drift slowly** (the phase moves 0.16 / 0.11 rad per second, in
+  opposite directions); a cone window and `exp(-1.1·r)` fade them; tint (0.8,0.9,1.0), strength `0.2`; the light also shivers faintly,
+  `0.93 + 0.07·sin(1.1t + 13a)·sin(0.7t + 1)`. History of the user's wishes, in order: thin lines that drifted and leaned with the
+  pointer (too strong, and "the rays move"); then fixed and lighter, from the top left; then a faint shiver kept (the user's "titreme"
+  that had to go was the *head* on hover, not the light); then "sparser and wider lines, and let them move, gently". They do not lean
+  with the pointer and do not react to a salute or sleep. With `prefers-reduced-motion` the time is frozen. If the program fails to link
+  the knight is drawn without it.
+* **Pet behaviour**: only the doze. Asleep after `SLEEP_AFTER_MS` = 3 min without a key or `mousemove` (`lastActive`): `Mascot.sleepTo = 1`
+  (the head drops 0.45 rad, a slower bob, no looking); any activity wakes it. **Tried and removed at the user's request**: a speech
+  bubble ("Hello!" at load, random lines on hover, "Zzz...", "Oh, hi!"), and a head wiggle plus small hop when the pointer entered the
+  portrait (a roll of `0.2·sin(30f)·e^(-3.5f)` over 800 ms: "hover olunca adamin kafasi titriyor"). Not done: blinking (the eyes mesh
+  also draws the dark visor, so squashing it would squash the face).
 
 ## 5. Thymer
 
@@ -188,8 +201,9 @@ Placed pieces: `matrix_parent_inverse = (arm · B · T(0, length, 0))⁻¹`, `ma
 ## 6. The repo
 `/Users/imhalid/Documents/thymer-plugins` (origin `git@github.com:imhalid/thymer-plugins.git`, private; plugins: achievements,
 caret-fx, cursor-fx, digital-garden, home). `achievements.js` (the built file) *is* tracked although `build.mjs`'s comment says never
-to commit it. Copyright: see `plugins/achievements/model/LICENSE.md` (Spiral Knights (c) Grey Havens; Sonic files are unused but still
-there). Raw downloads stay in `.cache/` (git-ignored).
+to commit it. Copyright: see `plugins/achievements/model/LICENSE.md` (Spiral Knights (c) Grey Havens). The Sonic model (`sonic.json`,
+`model/sonic-adventure-sonic/`) was deleted from the tree after the knight replaced it; it is in the history. Raw downloads stay in
+`.cache/` (git-ignored).
 
 ## 7. Environment gotchas met along the way
 * `python3 -I` ignores the user site-packages, where Pillow lives: run PIL scripts without `-I` (from a neutral directory: the

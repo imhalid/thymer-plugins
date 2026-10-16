@@ -97,6 +97,7 @@ const onMobile = () => {
 };
 /** Thymer's focus mode (body.focusmode): the card stays out of sight then, and what unlocks waits until it is over. */
 const inFocusMode = () => document.body.classList.contains('focusmode');
+const SLEEP_AFTER_MS = 3 * 60 * 1000;   // no key or pointer for this long: the knight dozes off
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const ease = (t) => 1 - Math.pow(1 - t, 3);
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
@@ -156,21 +157,49 @@ void main() {
 	float d = max(dot(n, normalize(vec3(0.4, 0.7, 0.8))), 0.0), rim = pow(1.0 - max(n.z, 0.0), 2.0) * 0.22;
 	o = vec4(t.rgb * uColor * (0.66 + 0.62 * d) + rim + uGlow, 1.0);
 }`;
+// God rays behind the knight: a few wide, soft shafts of light fanning down from the card's top left, drifting slowly (and their light shivers a little).
+// A full-card quad drawn before the model, premultiplied; the shafts are a few sines of the angle round the light, fading with distance.
+const RAY_VERT = `#version 300 es
+in vec2 aP; out vec2 vP;
+void main() { vP = aP * 0.5 + 0.5; gl_Position = vec4(aP, 0.0, 1.0); }`;
+const RAY_FRAG = `#version 300 es
+precision mediump float;
+in vec2 vP; uniform vec2 uRes; uniform float uTime;
+out vec4 o;
+void main() {
+	vec2 d = (vP - vec2(0.04, 1.25)) * vec2(uRes.x / uRes.y, 1.0);   // the light: just above the card's top left corner
+	float r = length(d), a = atan(d.x, -d.y) - 0.5;   // a = 0 is the middle of the cone, which points down and to the right
+	// a few wide shafts (5 and 8 per turn of the angle, thresholded so there is dark between them) that drift slowly across the card
+	float w1 = 0.5 + 0.5 * sin(a * 5.0 + uTime * 0.16 + 0.8), w2 = 0.5 + 0.5 * sin(a * 8.0 - uTime * 0.11 + 2.1);
+	float s = smoothstep(0.35, 1.0, w1) + 0.6 * smoothstep(0.55, 1.0, w2);
+	float shiver = 0.93 + 0.07 * sin(uTime * 1.1 + a * 13.0) * sin(uTime * 0.7 + 1.0);   // and their light shivers a little
+	float v = s * 0.2 * shiver * (1.0 - smoothstep(0.1, 0.9, abs(a))) * exp(-r * 1.1) * (1.0 - smoothstep(0.9, 1.0, vP.y));
+	o = vec4(vec3(0.8, 0.9, 1.0) * v, v * 0.7);
+}`;
 
 const SALUTE_MS = 1700;   // a notification: the knight snaps a salute, holds it, and lowers its hand
+const reducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 class Mascot {
 	constructor(canvas, head = true) {
 		this.canvas = canvas; this.head = head; this.look = { x: 0, y: 0 }; this.lx = 0; this.ly = 0; this.nod = 0;
 		this.gl = canvas.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true });
 		this.ok = !!this.gl;
-		this.t0 = performance.now(); this.hop = null; this.speed = 0;
+		this.t0 = performance.now(); this.hop = null; this.speed = 0; this.sl = 0; this.sleepTo = 0; this.hover = false; this.zoom = 1;
 		if (!this.ok) return;
 		const gl = this.gl, sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
-		const p = this.prog = gl.createProgram();
-		gl.attachShader(p, sh(gl.VERTEX_SHADER, VERT)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FRAG)); gl.linkProgram(p);
-		if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { this.ok = false; return; }
+		const link = (vs, fs) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); return gl.getProgramParameter(p, gl.LINK_STATUS) ? p : null; };
+		const p = this.prog = link(VERT, FRAG);
+		if (!p) { this.ok = false; return; }
 		this.u = Object.fromEntries(['uMVP', 'uRot', 'uTex', 'uColor', 'uHasTex', 'uGlow', 'uMix'].map((n) => [n, gl.getUniformLocation(p, n)]));
+		const rp = link(RAY_VERT, RAY_FRAG);   // the rays are a nicety: without them it is just the knight
+		if (rp) {
+			const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+			const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+			const loc = gl.getAttribLocation(rp, 'aP'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+			gl.bindVertexArray(null);
+			this.ray = { p: rp, vao, u: Object.fromEntries(['uRes', 'uTime'].map((n) => [n, gl.getUniformLocation(rp, n)])) };
+		}
 		const [lo, hi] = KNIGHT.box;
 		this.center = head ? KNIGHT.head.center : [0, 1, 2].map((i) => (lo[i] + hi[i]) / 2);   // the head, or the whole body
 		this.fit = head ? 1 / KNIGHT.head.span : 1 / Math.max(hi[1] - lo[1], hi[0] - lo[0]);   // scaled to a unit tall
@@ -204,28 +233,39 @@ class Mascot {
 	/** A celebration: the knight salutes. */
 	celebrate(now) { this.hop = { t0: now, ms: SALUTE_MS }; }
 
-	/** Draws one frame at `now`; `speed` (0..1) is how busy the writing is (the head nods), `glow` lights it up. */
+	/** Draws one frame at `now`; `speed` (0..1) is how busy the writing is (the head nods), `glow` lights it up. `sleepTo` (0..1): dozing. */
 	draw(now, speed, glow = 0) {
 		if (!this.ok) return;
 		const gl = this.gl, c = this.canvas, dt = Math.min(50, now - (this.last || now)); this.last = now;
 		this.speed += (speed - this.speed) * Math.min(1, dt / 250);
+		this.sl += (this.sleepTo - this.sl) * Math.min(1, dt / 700);
+		this.zoom += ((this.hover ? 1.04 : 1) - this.zoom) * Math.min(1, dt / 90);   // the pointer over the card brings the knight (not the light behind it) a little closer
 		this.lx += (this.look.x - this.lx) * Math.min(1, dt / 140); this.ly += (this.look.y - this.ly) * Math.min(1, dt / 140);
-		let y = 0.008 * Math.sin(now / 520), sal = 0;
+		let y = 0.008 * (1 - this.sl) * Math.sin(now / 520) + 0.012 * this.sl * Math.sin(now / 1500), sal = 0;
 		if (this.hop) {   // 0 -> 1 quickly, held, then back down
 			const f = (now - this.hop.t0) / this.hop.ms;
 			if (f >= 1) this.hop = null; else sal = f < 0.12 ? ease(f / 0.12) : f < 0.72 ? 1 : 1 - ease((f - 0.72) / 0.28);
 		}
-		// the body stays put (a faint sway); only the head turns toward the pointer and nods while it writes. At the salute it faces front.
-		const free = 1 - 0.85 * sal, lx = this.lx * free, ly = this.ly * free;
+		// the body stays put (a faint sway); only the head turns toward the pointer and nods while it writes. At the salute it faces
+		// front; asleep it stops looking and lets its head drop.
+		const free = (1 - 0.85 * sal) * (1 - 0.9 * this.sl), lx = this.lx * free, ly = this.ly * free;
 		const bodyYaw = lx * 0.1 + 0.04 * Math.sin(now / 1100), bodyPitch = 0.05;
-		const headYaw = lx * 0.75, headPitch = 0.02 + ly * 0.4 + this.speed * 0.07 * Math.sin(now / 95);
+		const headYaw = lx * 0.75, headPitch = 0.02 + ly * 0.4 + this.speed * 0.07 * Math.sin(now / 95) + this.sl * 0.45;
 		if (c.width !== c.clientWidth * 2 && c.clientWidth) { c.width = c.clientWidth * 2; c.height = c.clientHeight * 2; }
 		gl.viewport(0, 0, c.width, c.height);
 		gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		if (this.ray) {   // the light behind it
+			const r = this.ray;
+			gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+			gl.useProgram(r.p);
+			gl.uniform2f(r.u.uRes, c.width, c.height); gl.uniform1f(r.u.uTime, reducedMotion() ? 3 : now / 1000);
+			gl.bindVertexArray(r.vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
+			gl.disable(gl.BLEND);
+		}
 		gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
 		gl.useProgram(this.prog);
 		const rot = mat.mul(mat.rotx(bodyPitch), mat.roty(bodyYaw));
-		const model = mat.mul(mat.trans(0, y, 0), mat.mul(rot, mat.mul(mat.scale(this.fit), mat.trans(-this.center[0], -this.center[1], -this.center[2]))));
+		const model = mat.mul(mat.trans(0, y, 0), mat.mul(rot, mat.mul(mat.scale(this.fit * this.zoom), mat.trans(-this.center[0], -this.center[1], -this.center[2]))));
 		const mvp = mat.mul(mat.persp(0.5, c.width / c.height, 0.1, 10), mat.mul(mat.trans(0, 0, -2.15), model));
 		const [pa, pb] = this.pivot, pv = [0, 1, 2].map((i) => pa[i] + (pb[i] - pa[i]) * sal);
 		const headRot = mat.mul(mat.rotx(headPitch), mat.roty(headYaw));
@@ -480,8 +520,9 @@ class Plugin extends AppPlugin {
 
 		const on = (target, type, fn, opts) => { target.addEventListener(type, fn, opts); this.cleanup.push(() => target.removeEventListener(type, fn, opts)); };
 		on(document, 'input', () => requestAnimationFrame(() => this.countLive()), true);
-		on(document, 'keydown', () => { this.lastType = performance.now(); }, true);
-		on(document, 'mousemove', (e) => { this.pointer = { x: e.clientX, y: e.clientY }; }, { passive: true });
+		this.lastActive = performance.now();
+		on(document, 'keydown', () => { this.lastType = this.lastActive = performance.now(); }, true);
+		on(document, 'mousemove', (e) => { this.pointer = { x: e.clientX, y: e.clientY }; this.lastActive = performance.now(); }, { passive: true });
 		// Into focus mode: a notification on screen goes. Out of it: what unlocked meanwhile is shown, all together.
 		let focus = inFocusMode();
 		const watch = new MutationObserver(() => {
@@ -599,6 +640,7 @@ class Plugin extends AppPlugin {
 				<button class="ach-btn" data-a="search" title="Search everything">${ICONS.search}<span>Search</span></button>
 				<button class="ach-btn" data-a="jump" title="Jump to a page">${ICONS.jump}<span>Jump to</span></button></div>`;
 		w.querySelector('.ach-por').addEventListener('click', () => this.openPanel());
+		for (const [ev, on] of [['pointerenter', true], ['pointerleave', false]]) w.querySelector('.ach-por').addEventListener(ev, () => { if (this.mascot) this.mascot.hover = on; });
 		w.querySelector('[data-a="search"]').onclick = () => { const n = this.native.search; if (n && n.isConnected) n.click(); else this.openSearch(); };
 		w.querySelector('[data-a="jump"]').onclick = () => { const n = this.native.jump; if (n && n.isConnected) n.click(); else this.openJump(); };
 		document.body.appendChild(w);
@@ -620,6 +662,8 @@ class Plugin extends AppPlugin {
 				const r = this.widget.querySelector('.ach-por').getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height * 0.4;
 				this.mascot.look.x = Math.max(-1, Math.min(1, (this.pointer.x - cx) / 420)); this.mascot.look.y = Math.max(-1, Math.min(1, (this.pointer.y - cy) / 320));
 			}
+			const sleepy = now - (this.lastActive || now) > SLEEP_AFTER_MS;   // dozes off after a while, wakes at the first key or pointer move
+			if (sleepy !== !!this.asleep) { this.asleep = sleepy; this.mascot.sleepTo = sleepy ? 1 : 0; }
 			this.mascot.draw(now, Math.min(1, typing * 0.6 + this.wordTimes.length / 90), this.glow || 0);
 			if (this.panelMascot) { this.panelMascot.look = this.mascot.look; this.panelMascot.draw(now, 0.1); }
 		};
@@ -918,6 +962,7 @@ class Plugin extends AppPlugin {
 		document.body.appendChild(ov);
 		this.panel = ov;
 		this.panelMascot = new Mascot(ov.querySelector('canvas'));
+		for (const [ev, on] of [['pointerenter', true], ['pointerleave', false]]) ov.querySelector('.ach-por').addEventListener(ev, () => { if (this.panelMascot) this.panelMascot.hover = on; });
 		if (!this.widget) { this.loopPanel(); }
 		this.st.opens++;
 		this.changed();   // which draws the list

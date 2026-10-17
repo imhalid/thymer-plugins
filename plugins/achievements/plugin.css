@@ -76,13 +76,11 @@
 .ach-arr { all: unset; position: absolute; top: 50%; width: 42px; height: 42px; margin-top: -21px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; color: #fff; background: rgba(255,255,255,.1); opacity: .7; } .ach-arr:hover { opacity: 1; background: rgba(255,255,255,.2); }
 .ach-arr.l { left: 22px; } .ach-arr.r { right: 22px; } .ach-arr svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 @media (prefers-reduced-motion: reduce) { .ach-rv.on .ach-cd { animation-duration: .01s; animation-delay: 0s; } .ach-note:hover .ach-nsh { animation: none; } .ach-rv.ach-g3::before { animation: none; } }
-.ach-ov { position: fixed; inset: 0; z-index: 9990; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); animation: ach-in .15s ease-out; }
-@keyframes ach-in { from { opacity: 0; } to { opacity: 1; } }
-.ach-box { width: min(760px, 94vw); max-height: 86vh; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; border-radius: 14px; border: 1px solid rgba(127,127,127,.25); box-shadow: 0 28px 80px rgba(0,0,0,.5); font: 13px/1.4 system-ui, sans-serif; }
-.ach-in { padding: 16px 0 0 18px; }
+/* The list is a page in a panel (a custom panel type), not a dialog: it takes the panel's own colours and scrolls with Thymer's own scrollbar. */
+.ach-page { max-width: 900px; margin: 0 auto; padding: 8px 0 28px; font: 13px/1.4 system-ui, sans-serif; }
 .ach-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; } .ach-head .ach-por { width: 56px; height: 56px; flex: none; border-radius: 12px; cursor: default; } .ach-ht { min-width: 0; }
 .ach-title { font-size: 16px; font-weight: 700; } .ach-sub { opacity: .65; font-size: 12px; margin-top: 1px; } .ach-sub span { color: #e0a800; font-weight: 600; }
-.ach-tg, .ach-x { all: unset; cursor: pointer; border-radius: 7px; opacity: .5; } .ach-tg { margin-left: auto; font-size: 11px; padding: 3px 8px; } .ach-x { padding: 4px 8px; } .ach-tg:hover, .ach-x:hover { opacity: 1; background: rgba(127,127,127,.18); }
+.ach-tg { all: unset; cursor: pointer; border-radius: 7px; opacity: .5; margin-left: auto; font-size: 11px; padding: 3px 8px; } .ach-tg:hover { opacity: 1; background: rgba(127,127,127,.18); }
 .ach-pbar { height: 3px; border-radius: 2px; background: rgba(127,127,127,.22); overflow: hidden; margin-bottom: 10px; } .ach-pbar i { display: block; height: 100%; background: linear-gradient(90deg, #2a63ff, #5ee1ff); }
 .ach-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
 .ach-seg { display: inline-flex; padding: 2px; border-radius: 8px; background: rgba(127,127,127,.14); }

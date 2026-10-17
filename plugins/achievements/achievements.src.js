@@ -3,7 +3,7 @@
  *
  * Trophies for writing, and a character card in the top-left corner: a window onto the mascot's head, looking out at you (it
  * follows the pointer with its head, nods while you type, and salutes when something unlocks), with its name, level, an
- * achievement progress bar and three buttons below - search, jump to, and the full list. The head is a low-poly model
+ * achievement progress bar and two buttons below - search and jump to; the list itself opens as a page in a panel. The head is a low-poly model
  * drawn with plain WebGL (no libraries, no network); everything else is HTML and CSS.
  *
  * The achievements' pictures are drawn here, in the page (a winged hexagon in the tier's metal with the mark of what it measures: see pictureOf);
@@ -14,6 +14,7 @@
 const KNIGHT = __KNIGHT__;   // the mascot: parts, textures and framing, baked by build.mjs from knight.json
 
 const STORE_KEY = 'achievements:v1';
+const PANEL_TYPE = 'achievements';   // the list is a page: a custom panel type of Thymer's (see openPanel)
 const HIDE_KEY = 'achievements:hidden';
 const STREAK_MIN_WORDS = 30;   // a day counts toward the streak from this many words
 
@@ -688,6 +689,7 @@ class Plugin extends AppPlugin {
 		this.lastType = 0;
 		if (localStorage.getItem(HIDE_KEY) !== '1') this.mountWidget();
 
+		this.ui.registerCustomPanelType?.(PANEL_TYPE, (panel) => this.renderPage(panel));
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: open', icon: 'trophy', onSelected: () => this.openPanel() });
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: show or hide the mascot', icon: 'eye', onSelected: () => this.toggleWidget() });
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: replay the last unlock', icon: 'sparkles', onSelected: () => {
@@ -853,7 +855,7 @@ class Plugin extends AppPlugin {
 			const sleepy = now - (this.lastActive || now) > SLEEP_AFTER_MS;   // dozes off after a while, wakes at the first key or pointer move
 			if (sleepy !== !!this.asleep) { this.asleep = sleepy; this.mascot.sleepTo = sleepy ? 1 : 0; }
 			this.mascot.draw(now, Math.min(1, typing * 0.6 + this.wordTimes.length / 90), this.glow || 0);
-			if (this.panelMascot) { this.panelMascot.look = this.mascot.look; this.panelMascot.draw(now, 0.1); }
+			if (this.panelMascot) { if (!this.panel?.isConnected) this.closePanel(); else { this.panelMascot.look = this.mascot.look; this.panelMascot.draw(now, 0.1); } }   // the page's own mascot, until the panel shows something else
 		};
 		this.raf = requestAnimationFrame(loop);
 	}
@@ -951,7 +953,7 @@ class Plugin extends AppPlugin {
 			const last = this.latest(), sh = w.querySelector('.ach-sh');   // the shield wears the mark of the latest achievement
 			if ((last ? last.id : '') !== this.badgeId) { this.badgeId = last ? last.id : ''; sh.hidden = !last; if (last) { sh.src = badgeOf(last); sh.title = `Latest: ${last.name}`; } }
 		}
-		if (this.panel) this.renderPanel();
+		if (this.panel) { if (this.panel.isConnected) this.renderPanel(); else this.closePanel(); }
 	}
 
 	// ---- Search and jump to --------------------------------------------------------------------------------------------------
@@ -1289,39 +1291,39 @@ class Plugin extends AppPlugin {
 
 	// ---- The list ----------------------------------------------------------------------------------------------------------
 
-	openPanel() {
+	/** Opens the list as a page, in the panel being worked in (or a new one). */
+	async openPanel() {
+		const panel = this.ui.getActivePanel() || await this.ui.createPanel();
+		panel?.navigateToCustomType(PANEL_TYPE);
+	}
+
+	/** The list as a page: Thymer calls this when a panel comes to show the plugin's type (openPanel); the page goes with the panel when it shows something else. */
+	renderPage(panel) {
+		const el = panel.getElement();
+		if (!el) return;
 		this.closePanel();
-		const cs = getComputedStyle(document.body);
-		const ov = document.createElement('div');
-		ov.className = 'ach-ov';
+		panel.setTitle?.('Achievements');
 		this.pf = this.pf || { show: 'all', tiers: new Set() };   // the list's filters
-		ov.innerHTML = `<div class="ach-box"><div-scrollable class="ach-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="ach-in">
-<div class="ach-head"><div class="ach-por"><canvas></canvas></div><div class="ach-ht"><div class="ach-title">Achievements</div><div class="ach-sub"></div></div><button class="ach-tg" data-a="test">Test</button><button class="ach-x" aria-label="Close">✕</button></div>
+		el.innerHTML = `<div-scrollable class="ach-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="ach-page">
+<div class="ach-head"><div class="ach-por"><canvas></canvas></div><div class="ach-ht"><div class="ach-title">Achievements</div><div class="ach-sub"></div></div><button class="ach-tg" data-a="test">Test</button></div>
 <div class="ach-pbar"><i></i></div>
 <div class="ach-tools"><div class="ach-seg">${[['all', 'All'], ['going', 'In progress'], ['done', 'Complete']].map(([k, l]) => `<button data-f="${k}">${l}<em></em></button>`).join('')}</div><div class="ach-chips">${Object.keys(TIER_FX).map((t) => `<button data-tf="${t}" data-tier="${t.toLowerCase()}"><i></i>${t}</button>`).join('')}</div></div>
 <div class="ach-testbox" hidden><div class="ach-test"><span>Test</span><button data-t="one">Notify</button><button data-t="three">Notify x3</button><button data-t="unlock">Unlock next</button><button data-t="relock">Re-lock last</button></div><div class="ach-test"><span>Opening</span>${REVEAL_STYLES.map((n, i) => `<button data-t="fx${i}">${n}</button>`).join('')}<button data-t="tour">Tour</button></div></div>
-<div class="ach-grid"></div></div></div-scrollable></div>`;
-		const box = ov.querySelector('.ach-box');
-		box.style.color = cs.color;
-		box.style.background = cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : 'Canvas';
-		ov.addEventListener('mousedown', (e) => { if (e.target === ov) this.closePanel(); });
-		ov.querySelector('.ach-x').onclick = () => this.closePanel();
-		ov.addEventListener('click', (e) => {
+<div class="ach-grid"></div></div></div-scrollable>`;
+		const root = el.querySelector('.ach-page');
+		root.addEventListener('click', (e) => {
 			const hit = (sel) => e.target.closest(sel);
-			let el;
-			if ((el = hit('[data-t]'))) this.test(el.dataset.t);
-			else if ((el = hit('[data-f]'))) { this.pf.show = el.dataset.f; this.renderPanel(); }
-			else if ((el = hit('[data-tf]'))) { const t = el.dataset.tf; this.pf.tiers.has(t) ? this.pf.tiers.delete(t) : this.pf.tiers.add(t); this.renderPanel(); }
-			else if (hit('[data-a="test"]')) { const tb = ov.querySelector('.ach-testbox'); tb.hidden = !tb.hidden; }
-			else if ((el = hit('.ach-t.got'))) { const f = FAMILIES.find((x) => x.stat === el.dataset.stat), done = f ? f.steps.filter((a) => this.claimed(a)) : []; if (done.length) this.view(done[done.length - 1], done); }   // a started family is looked at, big: its rank, and the arrows go down its ranks
+			let t;
+			if ((t = hit('[data-t]'))) this.test(t.dataset.t);
+			else if ((t = hit('[data-f]'))) { this.pf.show = t.dataset.f; this.renderPanel(); }
+			else if ((t = hit('[data-tf]'))) { const k = t.dataset.tf; this.pf.tiers.has(k) ? this.pf.tiers.delete(k) : this.pf.tiers.add(k); this.renderPanel(); }
+			else if (hit('[data-a="test"]')) { const tb = root.querySelector('.ach-testbox'); tb.hidden = !tb.hidden; }
+			else if ((t = hit('.ach-t.got'))) { const f = FAMILIES.find((x) => x.stat === t.dataset.stat), done = f ? f.steps.filter((a) => this.claimed(a)) : []; if (done.length) this.view(done[done.length - 1], done); }   // a started family is looked at, big: its rank, and the arrows go down its ranks
 		});
-		this.panelKey = (e) => { if (e.key === 'Escape' && !this.rev) { e.stopPropagation(); this.closePanel(); } };   // while a card is open, Escape closes only that
-		document.addEventListener('keydown', this.panelKey, true);
-		document.body.appendChild(ov);
-		this.panel = ov;
-		this.panelMascot = new Mascot(ov.querySelector('canvas'));
-		for (const [ev, on] of [['pointerenter', true], ['pointerleave', false]]) ov.querySelector('.ach-por').addEventListener(ev, () => { if (this.panelMascot) this.panelMascot.hover = on; });
-		if (!this.widget) { this.loopPanel(); }
+		this.panel = root;
+		this.panelMascot = new Mascot(root.querySelector('canvas'));
+		for (const [ev, on] of [['pointerenter', true], ['pointerleave', false]]) root.querySelector('.ach-por').addEventListener(ev, () => { if (this.panelMascot) this.panelMascot.hover = on; });
+		if (!this.widget) this.loopPanel();
 		this.st.opens++;
 		this.changed();   // which draws the list
 	}
@@ -1344,18 +1346,17 @@ class Plugin extends AppPlugin {
 		}
 	}
 
-	/** The panel animates its own mascot when the corner one is hidden. */
+	/** The page animates its own mascot when the corner one is hidden. */
 	loopPanel() {
-		const tick = (now) => { if (!this.panel || this.widget) return; this.panelRaf = requestAnimationFrame(tick); this.panelMascot?.draw(now, 0.15); };
+		const tick = (now) => { if (!this.panel || this.widget) return; if (!this.panel.isConnected) { this.closePanel(); return; } this.panelRaf = requestAnimationFrame(tick); this.panelMascot?.draw(now, 0.15); };
 		this.panelRaf = requestAnimationFrame(tick);
 	}
 
+	/** Lets go of the page (its mascot, its loop); the page itself belongs to the panel, which drops it when it shows something else. */
 	closePanel() {
 		cancelAnimationFrame(this.panelRaf);
-		if (this.panelKey) document.removeEventListener('keydown', this.panelKey, true);
-		this.panelKey = null;
 		this.panelMascot?.destroy(); this.panelMascot = null;
-		this.panel?.remove(); this.panel = null;
+		this.panel = null;
 	}
 
 	renderPanel() {

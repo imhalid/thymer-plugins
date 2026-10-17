@@ -1311,8 +1311,9 @@ class Plugin extends AppPlugin {
 <div class="ach-testbox" hidden><div class="ach-test"><span>Test</span><button data-t="one">Notify</button><button data-t="three">Notify x3</button><button data-t="unlock">Unlock next</button><button data-t="relock">Re-lock last</button></div><div class="ach-test"><span>Opening</span>${REVEAL_STYLES.map((n, i) => `<button data-t="fx${i}">${n}</button>`).join('')}<button data-t="tour">Tour</button></div></div>
 <div class="ach-grid"></div></div></div-scrollable>`;
 		const root = el.querySelector('.ach-page');
-		// Thymer puts a custom panel's content in a padded, centred box of its own width, which a narrow panel cuts at both sides: take that back, the page fits the panel itself
-		el.style.cssText += ';padding:0;margin:0;display:block;width:100%;max-width:none;min-width:0;min-height:100%;box-sizing:border-box';
+		// Thymer puts a custom panel's content in a padded, centred box of its own width, which a narrow panel cuts at both sides: take the width and the side padding back, so the
+		// page fits the panel itself; the padding at the top stays, it keeps the page clear of the panel's title bar
+		el.style.cssText += ';padding-left:0;padding-right:0;margin:0;display:block;width:100%;max-width:none;min-width:0;box-sizing:border-box';
 		root.addEventListener('click', (e) => {
 			const hit = (sel) => e.target.closest(sel);
 			let t;

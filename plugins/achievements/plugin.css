@@ -77,7 +77,10 @@
 .ach-arr.l { left: 22px; } .ach-arr.r { right: 22px; } .ach-arr svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 @media (prefers-reduced-motion: reduce) { .ach-rv.on .ach-cd { animation-duration: .01s; animation-delay: 0s; } .ach-note:hover .ach-nsh { animation: none; } .ach-rv.ach-g3::before { animation: none; } }
 /* The list is a page in a panel (a custom panel type), not a dialog: it takes the panel's own colours and scrolls with Thymer's own scrollbar. */
-.ach-page { max-width: 900px; margin: 0 auto; padding: 8px 0 28px; font: 13px/1.4 system-ui, sans-serif; }
+.ach-page { box-sizing: border-box; width: 100%; max-width: 940px; min-width: 0; margin: 0 auto; padding: 10px 20px 28px; overflow-x: hidden; font: 13px/1.4 system-ui, sans-serif; container: ach / inline-size; }   /* laid out by the panel's width, not the window's */
+.ach-scroll { width: 100%; min-width: 0; }
+@container ach (max-width: 420px) { .ach-grid { grid-template-columns: 1fr 1fr; } .ach-head .ach-por { width: 44px; height: 44px; } }
+@container ach (max-width: 300px) { .ach-grid { grid-template-columns: 1fr; } }
 .ach-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; } .ach-head .ach-por { width: 56px; height: 56px; flex: none; border-radius: 12px; cursor: default; } .ach-ht { min-width: 0; }
 .ach-title { font-size: 16px; font-weight: 700; } .ach-sub { opacity: .65; font-size: 12px; margin-top: 1px; } .ach-sub span { color: #e0a800; font-weight: 600; }
 .ach-tg { all: unset; cursor: pointer; border-radius: 7px; opacity: .5; margin-left: auto; font-size: 11px; padding: 3px 8px; } .ach-tg:hover { opacity: 1; background: rgba(127,127,127,.18); }
@@ -87,7 +90,7 @@
 .ach-seg button { all: unset; cursor: pointer; padding: 3px 11px; border-radius: 6px; font-size: 12px; font-weight: 600; opacity: .65; } .ach-seg button em { font-style: normal; font-weight: 500; opacity: .6; margin-left: 5px; } .ach-seg button.on { opacity: 1; background: rgba(127,127,127,.3); }
 .ach-chips { display: flex; gap: 2px; margin-right: 18px; }
 .ach-chips button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 99px; font-size: 11.5px; opacity: .45; } .ach-chips button i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); } .ach-chips button.on { opacity: 1; background: rgba(127,127,127,.18); }
-.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; padding: 6px 0 8px; }
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 6px 0 8px; min-width: 0; }
 .ach-t { position: relative; aspect-ratio: 3 / 2; border-radius: 10px; overflow: hidden; background: #0a1230; box-shadow: 0 0 0 1px rgba(127,127,127,.25); }
 .ach-t .ach-pic { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; }
 .ach-t.got { cursor: pointer; } .ach-t.got:hover .ach-pic { filter: brightness(1.1); }

@@ -4,6 +4,8 @@
 .ach-por canvas { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; -webkit-mask-image: linear-gradient(to top, transparent 0%, black 20%, black 100%); mask-image: linear-gradient(to top, transparent 0%, black 20%, black 100%); }
 .ach-rg { position: absolute; z-index: 4; padding: 2px 7px; border-radius: 99px; background: rgba(10,16,48,.72); font-size: 10.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ach-rg { right: 8px; bottom: 8px; color: #ffd64a; }
+.ach-sh { position: absolute; z-index: 4; left: 7px; bottom: 6px; width: 24px; height: 27px; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); transition: transform .15s ease; }   /* the shield: the mark of the latest achievement; a click looks at it */
+.ach-sh:hover { transform: scale(1.15); } .ach-sh[hidden] { display: none; } .ach-mini .ach-sh { display: none; }
 .ach-card.ach-away { display: none; }   /* in Thymer's focus mode */
 .ach-mini { width: 30px; } .ach-mini .ach-por { height: 46px; } .ach-mini .ach-nm, .ach-mini .ach-btns, .ach-mini .ach-rg { display: none; }
 .ach-nm { margin-top: 4px; }
@@ -29,7 +31,7 @@
 .ach-note { position: fixed; z-index: 9995; top: 14px; right: 16px; width: 276px; height: 54px; border-radius: 12px; overflow: hidden; isolation: isolate; cursor: pointer; color: #fff; font: 12px/1.3 system-ui, sans-serif; background: #0e101c; box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 14px 30px -12px rgba(0,0,0,.7); transform: translateY(-140%); opacity: 0; transition: transform .7s cubic-bezier(.2, 1.1, .3, 1), opacity .3s ease-out; }
 .ach-note.on { transform: none; opacity: 1; }
 .ach-note.out { transform: translateY(-140%); opacity: 0; transition: transform .5s ease-in, opacity .4s .1s ease-in; }
-.ach-note img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 12% 40%; transform: scale(1.14); filter: grayscale(1) blur(1.7px) brightness(.9); }
+.ach-note .ach-pic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 12% 40%; transform: scale(1.14); filter: grayscale(1) blur(1.7px) brightness(.9); }
 .ach-note::before { content: ''; position: absolute; inset: 0; z-index: 1; background: rgba(205, 218, 245, .1); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }   /* frost */
 .ach-note::after { content: ''; position: absolute; inset: 0; z-index: 3; background: linear-gradient(to left, rgba(13,15,27,.98) 0%, rgba(13,15,27,.95) 40%, rgba(13,15,27,.6) 66%, rgba(13,15,27,0) 100%); }
 .ach-nsh { position: absolute; inset: 0; z-index: 2; background: linear-gradient(105deg, transparent 36%, rgba(255,255,255,.3) 50%, transparent 64%); transform: translateX(-120%); }
@@ -43,7 +45,11 @@
 /* The opening and the viewer: cards on a dimmed screen. Each card flies in from the top right, turning to face you, and lands where JS put it (--x, --y: its
    centre; --w: the picture's width); the picture develops under the shader, and what it is gets written under it. They lean towards the pointer. */
 .ach-rv { position: fixed; inset: 0; z-index: 9996; cursor: pointer; perspective: 1500px; background: radial-gradient(ellipse at center, rgba(10,12,22,.62), rgba(4,5,10,.86)); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); opacity: 0; transition: opacity .45s ease-out; }
-.ach-rv.on { opacity: 1; } .ach-rv.out { opacity: 0; transition: opacity .4s ease-in; }
+.ach-rv.on { opacity: 1; }
+/* The ceremony's grade (ach-g0 .. ach-g3, Easy .. Legendary): a Legendary opening turns a burst of light, in the tier's metal, behind everything. */
+.ach-rv.ach-g3 { background: radial-gradient(ellipse at center, color-mix(in srgb, var(--c) 12%, rgba(10,12,22,.7)), rgba(4,5,10,.9)); }
+.ach-rv.ach-g3::before { content: ''; position: absolute; inset: -50%; pointer-events: none; background: repeating-conic-gradient(from 0deg at 50% 50%, color-mix(in srgb, var(--c) 16%, transparent) 0 5deg, transparent 5deg 13deg); -webkit-mask-image: radial-gradient(circle at center, black 0, rgba(0,0,0,.55) 22%, transparent 55%); mask-image: radial-gradient(circle at center, black 0, rgba(0,0,0,.55) 22%, transparent 55%); animation: ach-burst 70s linear infinite; }
+@keyframes ach-burst { to { transform: rotate(360deg); } } .ach-rv.out { opacity: 0; transition: opacity .4s ease-in; }
 .ach-cd { position: absolute; left: var(--x); top: var(--y); width: var(--w); margin: calc((var(--w) * .667 + 92px) / -2) 0 0 calc(var(--w) / -2); opacity: 0; color: #fff; font-family: system-ui, sans-serif; }
 .ach-rv.on .ach-cd { animation: ach-cd-in 1s cubic-bezier(.17, .9, .28, 1) var(--d, 0s) forwards; }
 @keyframes ach-cd-in { 0% { opacity: 0; transform: translate(var(--fx), var(--fy)) rotateY(-75deg) rotate(16deg) scale(.18); } 14% { opacity: 1; } 100% { opacity: 1; transform: rotate(var(--rot, 0deg)); } }
@@ -53,7 +59,8 @@
 .ach-cdi { transform-style: preserve-3d; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .3s ease-out; }
 .ach-cd-ph { position: relative; aspect-ratio: 3 / 2; border-radius: 12px; overflow: hidden; background: #0b0e18; box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 28px 50px -18px rgba(0,0,0,.85), 0 0 64px -24px var(--c); }
 .ach-cd-ph img, .ach-cd-ph canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; }
-.ach-cd.fx .ach-cd-ph img { visibility: hidden; }   /* the shader draws the picture while it opens */
+.ach-cd.fx .ach-cd-ph .ach-pic { visibility: hidden; }   /* the shader draws the picture while it opens */
+.ach-cd-ph .ach-cd-kn { left: -8%; right: auto; top: -5%; width: 60%; height: 145%; z-index: 2; }   /* the knight, live, in front of the picture's left (the opening's first card); taller than the picture: the model ends at the belt, so the card's edge cuts him there */
 .ach-cd-ph::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: var(--go, 0); transition: opacity .3s; background: radial-gradient(circle at var(--gx, 30%) var(--gy, 20%), rgba(255,255,255,.24), transparent 55%); }
 .ach-cd-tx { margin-top: 13px; padding: 0 2px; text-align: left; }
 .ach-cd-tx small { display: flex; align-items: center; gap: 6px; font: 700 10px/1 system-ui, sans-serif; letter-spacing: .15em; text-transform: uppercase; color: var(--c); }
@@ -68,7 +75,7 @@
 .ach-more { position: absolute; bottom: 5vh; left: 0; right: 0; text-align: center; color: #fff; opacity: .65; font: 12px system-ui, sans-serif; letter-spacing: .05em; }
 .ach-arr { all: unset; position: absolute; top: 50%; width: 42px; height: 42px; margin-top: -21px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; color: #fff; background: rgba(255,255,255,.1); opacity: .7; } .ach-arr:hover { opacity: 1; background: rgba(255,255,255,.2); }
 .ach-arr.l { left: 22px; } .ach-arr.r { right: 22px; } .ach-arr svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-@media (prefers-reduced-motion: reduce) { .ach-rv.on .ach-cd { animation-duration: .01s; animation-delay: 0s; } .ach-note:hover .ach-nsh { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .ach-rv.on .ach-cd { animation-duration: .01s; animation-delay: 0s; } .ach-note:hover .ach-nsh { animation: none; } .ach-rv.ach-g3::before { animation: none; } }
 .ach-ov { position: fixed; inset: 0; z-index: 9990; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); backdrop-filter: blur(3px); animation: ach-in .15s ease-out; }
 @keyframes ach-in { from { opacity: 0; } to { opacity: 1; } }
 .ach-box { width: min(760px, 94vw); max-height: 86vh; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; border-radius: 14px; border: 1px solid rgba(127,127,127,.25); box-shadow: 0 28px 80px rgba(0,0,0,.5); font: 13px/1.4 system-ui, sans-serif; }
@@ -84,17 +91,17 @@
 .ach-chips button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 99px; font-size: 11.5px; opacity: .45; } .ach-chips button i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); } .ach-chips button.on { opacity: 1; background: rgba(127,127,127,.18); }
 .ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; padding: 6px 0 8px; }
 .ach-t { position: relative; aspect-ratio: 3 / 2; border-radius: 10px; overflow: hidden; background: #0a1230; box-shadow: 0 0 0 1px rgba(127,127,127,.25); }
-.ach-t img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; }
-.ach-t.got { cursor: pointer; } .ach-t.got:hover img { filter: brightness(1.1); }
-.ach-t.lock img { filter: grayscale(1) brightness(.38) blur(6px); transform: scale(1.2); }
+.ach-t .ach-pic { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; }
+.ach-t.got { cursor: pointer; } .ach-t.got:hover .ach-pic { filter: brightness(1.1); }
+.ach-t.lock .ach-pic { filter: grayscale(1) brightness(.38) blur(6px); transform: scale(1.2); }
 .ach-t.lock::after { content: ''; position: absolute; inset: 0; opacity: .8; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='5' y='11' width='14' height='9' rx='2'/><path d='M8 11V8a4 4 0 0 1 8 0v3'/></svg>") center 38% / 22px no-repeat; }
 .ach-tc { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 18px 9px 7px; color: #fff; background: linear-gradient(to top, rgba(6,8,16,.82), transparent); }
 .ach-tc b { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ach-tc b::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
-.ach-tc span { flex: none; font-size: 10.5px; font-weight: 650; color: #f0b400; font-variant-numeric: tabular-nums; }
+.ach-tc span { flex: none; font-size: 10.5px; font-weight: 650; color: rgba(255,255,255,.8); font-variant-numeric: tabular-nums; }   /* the family's rank: steps unlocked / steps */
 .ach-tp { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.14); } .ach-tp i { display: block; height: 100%; background: var(--c); }
-.ach-t.got { box-shadow: 0 0 0 1.5px var(--c); }
+.ach-t.got { box-shadow: 0 0 0 1.5px var(--c); } .ach-t.full { box-shadow: 0 0 0 1.5px var(--c), 0 0 18px -4px var(--c); }   /* a family at its last step glows */
 .ach-none { grid-column: 1 / -1; padding: 24px; text-align: center; opacity: .5; }
-[data-tier="easy"] { --c: #3fae6a; } [data-tier="medium"] { --c: #4f8cff; } [data-tier="hard"] { --c: #b078ff; } [data-tier="legendary"] { --c: #ff8a3d; }
+[data-tier="easy"] { --c: #c98a45; } [data-tier="medium"] { --c: #b8c3ce; } [data-tier="hard"] { --c: #f2bf3e; } [data-tier="legendary"] { --c: #8fdcff; }   /* bronze, silver, gold, diamond */
 .ach-testbox { margin: 4px 0 8px; padding: 8px 10px; border-radius: 8px; background: rgba(127,127,127,.09); } .ach-testbox[hidden] { display: none; }
 .ach-test { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; } .ach-test + .ach-test { margin-top: 6px; } .ach-test span { font-size: 10.5px; opacity: .5; text-transform: uppercase; letter-spacing: .06em; width: 56px; }
 .ach-test button { all: unset; cursor: pointer; font-size: 12px; padding: 3px 9px; border-radius: 7px; background: rgba(127,127,127,.16); } .ach-test button:hover { background: rgba(127,127,127,.3); }

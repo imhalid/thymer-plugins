@@ -6,7 +6,8 @@
  * achievement progress bar and three buttons below - search, jump to, and the full list. The head is a low-poly model
  * drawn with plain WebGL (no libraries, no network); everything else is HTML and CSS.
  *
- * The model is baked into this file at build time (see build.mjs); it is not part of the source in the repository.
+ * The achievements' pictures are drawn here, in the page (a winged hexagon in the tier's metal with the mark of what it measures: see pictureOf);
+ * nothing is generated or loaded. The model is baked into this file at build time (see build.mjs); it is not part of the source in the repository.
  * Everything is kept per device in localStorage ("achievements:v1").
  */
 
@@ -17,7 +18,7 @@ const HIDE_KEY = 'achievements:hidden';
 const STREAK_MIN_WORDS = 30;   // a day counts toward the streak from this many words
 
 // ---- The list ------------------------------------------------------------------------------------------------------------
-// stat: what is measured; target: where it unlocks; crowns: what it pays. Each one has a picture (IMAGES[id], see pictureOf).
+// stat: what is measured; target: where it unlocks; crowns: what it pays. Each one's picture is drawn from it (see pictureOf).
 const ACHIEVEMENTS = [
 	{ id: 'w1', name: 'First Crown', desc: 'Write your first word', stat: 'words', target: 1, crowns: 5 },
 	{ id: 'w25', name: 'Warm Up', desc: 'Write 25 words', stat: 'words', target: 25, crowns: 5 },
@@ -91,6 +92,16 @@ ACHIEVEMENTS.push({ id: 'all', name: 'Heavenly Guardian', desc: 'Unlock every ot
 
 /** How hard an achievement is, read from what it pays. */
 const tier = (a) => (a.crowns <= 10 ? 'Easy' : a.crowns <= 40 ? 'Medium' : a.crowns <= 150 ? 'Hard' : 'Legendary');
+const TIERS = ['Easy', 'Medium', 'Hard', 'Legendary'], grade = (a) => TIERS.indexOf(tier(a));
+
+/**
+ * The families: every measure is one, and the achievements that measure it are its steps, from the first to the last. The list shows one
+ * card per family that ranks up as its steps unlock (the card wears the last step's emblem, so its metal climbs from bronze to diamond);
+ * an unlock is announced as the family reaching that step.
+ */
+const FAMILY_NAMES = { words: 'Words', bestDay: 'Words in a day', bestSession: 'One sitting', peak: 'Words a minute', longLine: 'Long lines', lines: 'Lines', bestStreak: 'Streak', tasks: 'Tasks', bestTaskDay: 'Tasks in a day', night: 'Night owl', early: 'Early bird', midnight: 'Midnight', hours: 'Hours of the day', weekend: 'Weekends', weekdays: 'Every weekday', newYear: 'New Year', comeback: 'Comeback', daysActive: 'Days written', opens: 'The list', got: 'Achievements' };
+const FAMILIES = Object.keys(FAMILY_NAMES).map((stat) => ({ stat, name: FAMILY_NAMES[stat], steps: ACHIEVEMENTS.filter((a) => a.stat === stat).sort((x, y) => x.target - y.target) }));
+const familyOf = (a) => FAMILIES.find((f) => f.stat === a.stat);
 
 // ---- Small helpers -------------------------------------------------------------------------------------------------------
 /**
@@ -191,7 +202,7 @@ class Mascot {
 		this.canvas = canvas; this.head = head; this.look = { x: 0, y: 0 }; this.lx = 0; this.ly = 0; this.nod = 0;
 		this.gl = canvas.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true });
 		this.ok = !!this.gl;
-		this.t0 = performance.now(); this.hop = null; this.speed = 0; this.sl = 0; this.sleepTo = 0; this.hover = false; this.zoom = 1;
+		this.t0 = performance.now(); this.hop = null; this.speed = 0; this.sl = 0; this.sleepTo = 0; this.hover = false; this.zoom = 1; this.size = 1; this.lift = 0;   // size and lift: drawn smaller, and higher, in a card
 		if (!this.ok) return;
 		const gl = this.gl, sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
 		const link = (vs, fs) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); return gl.getProgramParameter(p, gl.LINK_STATUS) ? p : null; };
@@ -271,7 +282,7 @@ class Mascot {
 		gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
 		gl.useProgram(this.prog);
 		const rot = mat.mul(mat.rotx(bodyPitch), mat.roty(bodyYaw));
-		const model = mat.mul(mat.trans(0, y, 0), mat.mul(rot, mat.mul(mat.scale(this.fit * this.zoom), mat.trans(-this.center[0], -this.center[1], -this.center[2]))));
+		const model = mat.mul(mat.trans(0, y + this.lift, 0), mat.mul(rot, mat.mul(mat.scale(this.fit * this.zoom * this.size), mat.trans(-this.center[0], -this.center[1], -this.center[2]))));
 		const mvp = mat.mul(mat.persp(0.5, c.width / c.height, 0.1, 10), mat.mul(mat.trans(0, 0, -2.15), model));
 		const [pa, pb] = this.pivot, pv = [0, 1, 2].map((i) => pa[i] + (pb[i] - pa[i]) * sal);
 		const headRot = mat.mul(mat.rotx(headPitch), mat.roty(headYaw));
@@ -294,11 +305,10 @@ class Mascot {
 }
 
 // ---- The notification's settings ----------------------------------------------------------------------------------------
-const IMAGES = __IMAGES__;   // { achievement id: a 3:2 WebP as a data URL }, baked in by build.mjs from art/webp (see art/source/pack_images.py)
 const SOUND = __SOUND__;     // sound/unlock.mp3 as a data URL, baked in by build.mjs
 const MUTE_KEY = 'achievements:muted';
 const FX_MAX = 6;            // cards in one opening; more are summed up in a line
-const TIER_FX = { Easy: ['#5ee6a0', 0.5], Medium: ['#4fd8ff', 1], Hard: ['#b98cff', 1.4], Legendary: ['#ffb347', 2] };
+const TIER_FX = { Easy: ['#c98a45', 0.5], Medium: ['#b8c3ce', 1], Hard: ['#f2bf3e', 1.4], Legendary: ['#8fdcff', 2] };   // the tiers' metals: bronze, silver, gold, diamond (see METAL)
 
 /** The tier's colour turned a random way round the hue wheel (up to 28 degrees) and a little brighter or darker: no two openings have the same tone. */
 function jitterHue([r, g, b]) {
@@ -311,21 +321,147 @@ function jitterHue([r, g, b]) {
 	return [R + m, G + m, B + m];
 }
 
-// ---- The pictures: a coloured plate while one is missing, and the shader that opens a picture in the notification --------------
-const PLATES = {};
-/** The picture of an achievement as a data URL; one that is not made yet gets the demo picture, or (without one) a plate in its tier's colour with faint spiral rings. */
-function pictureOf(a) {
-	if (IMAGES[a.id]) return IMAGES[a.id];
-	if (IMAGES._demo) return IMAGES._demo;   // art/demo.webp: stands in for every picture that is not made yet
-	const t = tier(a);
-	if (PLATES[t]) return PLATES[t];
-	const c = document.createElement('canvas'); c.width = 384; c.height = 256;
-	const g = c.getContext('2d'), col = TIER_FX[t][0];
-	const bg = g.createRadialGradient(192, 118, 8, 192, 128, 250); bg.addColorStop(0, col + 'aa'); bg.addColorStop(0.45, '#1a2850'); bg.addColorStop(1, '#070b1c');
-	g.fillStyle = bg; g.fillRect(0, 0, 384, 256);
-	g.strokeStyle = col + '55'; g.lineWidth = 3; g.lineCap = 'round';
-	for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(192, 128, 30 + i * 26, 0.6 + i, 4.9 + i); g.stroke(); }
-	return (PLATES[t] = c.toDataURL('image/png'));
+// ---- The emblems: an achievement's picture is drawn, not loaded: a winged hexagon in its tier's metal, as on a level-up screen, with the mark of what it measures and its number ----
+const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+/** A colour, mixed towards white (k > 0) or black (k < 0), with alpha `a`. */
+const tint = (hex, k = 0, a = 1) => `rgba(${rgbOf(hex).map((v) => Math.round(k >= 0 ? v + (255 - v) * k : v * (1 + k))).join(',')},${a})`;
+const hexAlpha = (hex, a) => hex + Math.round(a * 255).toString(16).padStart(2, '0');
+/** A small deterministic random sequence from an id: the same achievement is always the same picture. */
+const seeded = (id) => { let h = [...id].reduce((x, c) => (Math.imul(x ^ c.charCodeAt(0), 16777619) >>> 0), 2166136261); return () => { h = (Math.imul(h, 1664525) + 1013904223) >>> 0; return h / 4294967296; }; };
+/** Where an achievement stands among those that measure the same thing (0 = the first), and how many there are. */
+const familyRank = (a) => { const fam = ACHIEVEMENTS.filter((x) => x.stat === a.stat).sort((x, y) => x.target - y.target); return [fam.indexOf(a), fam.length]; };
+/** The metals of the tiers: bronze, silver, gold, diamond. base: the rim; light / dark: its bevel; face / face2: inside, top to bottom; ink: the mark and the number; glow: the light behind. */
+const METAL = {
+	Easy: { base: '#c98a45', light: '#edb877', dark: '#8c5524', face: '#6a3b17', face2: '#4e2a0f', ink: '#ffe2bd', glow: '#ffb060' },
+	Medium: { base: '#b8c3ce', light: '#f0f4f8', dark: '#7a8794', face: '#46525e', face2: '#2f3942', ink: '#ffffff', glow: '#cfe3ff' },
+	Hard: { base: '#f2bf3e', light: '#ffe993', dark: '#b57d12', face: '#7a5207', face2: '#553804', ink: '#fff4c8', glow: '#ffd25a' },
+	Legendary: { base: '#8fdcff', light: '#f4feff', dark: '#3f97c6', face: '#19425f', face2: '#0f2b40', ink: '#ffffff', glow: '#b8f0ff' },
+};
+
+// Small drawing helpers for the marks, all in a 100 x 100 box round (0, 0).
+const line = (g, x1, y1, x2, y2) => { g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+const poly = (g, pts, close = false, fill = false) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); if (close) g.closePath(); if (fill) g.fill(); g.stroke(); };
+const ring = (g, x, y, r, a0 = 0, a1 = Math.PI * 2, ccw = false) => { g.beginPath(); g.arc(x, y, r, a0, a1, ccw); g.stroke(); };
+const dot = (g, x, y, r) => { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); };
+const rad = (d) => (d * Math.PI) / 180;
+const rays = (g, x, y, r0, r1, n, a0 = 0, span = 360) => { for (let i = 0; i < n; i++) { const a = rad(a0 + (span / n) * i); line(g, x + Math.cos(a) * r0, y + Math.sin(a) * r0, x + Math.cos(a) * r1, y + Math.sin(a) * r1); } };
+const star4 = (g, x, y, s) => { g.beginPath(); for (let i = 0; i < 8; i++) { const a = rad(i * 45 - 90), r = i % 2 ? s * 0.32 : s; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.closePath(); g.fill(); };
+const rrect = (g, x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r); g.stroke(); };
+const squares = (g, lit) => { for (let i = 0; i < 7; i++) { const x = -43 + i * 12.5; g.beginPath(); g.roundRect(x, -6, 10, 10, 2); if (lit(i)) g.fill(); g.stroke(); } line(g, -44, -22, 44, -22); line(g, -44, 20, 44, 20); };
+const clock = (g, ticks) => { ring(g, 0, 0, 36); for (let i = 0; i < 12; i++) if (ticks || i % 3 === 0) { const a = rad(i * 30), big = i % 3 === 0; line(g, Math.cos(a) * (big ? 27 : 30), Math.sin(a) * (big ? 27 : 30), Math.cos(a) * 33, Math.sin(a) * 33); } dot(g, 0, 0, 4.5); };
+
+/** The marks, one per measure: a 100 x 100 drawing with the stroke and fill already set. `rank` and `n`: where the achievement stands in its family. */
+const MARKS = {
+	words(g) { poly(g, [[-40, 26], [-40, -8], [-20, 10], [0, -32], [20, 10], [40, -8], [40, 26]], true); dot(g, -40, -8, 5.5); dot(g, 0, -32, 5.5); dot(g, 40, -8, 5.5); },   // a crown
+	bestDay(g) { ring(g, 0, 0, 17); rays(g, 0, 0, 27, 38, 8, 0); },   // the sun
+	bestSession(g) { poly(g, [[-26, -34], [26, -34], [-26, 34], [26, 34]], true); poly(g, [[-11, 34], [11, 34], [0, 20]], true, true); },   // an hourglass
+	peak(g) { poly(g, [[8, -42], [-24, 6], [-3, 6], [-10, 42], [24, -8], [4, -8]], true, true); },   // lightning
+	longLine(g) { line(g, -44, 0, 20, 0); poly(g, [[24, -16], [40, 0], [24, 16]]); },   // a corridor, going on
+	lines(g) { line(g, -38, -24, 38, -24); line(g, -38, 0, 20, 0); line(g, -38, 24, 30, 24); },   // lines of text
+	bestStreak(g) { poly(g, [[-34, -10], [-16, -32], [16, -32], [34, -10], [0, 36]], true); line(g, -34, -10, 34, -10); line(g, -16, -32, -9, -10); line(g, 16, -32, 9, -10); line(g, -9, -10, 0, 36); line(g, 9, -10, 0, 36); },   // a crystal
+	tasks(g) { rrect(g, -34, -34, 68, 68, 11); poly(g, [[-18, 2], [-6, 14], [20, -14]]); },   // a ticked box
+	bestTaskDay(g) { poly(g, [[-44, 2], [-30, 16], [-6, -12]]); poly(g, [[-14, 2], [0, 16], [24, -12]]); star4(g, 36, -24, 8); },   // tick, tick
+	night(g) { g.beginPath(); g.arc(0, 0, 30, rad(33.3), rad(273.6)); g.arc(12, -6, 26, rad(247.1), rad(59.8), true); g.closePath(); g.stroke(); star4(g, 30, -24, 7); star4(g, 38, 6, 4.5); },   // the moon
+	early(g) { line(g, -44, 14, 44, 14); ring(g, 0, 14, 22, Math.PI, Math.PI * 2); rays(g, 0, 14, 30, 40, 5, 200, 140); },   // the sun coming up
+	midnight(g) { clock(g, false); line(g, 0, 0, 0, -25); line(g, 0, 0, 0, -16); },   // both hands straight up
+	hours(g) { clock(g, true); line(g, 0, 0, -15.6, -9); line(g, 0, 0, 22.5, -13); },   // a clock
+	weekend(g) { squares(g, (i) => i >= 5); },   // the last two days lit
+	weekdays(g) { squares(g, () => true); },   // every day lit
+	daysActive(g, rank, n) { const lit = Math.round(((rank + 1) / n) * 12); for (let i = 0; i < 12; i++) { const x = -33 + (i % 4) * 22, y = -22 + Math.floor(i / 4) * 22; if (i < lit) dot(g, x, y, 7); else ring(g, x, y, 6); } },   // a calendar filling in
+	comeback(g) { ring(g, 0, 2, 28, rad(-60), rad(230)); poly(g, [[-30, -32], [-18, -19.4], [-33, -8]]); },   // back round
+	newYear(g) { rays(g, 0, 0, 10, 38, 8, 0); rays(g, 0, 0, 10, 24, 8, 22.5); dot(g, 0, 0, 5); },   // a burst
+	opens(g) { rrect(g, -36, -4, 72, 36, 4); g.beginPath(); g.moveTo(-36, -4); g.lineTo(-36, -14); g.quadraticCurveTo(-36, -30, -20, -30); g.lineTo(20, -30); g.quadraticCurveTo(36, -30, 36, -14); g.lineTo(36, -4); g.stroke(); g.fillRect(-6, -10, 12, 13); },   // a chest
+	got(g) { g.beginPath(); g.moveTo(-24, -36); g.lineTo(24, -36); g.lineTo(22, -8); g.quadraticCurveTo(22, 10, 0, 12); g.quadraticCurveTo(-22, 10, -22, -8); g.closePath(); g.stroke(); ring(g, -28, -26, 8, rad(90), rad(270)); ring(g, 28, -26, 8, rad(-90), rad(90)); line(g, 0, 12, 0, 26); line(g, -16, 32, 16, 32); },   // a trophy
+};
+
+/** Draws the mark of `a` round (0, 0) in a box `size` wide, in `stroke`, `width` thick (in the 100-box). */
+function mark(g, a, size, stroke, width = 8) {
+	const [rank, n] = familyRank(a);
+	g.save(); g.scale(size / 100, size / 100);
+	g.lineWidth = width; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = stroke; g.fillStyle = stroke;
+	(MARKS[a.stat] || MARKS.got)(g, rank, n);
+	g.restore();
+}
+/** The number an achievement shows: its target, or nothing for the one-offs (midnight, New Year, opening the list), ALL for the last one. */
+const numOf = (a) => (a.id === 'all' ? 'ALL' : ['midnight', 'newYear', 'opens'].includes(a.stat) ? '' : fmt(a.target));
+
+// The parts of the emblem
+/** A pointy-top hexagon round (x, y). */
+const hexPath = (g, x, y, r) => { g.beginPath(); for (let i = 0; i < 6; i++) { const an = rad(i * 60 - 90); g.lineTo(x + Math.cos(an) * r, y + Math.sin(an) * r); } g.closePath(); };
+/** The current path filled in the metal's bevel: a diagonal gradient, light, base, dark, base. */
+function bevel(g, m, x, y, r) { const grd = g.createLinearGradient(x - r, y - r, x + r, y + r); grd.addColorStop(0, m.light); grd.addColorStop(0.45, m.base); grd.addColorStop(0.55, m.dark); grd.addColorStop(1, m.base); g.fillStyle = grd; g.fill(); }
+/** A glossy band across the top left of the current path (clipped to it). */
+function gloss(g, x, y, r, alpha = 0.14) { g.save(); g.clip(); g.fillStyle = `rgba(255,255,255,${alpha})`; g.beginPath(); g.moveTo(x - r * 1.4, y - r * 1.4); g.lineTo(x + r * 0.2, y - r * 1.4); g.lineTo(x - r * 0.6, y + r * 1.4); g.lineTo(x - r * 1.4, y + r * 1.4); g.closePath(); g.fill(); g.restore(); }
+/** Wings either side of (x, y): `n` swept feathers each, in the metal. */
+function wings(g, m, x, y, n, scale = 1) {
+	for (const side of [-1, 1]) for (let i = 0; i < n; i++) {
+		const sx = side * scale, L = 70 - i * 10, yy = y - 26 + i * 20, thick = 15 - i * 2;
+		g.beginPath(); g.moveTo(x + sx * 62, yy); g.quadraticCurveTo(x + sx * (62 + L * 0.6), yy - 24 * scale, x + sx * (62 + L), yy - 36 * scale + i * 8); g.lineTo(x + sx * (62 + L - 10), yy - 36 * scale + thick + i * 8); g.quadraticCurveTo(x + sx * (62 + L * 0.5), yy - 6 * scale + thick * 0.4, x + sx * 62, yy + thick); g.closePath();
+		const grd = g.createLinearGradient(x + sx * 62, yy, x + sx * 130, yy); grd.addColorStop(0, m.base); grd.addColorStop(1, m.light); g.fillStyle = grd; g.fill(); g.strokeStyle = m.dark; g.lineWidth = 1.2; g.stroke();
+	}
+}
+/** The light behind the emblem, as on a rank screen: sectors of light round (x, y), a bright ring, dust. */
+function burst(g, x, y, m, rnd, strength = 1) {
+	g.save(); g.translate(x, y);
+	for (let i = 0; i < 28; i++) {
+		const a0 = rad(i * (360 / 28) + rnd() * 4), w = rad(3 + rnd() * 8), r = 150 + rnd() * 120;
+		const grd = g.createRadialGradient(0, 0, 40, 0, 0, r); grd.addColorStop(0, hexAlpha(m.glow, 0.28 * strength)); grd.addColorStop(1, hexAlpha(m.glow, 0));
+		g.fillStyle = grd; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, r, a0, a0 + w); g.closePath(); g.fill();
+	}
+	g.strokeStyle = hexAlpha(m.glow, 0.5 * strength); g.lineWidth = 10; g.shadowColor = m.glow; g.shadowBlur = 30; ring(g, 0, 0, 92); g.shadowBlur = 0; g.lineWidth = 2; g.strokeStyle = hexAlpha(m.light, 0.6 * strength); ring(g, 0, 0, 92);
+	for (let i = 0; i < 26; i++) { const an = rnd() * Math.PI * 2, d = 60 + rnd() * 170; g.fillStyle = hexAlpha(m.light, 0.2 + rnd() * 0.6); dot(g, Math.cos(an) * d, Math.sin(an) * d * 0.8, 0.8 + rnd() * 1.8); }
+	g.restore();
+}
+
+const EMBLEMS = {};
+/**
+ * The picture of an achievement, a canvas drawn on first use and kept (never encoded: drawing all 68 takes a few milliseconds, encoding them
+ * half a second): a warm dark plate with a burst of light, and in it a hexagon in the tier's metal (bronze, silver, gold, diamond) with wings
+ * (one feather for Easy, two for Medium, three for Hard and Legendary, which also glows), the mark of what it measures and its number on
+ * the face, the tier's name above and a chevron at its foot. `w`: the width (384 for the list's tiles, 768 for the cards); `room`: the
+ * emblem sits to the right and leaves the left to the knight (the opening's card).
+ */
+function pictureOf(a, { w = 768, room = false } = {}) {
+	const key = `${a.id}|${w}|${room ? 1 : 0}`;
+	if (EMBLEMS[key]) return EMBLEMS[key];
+	const c = document.createElement('canvas'); c.width = w; c.height = Math.round(w / 1.5);
+	const g = c.getContext('2d'), s = w / 384, t = tier(a), m = METAL[t], rnd = seeded(a.id), bx = room ? 270 : 192, by = 118, R = 66;
+	g.scale(s, s);
+	const bg = g.createRadialGradient(bx, 60, 10, bx, 120, 300); bg.addColorStop(0, tint(m.dark, -0.6)); bg.addColorStop(0.5, tint(m.dark, -0.82)); bg.addColorStop(1, '#070608'); g.fillStyle = bg; g.fillRect(0, 0, 384, 256);   // the plate takes the metal's shade
+	const top = g.createLinearGradient(0, 0, 0, 120); top.addColorStop(0, hexAlpha(m.glow, 0.35)); top.addColorStop(1, hexAlpha(m.glow, 0)); g.fillStyle = top; g.fillRect(0, 0, 384, 120);
+	burst(g, bx, by, m, rnd, 0.55);
+	wings(g, m, bx, by, { Easy: 1, Medium: 2, Hard: 3, Legendary: 3 }[t], (t === 'Easy' ? 0.7 : 0.95) * (room ? 0.88 : 1));
+	g.save(); g.shadowColor = m.glow; g.shadowBlur = t === 'Legendary' ? 30 : 14; hexPath(g, bx, by, R); bevel(g, m, bx, by, R); g.restore();
+	hexPath(g, bx, by, R * 0.82); const face = g.createLinearGradient(0, by - R, 0, by + R); face.addColorStop(0, m.face); face.addColorStop(1, m.face2); g.fillStyle = face; g.fill(); g.strokeStyle = m.light; g.lineWidth = 1.2; g.stroke();
+	hexPath(g, bx, by, R); gloss(g, bx, by, R);
+	const num = numOf(a);
+	g.font = '700 8px system-ui, sans-serif'; g.letterSpacing = '3px'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = m.light; g.fillText(t.toUpperCase(), bx + 1, by - 30); g.letterSpacing = '0px';
+	g.save(); g.translate(bx, by - (num ? 2 : 0)); mark(g, a, num ? 42 : 56, m.ink, 10); g.restore();
+	if (num) { g.font = `800 ${num.length > 4 ? 14 : 18}px system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = m.ink; g.fillText(num, bx, by + 34); }
+	g.beginPath(); g.moveTo(bx - 14, by + R - 8); g.lineTo(bx, by + R + 2); g.lineTo(bx + 14, by + R - 8); g.lineTo(bx, by + R - 16); g.closePath(); g.fillStyle = m.light; g.fill();   // the chevron at the foot
+	if (room) { const fog = g.createLinearGradient(0, 180, 0, 256); fog.addColorStop(0, 'rgba(7,6,8,0)'); fog.addColorStop(1, 'rgba(7,6,8,.7)'); g.fillStyle = fog; g.fillRect(0, 180, 384, 76); }   // the knight stands in a mist at the foot of the card
+	return (EMBLEMS[key] = c);
+}
+
+/** A fresh canvas (class ach-pic) with the picture of `a` on it, to put in the page; the drawing itself is shared (see pictureOf). */
+function picture(a, opts) {
+	const src = pictureOf(a, opts), c = document.createElement('canvas');
+	c.width = src.width; c.height = src.height; c.className = 'ach-pic';
+	c.getContext('2d').drawImage(src, 0, 0);
+	return c;
+}
+
+const BADGES = {};
+/** The small badge the mascot's card wears: the mark of the latest achievement on a hexagon in its tier's metal (a data URL, 26 x 28 at 2x). */
+function badgeOf(a) {
+	if (BADGES[a.id]) return BADGES[a.id];
+	const c = document.createElement('canvas'); c.width = 52; c.height = 56;
+	const g = c.getContext('2d'), m = METAL[tier(a)];
+	g.scale(2, 2);
+	hexPath(g, 13, 14, 12.5); bevel(g, m, 13, 14, 12.5); g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 1; g.stroke();
+	hexPath(g, 13, 14, 9.8); g.fillStyle = m.face; g.fill();
+	g.save(); g.translate(13, 14); mark(g, a, 13, m.ink, 11); g.restore();
+	return (BADGES[a.id] = c.toDataURL('image/png'));
 }
 
 /** How an achievement opens: the style asked for (a number, or a list, one for each picture) or, by default, its own, the same every time (from its id). */
@@ -447,7 +583,7 @@ class Reveal {
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		};
-		if (img.complete && img.naturalWidth) upload(); else img.addEventListener('load', upload, { once: true });
+		if (img instanceof HTMLCanvasElement || (img.complete && img.naturalWidth)) upload(); else img.addEventListener('load', upload, { once: true });
 		this.vao = gl.createVertexArray(); gl.bindVertexArray(this.vao);
 		gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
 		const loc = gl.getAttribLocation(pr, 'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
@@ -555,8 +691,7 @@ class Plugin extends AppPlugin {
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: open', icon: 'trophy', onSelected: () => this.openPanel() });
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: show or hide the mascot', icon: 'eye', onSelected: () => this.toggleWidget() });
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: replay the last unlock', icon: 'sparkles', onSelected: () => {
-			const last = ACHIEVEMENTS.filter((a) => this.claimed(a)).sort((a, b) => this.st.unlocked[b.id] - this.st.unlocked[a.id])[0];
-			this.reveal([last || ACHIEVEMENTS[0]]);
+			this.reveal([this.latest() || ACHIEVEMENTS[0]]);
 		} });
 		this.ui.addCommandPaletteCommand({ label: 'Achievements: mute or unmute the sound', icon: 'volume', onSelected: () => {
 			const off = localStorage.getItem(MUTE_KEY) !== '1';
@@ -669,6 +804,9 @@ class Plugin extends AppPlugin {
 
 	/** What is shown counts only what was opened: one that is still waiting (st.pending) is not in the totals, nor named in the list. */
 	claimed(a) { return !!this.st.unlocked[a.id] && !this.st.pending.includes(a.id); }
+	/** What was opened, the newest first. */
+	claimedList() { return ACHIEVEMENTS.filter((a) => this.claimed(a)).sort((a, b) => this.st.unlocked[b.id] - this.st.unlocked[a.id]); }
+	latest() { return this.claimedList()[0]; }
 	crowns() { return ACHIEVEMENTS.reduce((n, a) => n + (this.claimed(a) ? a.crowns : 0), 0); }
 	unlockedCount() { return ACHIEVEMENTS.filter((a) => this.claimed(a)).length; }
 
@@ -683,12 +821,13 @@ class Plugin extends AppPlugin {
 		};
 		const w = document.createElement('div');
 		w.className = 'ach-card';
-		w.innerHTML = `<div class="ach-por" title="Achievements"><canvas></canvas><span class="ach-rg"></span></div>
+		w.innerHTML = `<div class="ach-por" title="Achievements"><canvas></canvas><span class="ach-rg"></span><img class="ach-sh" alt="" hidden></div>
 			<div class="ach-nm"><div class="ach-slot"></div></div>
 			<div class="ach-btns">
 				<button class="ach-btn" data-a="search" title="Search everything">${ICONS.search}<span>Search</span></button>
 				<button class="ach-btn" data-a="jump" title="Jump to a page">${ICONS.jump}<span>Jump to</span></button></div>`;
 		w.querySelector('.ach-por').addEventListener('click', () => { if (this.st.pending.length) this.claim(); else this.openPanel(); });   // something is waiting: open that first
+		w.querySelector('.ach-sh').addEventListener('click', (e) => { e.stopPropagation(); const a = this.latest(); if (a) this.view(a, this.claimedList()); });   // the shield: the latest achievement, looked at
 		for (const [ev, on] of [['pointerenter', true], ['pointerleave', false]]) w.querySelector('.ach-por').addEventListener(ev, () => { if (this.mascot) this.mascot.hover = on; });
 		w.querySelector('[data-a="search"]').onclick = () => { const n = this.native.search; if (n && n.isConnected) n.click(); else this.openSearch(); };
 		w.querySelector('[data-a="jump"]').onclick = () => { const n = this.native.jump; if (n && n.isConnected) n.click(); else this.openJump(); };
@@ -809,6 +948,8 @@ class Plugin extends AppPlugin {
 			const waiting = this.st.pending.length > 0 && !this.note;   // the note itself is the announcement; the glow takes over when it is gone
 			w.classList.toggle('ach-pending', waiting);
 			w.querySelector('.ach-por').title = waiting ? 'A new achievement is waiting: click to open it' : `Achievements ${got}/${total}` + (next ? ` - next: ${next.name}` : '');   // what it asks for stays secret until it unlocks
+			const last = this.latest(), sh = w.querySelector('.ach-sh');   // the shield wears the mark of the latest achievement
+			if ((last ? last.id : '') !== this.badgeId) { this.badgeId = last ? last.id : ''; sh.hidden = !last; if (last) { sh.src = badgeOf(last); sh.title = `Latest: ${last.name}`; } }
 		}
 		if (this.panel) this.renderPanel();
 	}
@@ -936,8 +1077,8 @@ class Plugin extends AppPlugin {
 		if (!opts.preview) { for (const a of list) if (!this.st.pending.includes(a.id)) this.st.pending.push(a.id); this.save(); }
 		const n = this.note = document.createElement('div');
 		n.className = 'ach-note';
-		n.innerHTML = '<img alt=""><i class="ach-nsh"></i><div class="ach-nt"><b></b></div>';
-		n.querySelector('img').src = pictureOf(list[0]);
+		n.innerHTML = '<i class="ach-nsh"></i><div class="ach-nt"><b></b></div>';
+		n.prepend(picture(list[0], { w: 384 }));
 		n.querySelector('b').textContent = list.length > 1 ? `Unlock new achievements · ${list.length}` : 'Unlock new achievement';
 		n.addEventListener('click', () => this.claim(list, opts));
 		const arm = (ms) => { clearTimeout(this.noteT); this.noteT = setTimeout(() => this.endNote(true), ms); };
@@ -947,7 +1088,7 @@ class Plugin extends AppPlugin {
 		n.getBoundingClientRect();   // its starting place, so that 'on' animates from it
 		n.classList.add('on');
 		arm(8000);
-		this.chime();
+		this.chime(Math.max(...list.map(grade)) >= 1 ? 0.55 : 0.32);   // an Easy one rings softly
 		this.refreshUi();
 	}
 
@@ -964,7 +1105,8 @@ class Plugin extends AppPlugin {
 		const l = list || ACHIEVEMENTS.filter((a) => this.st.pending.includes(a.id));
 		this.endNote(true);
 		if (!l.length) return;
-		this.reveal(l, opts.style);
+		const top = Object.values(l.reduce((o, a) => ((!o[a.stat] || o[a.stat].target < a.target) && (o[a.stat] = a), o), {})).sort((x, y) => grade(y) - grade(x) || y.target - x.target);   // one card per family (its highest new step), the grandest first
+		this.reveal(top, opts.style);
 		if (!opts.preview) { this.st.pending = this.st.pending.filter((id) => !l.some((a) => a.id === id)); this.save(); }
 		this.refreshUi();
 	}
@@ -972,20 +1114,22 @@ class Plugin extends AppPlugin {
 	/** Writes what an achievement is into a card (its tier, name, what it asks and, in the viewer, when it was won and what it paid). */
 	fillCard(el, a, date) {
 		el.style.setProperty('--c', TIER_FX[tier(a)][0]);
-		el.querySelector('small').textContent = tier(a);
+		const f = familyOf(a), k = f.steps.indexOf(a) + 1;
+		el.querySelector('small').textContent = f.steps.length > 1 ? `${f.name} \u00b7 rank ${k} of ${f.steps.length} \u00b7 ${tier(a)}` : `${f.name} \u00b7 ${tier(a)}`;
 		el.querySelector('b').textContent = a.name;
 		el.querySelector('span').textContent = a.desc;
 		const em = el.querySelector('em');
 		em.textContent = date ? `${new Date(date).toLocaleDateString()} \u00b7 \u25ce +${fmt(a.crowns)}` : '';
 	}
 
-	/** One achievement as a card: its picture (the shader's canvas goes over it while it opens) and, under it, what it is. */
-	card(a, date) {
+	/** One achievement as a card: its picture (the shader's canvas goes over it while it opens) and, under it, what it is. With `knight`, the emblem leaves the left of the picture to a canvas for the knight (ach-cd-kn). */
+	card(a, date, knight = false) {
 		const el = document.createElement('div');
 		el.className = 'ach-cd';
 		el.style.setProperty('--c', TIER_FX[tier(a)][0]);
-		el.innerHTML = '<div class="ach-cdi"><div class="ach-cd-ph"><img alt=""><canvas></canvas></div><div class="ach-cd-tx"><small></small><b></b><span></span><em></em></div></div>';
-		el.querySelector('img').src = pictureOf(a);
+		el.innerHTML = '<div class="ach-cdi"><div class="ach-cd-ph"><canvas class="ach-fxc"></canvas></div><div class="ach-cd-tx"><small></small><b></b><span></span><em></em></div></div>';
+		el.querySelector('.ach-cd-ph').prepend(picture(a, { room: knight }));
+		if (knight) { const k = document.createElement('canvas'); k.className = 'ach-cd-kn'; el.querySelector('.ach-cd-ph').appendChild(k); }
 		this.fillCard(el, a, date);
 		return el;
 	}
@@ -1005,17 +1149,23 @@ class Plugin extends AppPlugin {
 	 * The opening: the achievements fly in from the top right, turning to face you, and land scattered over the screen (one big in the
 	 * middle when it is alone), each a picture with what it is written under it. The pictures develop under their own shader
 	 * (REVEAL_STYLES, in the tier's colour) from the grey, frosted look of the note, and the cards lean towards the pointer with a
-	 * soft glare. A click, Escape or ten seconds closes it. Without WebGL, or with reduced motion, the pictures are simply there.
+	 * soft glare. The ceremony grows with the grandest card: an Easy one simply appears and goes after a few seconds; from Medium the picture
+	 * develops under its shader and the mascot salutes; from Hard the knight himself stands in the first card, live (he looks about, snaps a
+	 * salute when the card lights, and holds the pose: the canvas keeps its last frame); a Legendary one also turns a burst of light behind
+	 * everything. A click, Escape or a few seconds closes it. Without WebGL, or with reduced motion, the pictures are simply there and the
+	 * knight is already saluting.
 	 */
 	reveal(list, style) {
 		const ov = this.stage();
 		const shown = list.slice(0, FX_MAX), more = list.length - shown.length, n = shown.length, vw = window.innerWidth, vh = window.innerHeight;
+		const g0 = Math.max(...shown.map(grade));   // the ceremony's grade: 0 Easy .. 3 Legendary
+		ov.classList.add('ach-g' + g0); ov.style.setProperty('--c', TIER_FX[tier(shown[0])][0]);
 		const cols = Math.max(1, Math.round(Math.sqrt(n * vw / vh))), rows = Math.ceil(n / cols), cw = vw / cols, chh = (vh - 40) / rows;
 		const W = Math.round(Math.max(130, Math.min(520, cw * 0.82, (chh * 0.84 - 92) / 0.667)));
 		const cells = [...Array(cols * rows).keys()].sort(() => Math.random() - 0.5).slice(0, n).sort((x, y) => x - y);   // which cells of the grid they take
 		const tilt = [-3, 2.4, -1.4, 3.2, -2.2, 1.6];
 		const cards = shown.map((a, i) => {
-			const el = this.card(a), c = cells[i];
+			const el = this.card(a, undefined, i === 0 && g0 >= 2), c = cells[i];
 			const x = (c % cols) * cw + cw / 2 + (n > 1 ? (Math.random() - 0.5) * cw * 0.1 : 0), y = 20 + Math.floor(c / cols) * chh + chh / 2 + (n > 1 ? (Math.random() - 0.5) * chh * 0.1 : 0);
 			el.style.cssText += `;--w:${W}px;--fs:${Math.round(Math.max(14, Math.min(24, W * 0.058)))}px;--x:${Math.round(x)}px;--y:${Math.round(y)}px;--rot:${n > 1 ? tilt[i % 6] : 0}deg;--fx:${Math.round(vw - 70 - x)}px;--fy:${Math.round(46 - y)}px;--d:${(i * 0.15).toFixed(2)}s`;
 			ov.appendChild(el);
@@ -1025,19 +1175,30 @@ class Plugin extends AppPlugin {
 		this.revCards = cards;
 		const still = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 		for (const [i, c] of cards.entries()) {
-			const cv = c.el.querySelector('canvas'), rv = still ? null : new Reveal(cv, c.el.querySelector('img'), TIER_FX[tier(c.a)][0], revealStyle(c.a, style, i));
+			const cv = c.el.querySelector('.ach-fxc'), rv = still || grade(c.a) < 1 ? null : new Reveal(cv, c.el.querySelector('.ach-pic'), TIER_FX[tier(c.a)][0], revealStyle(c.a, style, i));
 			if (rv && rv.ok) { c.rv = rv; c.el.classList.add('fx'); } else cv.remove();
 		}
+		const kc = cards[0].el.querySelector('.ach-cd-kn'), kn = kc && new Mascot(kc, false);   // the whole knight, not just the head (from Hard up)
+		if (kn && kn.ok) { kn.size = 0.8; kn.ray = null; cards[0].kn = kn; if (still) kn.freezeAt = performance.now() + 250; }   // no light shafts of his own: the emblem's burst is the light here
+		else if (kn) { kn.destroy(); kc.remove(); }
 		ov.getBoundingClientRect();
 		ov.classList.add('on');
 		const born = performance.now();
 		const tick = (ts) => {
 			if (this.rev !== ov) return;
 			this.revRaf = requestAnimationFrame(tick);
-			for (const c of cards) if (c.rv) { c.rv.draw(ts); if (c.rv.done(ts)) { c.el.classList.remove('fx'); c.rv.destroy(); c.rv = null; c.el.querySelector('canvas').remove(); } }
+			for (const c of cards) if (c.rv) { c.rv.draw(ts); if (c.rv.done(ts)) { c.el.classList.remove('fx'); c.rv.destroy(); c.rv = null; c.el.querySelector('.ach-fxc').remove(); } }
+			const k = cards[0].kn;
+			if (k && !k.frozen) {
+				if (still) k.hop = { t0: ts - SALUTE_MS * 0.4, ms: SALUTE_MS };   // no motion: straight into the salute
+				k.draw(ts, 0.1);
+				if (k.freezeAt && ts > k.freezeAt && k.textures.every((t) => t.ready)) k.frozen = true;   // mid-salute: the last frame stays
+			}
 		};
 		this.revRaf = requestAnimationFrame(tick);
-		ov.addEventListener('pointermove', (e) => {   // the cards lean towards the pointer, a glare follows it
+		ov.addEventListener('pointermove', (e) => {   // the cards lean towards the pointer, a glare follows it (and the knight looks at it)
+			const k = cards[0].kn;
+			if (k && !k.frozen) { const r = k.canvas.getBoundingClientRect(); k.look.x = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / 320)); k.look.y = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height * 0.3)) / 320)); }
 			for (const c of cards) {
 				const r = c.el.getBoundingClientRect(), dx = (e.clientX - (r.left + r.width / 2)) / r.width, dy = (e.clientY - (r.top + r.height / 2)) / r.height, near = Math.abs(dx) < 0.9 && Math.abs(dy) < 0.9;
 				const inner = c.el.firstChild;
@@ -1051,10 +1212,10 @@ class Plugin extends AppPlugin {
 			const open = 640 + i * 150, lit = open + 420;
 			last = lit;
 			at(open, () => c.rv?.start(performance.now()));
-			at(lit, () => { c.el.classList.add('lit'); if (i === 0) this.mascot?.celebrate(performance.now()); });
+			at(lit, () => { c.el.classList.add('lit'); if (i === 0) { if (g0 >= 1) this.mascot?.celebrate(performance.now()); const k = c.kn; if (k && !k.frozen) { k.celebrate(performance.now()); k.freezeAt = performance.now() + SALUTE_MS * 0.42; } } });
 		});
 		ov.addEventListener('click', () => { if (performance.now() - born > 600) this.endReveal(true); });
-		at(last + 9000, () => this.endReveal(true));
+		at(last + [4500, 6500, 9000, 10000][g0], () => this.endReveal(true));
 	}
 
 	/**
@@ -1077,17 +1238,16 @@ class Plugin extends AppPlugin {
 			finish();
 			const el = ov.querySelector('.ach-cd');
 			if (!el) return;
-			const nb = new Image();
-			nb.src = pictureOf(next);
-			try { await nb.decode(); } catch (e) { /* shown anyway */ }
+			const nb = pictureOf(next);
 			if (mine !== turn || this.rev !== ov) return;
-			const ph = el.querySelector('.ach-cd-ph'), img = ph.querySelector('img'), tx = el.querySelector('.ach-cd-tx'), cv = document.createElement('canvas');
+			const ph = el.querySelector('.ach-cd-ph'), img = ph.querySelector('.ach-pic'), tx = el.querySelector('.ach-cd-tx'), cv = document.createElement('canvas');
+			const show = () => img.getContext('2d').drawImage(nb, 0, 0);   // the next picture, onto the card's own canvas
 			ph.appendChild(cv);
 			const m = new Morph(cv, img, nb, d);
 			tx.classList.add('swap');   // the words fade out, change, and fade in again while the picture changes
 			setTimeout(() => { if (mine !== turn) return; this.fillCard(el, next, this.st.unlocked[next.id]); tx.classList.remove('swap'); }, 300);
-			if (!m.ok) { m.destroy(); cv.remove(); img.src = nb.src; return; }
-			m.final = () => { img.src = nb.src; img.decode().then(() => cv.remove(), () => cv.remove()); m.destroy(); this.fillCard(el, next, this.st.unlocked[next.id]); tx.classList.remove('swap'); };
+			if (!m.ok) { m.destroy(); cv.remove(); show(); return; }
+			m.final = () => { show(); cv.remove(); m.destroy(); this.fillCard(el, next, this.st.unlocked[next.id]); tx.classList.remove('swap'); };
 			morph = m;
 			m.start(performance.now());
 			const tick = (ts) => { if (morph !== m) return; m.draw(ts); if (m.done(ts)) finish(); else this.morphRaf = requestAnimationFrame(tick); };
@@ -1098,7 +1258,7 @@ class Plugin extends AppPlugin {
 		const first = this.card(list[i], this.st.unlocked[list[i].id]);
 		first.classList.add('view', 'enter');
 		first.style.cssText += `;--w:${W}px;--fs:${Math.round(Math.max(16, Math.min(26, W * 0.04)))}px;--x:${Math.round(vw / 2)}px;--y:${Math.round(vh / 2)}px`;
-		first.querySelector('canvas').remove();
+		first.querySelector('.ach-fxc').remove();
 		ov.appendChild(first);
 		void first.offsetWidth;
 		first.classList.remove('enter');
@@ -1123,7 +1283,7 @@ class Plugin extends AppPlugin {
 		const ov = this.rev, cards = this.revCards || [];
 		this.rev = null; this.revCards = null;
 		if (!ov) return;
-		const gone = () => { cards.forEach((c) => c.rv?.destroy()); ov.remove(); };
+		const gone = () => { cards.forEach((c) => { c.rv?.destroy(); c.kn?.destroy(); }); ov.remove(); };
 		if (animated) { ov.classList.add('out'); setTimeout(gone, 450); } else gone();
 	}
 
@@ -1138,7 +1298,7 @@ class Plugin extends AppPlugin {
 		ov.innerHTML = `<div class="ach-box"><div-scrollable class="ach-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="ach-in">
 <div class="ach-head"><div class="ach-por"><canvas></canvas></div><div class="ach-ht"><div class="ach-title">Achievements</div><div class="ach-sub"></div></div><button class="ach-tg" data-a="test">Test</button><button class="ach-x" aria-label="Close">✕</button></div>
 <div class="ach-pbar"><i></i></div>
-<div class="ach-tools"><div class="ach-seg">${[['all', 'All'], ['done', 'Done'], ['todo', 'To do']].map(([k, l]) => `<button data-f="${k}">${l}<em></em></button>`).join('')}</div><div class="ach-chips">${Object.keys(TIER_FX).map((t) => `<button data-tf="${t}" data-tier="${t.toLowerCase()}"><i></i>${t}</button>`).join('')}</div></div>
+<div class="ach-tools"><div class="ach-seg">${[['all', 'All'], ['going', 'In progress'], ['done', 'Complete']].map(([k, l]) => `<button data-f="${k}">${l}<em></em></button>`).join('')}</div><div class="ach-chips">${Object.keys(TIER_FX).map((t) => `<button data-tf="${t}" data-tier="${t.toLowerCase()}"><i></i>${t}</button>`).join('')}</div></div>
 <div class="ach-testbox" hidden><div class="ach-test"><span>Test</span><button data-t="one">Notify</button><button data-t="three">Notify x3</button><button data-t="unlock">Unlock next</button><button data-t="relock">Re-lock last</button></div><div class="ach-test"><span>Opening</span>${REVEAL_STYLES.map((n, i) => `<button data-t="fx${i}">${n}</button>`).join('')}<button data-t="tour">Tour</button></div></div>
 <div class="ach-grid"></div></div></div-scrollable></div>`;
 		const box = ov.querySelector('.ach-box');
@@ -1153,7 +1313,7 @@ class Plugin extends AppPlugin {
 			else if ((el = hit('[data-f]'))) { this.pf.show = el.dataset.f; this.renderPanel(); }
 			else if ((el = hit('[data-tf]'))) { const t = el.dataset.tf; this.pf.tiers.has(t) ? this.pf.tiers.delete(t) : this.pf.tiers.add(t); this.renderPanel(); }
 			else if (hit('[data-a="test"]')) { const tb = ov.querySelector('.ach-testbox'); tb.hidden = !tb.hidden; }
-			else if ((el = hit('.ach-t.got'))) { const a = ACHIEVEMENTS.find((x) => x.id === el.dataset.id); if (a) this.view(a, this.panelList); }   // an unlocked one is looked at, big
+			else if ((el = hit('.ach-t.got'))) { const f = FAMILIES.find((x) => x.stat === el.dataset.stat), done = f ? f.steps.filter((a) => this.claimed(a)) : []; if (done.length) this.view(done[done.length - 1], done); }   // a started family is looked at, big: its rank, and the arrows go down its ranks
 		});
 		this.panelKey = (e) => { if (e.key === 'Escape' && !this.rev) { e.stopPropagation(); this.closePanel(); } };   // while a card is open, Escape closes only that
 		document.addEventListener('keydown', this.panelKey, true);
@@ -1168,11 +1328,11 @@ class Plugin extends AppPlugin {
 
 	/** The panel's test buttons: show the notification without changing anything, or really unlock (and re-lock) one. */
 	test(what) {
-		const pick = (n) => [...ACHIEVEMENTS].sort(() => Math.random() - 0.5).slice(0, n);
+		const pick = (n, min = 0) => [...ACHIEVEMENTS].filter((a) => grade(a) >= min).sort(() => Math.random() - 0.5).slice(0, n);
 		if (what === 'one') this.announce(pick(1), { preview: true });   // the note, and then the opening on a click
 		else if (what === 'three') this.announce(pick(3), { preview: true });
-		else if (what.startsWith('fx')) this.reveal(pick(1), +what.slice(2));   // straight to the opening, in this style
-		else if (what === 'tour') this.reveal(pick(FX_MAX), [...REVEAL_STYLES.keys()].sort(() => Math.random() - 0.5));   // as many pictures as fit, each in another style
+		else if (what.startsWith('fx')) this.reveal(pick(1, 2), +what.slice(2));   // straight to the opening, in this style (a Hard or Legendary one: the whole ceremony)
+		else if (what === 'tour') this.reveal(pick(FX_MAX, 1), [...REVEAL_STYLES.keys()].sort(() => Math.random() - 0.5));   // as many pictures as fit, each in another style
 		else if (what === 'unlock') {
 			const a = ACHIEVEMENTS.find((x) => !this.st.unlocked[x.id]);
 			if (!a) return;
@@ -1201,26 +1361,30 @@ class Plugin extends AppPlugin {
 	renderPanel() {
 		const p = this.panel;
 		if (!p) return;
-		const m = measures(this.st), got = this.unlockedCount(), pf = this.pf, pr = (a) => Math.min(1, m[a.stat] / a.target), un = {};
+		const m = measures(this.st), got = this.unlockedCount(), pf = this.pf, un = {};
 		for (const a of ACHIEVEMENTS) if (this.claimed(a)) un[a.id] = this.st.unlocked[a.id];   // one that is still waiting looks locked here
-		p.querySelector('.ach-sub').innerHTML = `${got} of ${ACHIEVEMENTS.length} unlocked · <span>◎ ${fmt(this.crowns())} crowns</span> · ${fmt(this.st.words)} words`;
+		p.querySelector('.ach-sub').innerHTML = `${got} of ${ACHIEVEMENTS.length} unlocked \u00b7 <span>\u25ce ${fmt(this.crowns())} crowns</span> \u00b7 ${fmt(this.st.words)} words`;
 		p.querySelector('.ach-pbar i').style.width = `${(got / ACHIEVEMENTS.length) * 100}%`;
-		const counts = { all: ACHIEVEMENTS.length, done: got, todo: ACHIEVEMENTS.length - got };
+		// every family: its rank (how many steps are unlocked), the step it stands at (the last unlocked, or the first while none is), the next one and how near it is
+		const fams = FAMILIES.map((f) => {
+			const done = f.steps.filter((a) => un[a.id]), at = done[done.length - 1] || f.steps[0], next = f.steps.find((a) => !un[a.id]);
+			return { f, at, next, rank: done.length, newest: done.length ? Math.max(...done.map((a) => un[a.id])) : 0, near: next ? Math.min(1, m[next.stat] / next.target) : 1 };
+		});
+		const counts = { all: fams.length, going: fams.filter((x) => x.rank && x.next).length, done: fams.filter((x) => !x.next).length };
 		p.querySelectorAll('[data-f]').forEach((b) => { b.classList.toggle('on', pf.show === b.dataset.f); b.querySelector('em').textContent = counts[b.dataset.f]; });
 		p.querySelectorAll('[data-tf]').forEach((b) => b.classList.toggle('on', pf.tiers.has(b.dataset.tf)));
 		const grid = p.querySelector('.ach-grid');
 		grid.textContent = '';
-		const rows = ACHIEVEMENTS.filter((a) => (pf.show === 'all' || (pf.show === 'done') === !!un[a.id]) && (!pf.tiers.size || pf.tiers.has(tier(a))))
-			.sort((a, b) => (un[b.id] ? 1 : 0) - (un[a.id] ? 1 : 0) || (un[a.id] && un[b.id] ? un[b.id] - un[a.id] : pr(b) - pr(a)));   // the newest unlock first, then the nearest to unlocking
-		this.panelList = rows.filter((a) => un[a.id]);   // what the viewer goes through
-		for (const a of rows) {
-			const on = !!un[a.id], c = document.createElement('div');
-			c.className = 'ach-t ' + (on ? 'got' : 'lock'); c.dataset.tier = tier(a).toLowerCase(); c.dataset.id = a.id;
-			c.innerHTML = '<img alt="" loading="lazy" decoding="async"><div class="ach-tc"><b></b><span></span></div>';
-			c.querySelector('img').src = pictureOf(a);
-			c.querySelector('b').textContent = on ? a.name : '???';   // a locked one keeps its name, task and target secret, so it is found rather than speedrun
-			c.querySelector('span').textContent = `◎ ${fmt(a.crowns)}`;
-			if (!on) { const bar = document.createElement('div'); bar.className = 'ach-tp'; bar.innerHTML = '<i></i>'; bar.firstChild.style.width = `${pr(a) * 100}%`; c.appendChild(bar); }
+		const rows = fams.filter((x) => (pf.show === 'all' || (pf.show === 'done' ? !x.next : x.rank > 0 && !!x.next)) && (!pf.tiers.size || pf.tiers.has(tier(x.at))))
+			.sort((x, y) => (y.rank ? 1 : 0) - (x.rank ? 1 : 0) || (x.rank && y.rank ? y.newest - x.newest : y.near - x.near));   // the family with the newest unlock first, then the nearest to its next step
+		for (const x of rows) {
+			const on = x.rank > 0, c = document.createElement('div');
+			c.className = 'ach-t ' + (on ? 'got' : 'lock') + (x.next ? '' : ' full'); c.dataset.tier = tier(x.at).toLowerCase(); c.dataset.stat = x.f.stat;
+			c.innerHTML = '<div class="ach-tc"><b></b><span></span></div>';
+			c.prepend(picture(x.at, { w: 384 }));
+			c.querySelector('b').textContent = on ? x.f.name : '???';   // a family not started keeps its name and what it asks secret, so it is found rather than speedrun
+			c.querySelector('span').textContent = `${x.rank} / ${x.f.steps.length}`;
+			if (x.next) { const bar = document.createElement('div'); bar.className = 'ach-tp'; bar.innerHTML = '<i></i>'; bar.firstChild.style.width = `${x.near * 100}%`; c.appendChild(bar); }
 			grid.appendChild(c);
 		}
 		if (!rows.length) { const e = document.createElement('div'); e.className = 'ach-none'; e.textContent = 'Nothing here'; grid.appendChild(e); }

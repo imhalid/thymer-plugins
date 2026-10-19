@@ -69,11 +69,11 @@ The caret itself takes your chosen color, even when you are not typing, and reac
 
 ### Effects from Cursor-Smith
 
-Four more effects are ported from [Cursor-Smith](https://github.com/Sadsnake1/cursor-smith) by Sadsnake1, an Obsidian plugin (MIT). They are off until you choose them on the `Caret FX: open settings` page: Motion smear is a switch there, the other three are Special presets (one at a time, like Lightning).
+Four more effects are ported from [Cursor-Smith](https://github.com/Sadsnake1/cursor-smith) by Sadsnake1, an Obsidian plugin (MIT). They are off until you choose them on the `Caret FX: open settings` page: Motion smear and Bracket tether are switches there, the other two are Special presets (one at a time, like Lightning).
 
 - **Motion smear** (a switch on the settings page) – the caret stretches as it moves and snaps back when it arrives, on a spring, to another line as well as along one. While you type, only its tail trails.
 - **Fresh ink** (Special preset) – the letters you just typed stay wet in the caret color and dry into the text over a second or two.
-- **Bracket tether** (Special preset) – a line under the span between the matching brackets or quotes around the caret; it follows a span that wraps onto more lines.
+- **Bracket tether** (a switch on the settings page, off until chosen, and it works alongside any preset) – a line under the span between the matching brackets or quotes around the caret; it follows a span that wraps onto more lines.
 - **Back-man** (Special preset) – while Backspace or Delete eats text, the caret becomes a little creature that takes one bite per letter and gulps it down. A word or a selection is one big bite.
 
 Their settings go under `custom` in the Configuration JSON, all optional:
@@ -107,7 +107,6 @@ Run `Caret FX: open settings` from the command palette: it opens a page in the p
   | Autumn | orange and red leaves fall, likewise |
   | Paper | green leaves fall, likewise |
   | Fresh ink | what you type stays wet in the caret color, then dries (see above) |
-  | Bracket tether | a line under the matching brackets or quotes around the caret (see above) |
   | Back-man | the caret eats what Backspace and Delete take (see above) |
   | Holy | tiny golden star glints (a couple of pixels) twinkle slowly on and around the caret, in place, like light catching a gem, and the caret keeps glinting for a moment after you stop |
   | Prism | a burst of light through glass: every letter flashes on the caret with a thin blue-white lens streak and a violet lens-orb, and flings chunky glowing stars (gold, orange, some cyan with tails, some violet) that slow down, spin and fade, with embers drifting among them; a new line or a jump is a big burst |
@@ -118,7 +117,7 @@ Run `Caret FX: open settings` from the command palette: it opens a page in the p
 
   Holy, Prism, Health, Zephyr and Tide answer writing, not deleting.
 
-- **Effects** – six switches: **Block cursor** (a box the width of the letter instead of the line caret), **Motion smear**, **Trail**, **Bounce**, **Sleepy caret** (after a while without writing - `sleepAfterMs`, 15000 - the caret sinks, dims and breathes, little z's float up from it, and any key or move wakes it with a stretch) and **Confetti** (a task ticked off by a click or a key bursts into confetti from its checkbox - `confettiCount`, 46). Sleepy caret and Confetti are off until switched on
+- **Effects** – seven switches: **Block cursor** (a box the width of the letter instead of the line caret), **Motion smear**, **Trail**, **Bounce**, **Sleepy caret** (after a while without writing - `sleepAfterMs`, 15000 - the caret sinks, dims and breathes, little z's float up from it, and any key or move wakes it with a stretch), **Confetti** (a task ticked off by a click or a key bursts into confetti from its checkbox - `confettiCount`, 46) and **Bracket tether** (see above). Sleepy caret, Confetti and Bracket tether are off until switched on
 - **Intensity** – a slider from 0.3× (subtle) to 2× (intense); it also scales petals, leaves, crackles, glints, prism stars and pluses
 
 Other commands: `Caret FX: next preset` cycles through every preset.
@@ -138,7 +137,7 @@ What you choose on the page and with the commands (preset, switches, intensity) 
 }
 ```
 
-`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"ink"`, `"tether"`, `"backman"`, `"holy"`, `"prism"`, `"health"`, `"zephyr"`, `"tide"`, or `"combo"`; `style` is `"line"` or `"block"`; choosing a preset in the dialog sets it for you. Holy, Prism, Zephyr and Tide have a setting each, `"holySize"`, `"prismStrength"`, `"zephyrSize"` and `"tideSize"` (1 is normal).
+`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"ink"`, `"backman"`, `"holy"`, `"prism"`, `"health"`, `"zephyr"`, `"tide"`, or `"combo"`; `style` is `"line"` or `"block"`; choosing a preset in the dialog sets it for you. Holy, Prism, Zephyr and Tide have a setting each, `"holySize"`, `"prismStrength"`, `"zephyrSize"` and `"tideSize"` (1 is normal).
 
 ### How it works
 

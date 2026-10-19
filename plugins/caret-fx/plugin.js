@@ -9,7 +9,7 @@
  * Backspace and Delete take) - are ported from Cursor-Smith by Sadsnake1
  * (https://github.com/Sadsnake1/cursor-smith, MIT License). See THIRD-PARTY NOTICE below.
  * They are off until chosen on the "Caret FX: open settings" page: Motion smear is a switch there (with the block
- * cursor); Fresh ink, Bracket tether and Back-man are special presets, like Lightning and the falling petals.
+ * cursor), and so is Bracket tether; Fresh ink and Back-man are special presets, like Lightning and the falling petals.
  *
  * Five special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
  * (tiny star glints that twinkle on the caret, like a gem), Prism (two crescents of spectrum flanking the caret, light
@@ -87,7 +87,7 @@ const PRESETS = [
 
 // The switches on the settings page, in its order: [key, label, caption]. 'style' is the block cursor (cfg.style is
 // 'block' when on); every other key is the id of an 'always' effect. An effect here has no toggle command of its own.
-// (Fresh ink, Bracket tether and Back-man are not here: they are special presets, one at a time like Lightning.)
+// (Fresh ink and Back-man are not here: they are special presets, one at a time like Lightning.)
 const PAGE_SWITCHES = [
 	['style', 'Block cursor', 'A box the width of the letter'],
 	['smear', 'Motion smear', 'Stretches as it moves, snaps back'],
@@ -95,6 +95,7 @@ const PAGE_SWITCHES = [
 	['bounce', 'Bounce', 'A hop on every letter'],
 	['sleep', 'Sleepy caret', 'Dozes off when you stop writing'],
 	['confetti', 'Confetti', 'A burst when you tick off a task'],
+	['tether', 'Bracket tether', 'A line under the span between matching brackets or quotes'],
 ];
 
 // The settings page
@@ -1215,7 +1216,7 @@ function tetherSegments(line, from, to) {
 }
 
 EFFECTS.tether = {
-	id: 'tether', label: 'Bracket tether', mode: 'signature', preset: { name: 'Bracket tether', color: '#e879f9', accent: '#86198f' }, keepsState: true, blend: 'source-over',
+	id: 'tether', label: 'Bracket tether', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
 	defaults: { tetherStrength: 0.35 },
 	onSample(plugin, cur) {
 		const S = plugin.state('tether');
@@ -3258,6 +3259,7 @@ class Plugin extends AppPlugin {
 			const custom = this.getConfiguration()?.custom || {};
 			this.cfg = { ...DEFAULTS, ...custom, ...loadChoices() };
 		} catch (e) { this.cfg = { ...DEFAULTS, ...loadChoices() }; }
+		if (this.cfg.fx === 'tether') { this.cfg.fx = null; this.cfg.tether = true; }   // Bracket tether used to be a preset; it is a switch now
 		// Effects that cannot be toggled (no command) must not stay off because of an old saved value.
 		for (const e of Object.values(EFFECTS)) if (e.mode === 'always' && e.toggleable === false) this.cfg[e.id] = true;
 		if (this.canvas) this.applyCaretStyle();

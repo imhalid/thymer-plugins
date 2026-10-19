@@ -819,15 +819,15 @@ function paintCaretBody(ctx, col, fill, ring) {
 // drawn as a quad whose four corners are blends of two tracked points: a leading point on a spring (it may overshoot
 // and snap back, which is the feel) and a trailing point that lags behind it (an approach with no velocity of its own,
 // so it can neither rotate nor boomerang). Whichever face of the caret trails the move is decided by the area each
-// face sweeps, so the shape is a parallelogram in every frame. While it moves, Thymer's caret (or the block cursor) is
-// hidden and the quad is drawn in its place; when it has arrived, the real caret is shown again.
+// face sweeps, so the shape is a parallelogram in every frame. A move to another line is smeared like any other. While it
+// moves, Thymer's caret (or the block cursor) is hidden and the quad is drawn in its place; when it has arrived, the real
+// caret is shown again.
 // Not ported: Tapered trail, Max length and Conserve area, which Cursor-Smith leaves off by default.
 // Settings: smearStiffness (the leading point), smearTrailingStiffness, smearDamping, each 0..1.
 const SMEAR_MAX_STEP = 1 / 240;     // s: the spring is integrated in steps this small, so every frame rate swings alike
 const SMEAR_SETTLE_V = 30;          // px/s: slower than this and within half a pixel of the caret, the smear has arrived
 const SMEAR_KEY_STEP_CHARS = 2.5;   // a move along the row by at most this many letters is the keyboard's (typing, an arrow)...
 const SMEAR_KEY_STEP_MS = 200;      // ...and for this long after one the leading edge sits on the caret: only the tail trails
-const SMEAR_LINE_CHANGE = 0.6;      // a move to another line, by more than this share of a line, is not smeared (it would streak through the text between)
 
 /**
  * One frame of the smear toward `rect` ({ x, y, w, h }), `dt` seconds on. `s` holds the two points, the centre the
@@ -902,11 +902,7 @@ EFFECTS.smear = {
 		// A letter's step: along the row (a little jitter in the text's box allowed) by at most a couple of letters, measured
 		// against the line height as well as the letter under the caret, which may be a narrow one when the one just typed was wide.
 		if (dy < cur.h * 0.5 && dx > 0.5 && dx <= SMEAR_KEY_STEP_CHARS * Math.max(cur.cw, cur.h * 0.5)) S.stepT = info.now;
-		if (dy > cur.h * SMEAR_LINE_CHANGE) {
-			// Another line: the caret is simply there.
-			if (S.lead) { S.lead = { x: cur.x, y: cur.y, vx: 0, vy: 0 }; S.trail = { x: cur.x, y: cur.y }; }
-			return;
-		}
+		if (dy > cur.h * 0.5) S.stepT = 0;   // another line (Enter right after a letter, say): the leading edge is not held on the caret, the whole caret stretches across
 		if (plugin.items.some((i) => i.effect === 'smear' && !i.done)) return;   // already under way: it chases the caret by itself
 		S.lead = { x: prev.x, y: prev.y, vx: 0, vy: 0 };
 		S.trail = { x: prev.x, y: prev.y };
@@ -2385,14 +2381,19 @@ EFFECTS.tide = {
 // The caret is always a rectangle - the box of the letter it stands on - made of jelly: its base stays put and its body
 // is a little chain of springs, so the top lags behind and rocks like a bone in a rig. Standing still it sways gently
 // from side to side and breathes; every letter (or step) kicks it the way it moves, so it leans, stretches, overshoots
-// and wobbles back; a new line or a jump squashes it flat and lets it spring up. Drawn as one soft shape: the sides
-// bend with the sway and bulge out when it is squashed.
+// and wobbles back; a new line or a jump squashes it flat and lets it spring up, and the body is drawn out from where it
+// was to where it landed, its foot arriving first and its top after it. Drawn as one soft shape: the sides bend with the
+// sway and bulge out when it is squashed.
 // Settings: slimeIdle (how far it sways at rest; 1 is normal, 0 holds it still).
 const SLIME_STEP = 1 / 240;   // s: the springs are integrated in steps this small, so every frame rate wobbles alike
 
-/** The spring state of the jelly of `item`: m (the middle's sideways offset), t (the top's, chasing m), sx and sy (scales), each with its velocity. */
+/**
+ * The spring state of the jelly of `item`: m (the middle's sideways offset), t (the top's, chasing m), sx and sy (scales),
+ * each with its velocity; and the way it is still on its journey to a new line or place: the foot's offset from the caret
+ * (ax, ay) and the top's (bx, by), which chases the foot's.
+ */
 function slimeState(item) {
-	return item.S || (item.S = { m: 0, vm: 0, j: 0, vj: 0, t: 0, vt: 0, sx: 1, vx: 0, sy: 1, vy: 0 });
+	return item.S || (item.S = { m: 0, vm: 0, j: 0, vj: 0, t: 0, vt: 0, sx: 1, vx: 0, sy: 1, vy: 0, ax: 0, ay: 0, avx: 0, avy: 0, bx: 0, by: 0, bvx: 0, bvy: 0 });
 }
 
 /** A kick from the caret moving from `prev` to `cur`: lean the way it went, stretch along the move; squash for a leap. */
@@ -2404,11 +2405,40 @@ function wobbleSlime(plugin, prev, cur) {
 	if (Math.abs(dy) > cur.h * 0.6 || dist > cur.h * 2.5) {   // a new line or a jump: lands flat, then springs up
 		S.sy = 0.55; S.sx = 1.4; S.vy = 6; S.vx = -4;
 		S.vm += dir * 110; S.vj += dir * 130; S.vt += dir * 160;
+		S.ax -= dx; S.ay -= dy; S.bx -= dx; S.by -= dy;   // the jelly stays where it was and is drawn across to the caret
 	} else {
 		S.vm += dir * 45; S.vj += dir * 60; S.vt += dir * 80;
 		S.sx = Math.min(1.35, S.sx + 0.16); S.sy = Math.max(0.7, S.sy - 0.1);
 	}
 	plugin.kick();
+}
+
+/**
+ * The jelly drawn out between where its head is and where its tail still is (`tx`, `ty` from the head): the tail is the
+ * head's own shape, `scale` smaller (a jelly pulled long gets thinner, it does not keep its width), and the body is the
+ * hull of the two, its corners rounded off. Leaves the path closed, for the caller to paint.
+ */
+function slimeDrip(ctx, head, tx, ty, scale) {
+	let cx = 0, cy = 0;
+	for (const q of head) { cx += q.x / head.length; cy += q.y / head.length; }
+	const all = head.concat(head.map((q) => ({ x: cx + (q.x - cx) * scale + tx, y: cy + (q.y - cy) * scale + ty })));
+	all.sort((a, b) => a.x - b.x || a.y - b.y);
+	const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+	const hull = [];
+	for (const pass of [all, all.slice().reverse()]) {   // Andrew's monotone chain: the lower hull, then the upper
+		const start = hull.length;
+		for (const q of pass) {
+			while (hull.length >= start + 2 && cross(hull[hull.length - 2], hull[hull.length - 1], q) <= 0) hull.pop();
+			hull.push(q);
+		}
+		hull.pop();
+	}
+	const n = hull.length, mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+	if (n < 3) return;
+	const m0 = mid(hull[n - 1], hull[0]);
+	ctx.moveTo(m0.x, m0.y);
+	for (let i = 0; i < n; i++) { const m = mid(hull[i], hull[(i + 1) % n]); ctx.quadraticCurveTo(hull[i].x, hull[i].y, m.x, m.y); }
+	ctx.closePath();
 }
 
 function drawSlime(plugin, ctx, item, now, dt) {
@@ -2419,7 +2449,7 @@ function drawSlime(plugin, ctx, item, now, dt) {
 	// What the middle is pulled toward: nothing but the rest sway, which is two slow waves out of step.
 	const drive = idle * w * (0.13 * Math.sin(now * 0.0057) + 0.05 * Math.sin(now * 0.0093 + 1));
 	const breathe = 1 + idle * 0.03 * Math.sin(now * 0.0057 + 1);
-	const wm = 20, zm = 0.2, wj = 24, wt = 30, zt = 0.16, ws = 26, zs = 0.2;   // spring speeds (rad/s) and dampings: underdamped, so it overshoots
+	const wm = 20, zm = 0.2, wj = 24, wt = 30, zt = 0.16, ws = 26, zs = 0.2, wf = 24, wb = 15, zf = 0.8;   // spring speeds (rad/s) and dampings: underdamped, so it overshoots
 	let left = Math.min((dt || 16) / 1000, 0.05);
 	while (left > 1e-6) {
 		const s = Math.min(SLIME_STEP, left);
@@ -2429,6 +2459,10 @@ function drawSlime(plugin, ctx, item, now, dt) {
 		S.vt += (-wt * wt * (S.t - S.j) - 2 * zt * wt * S.vt) * s; S.t += S.vt * s;
 		S.vx += (-ws * ws * (S.sx - 1) - 2 * zs * ws * S.vx) * s; S.sx += S.vx * s;
 		S.vy += (-ws * ws * (S.sy - breathe) - 2 * zs * ws * S.vy) * s; S.sy += S.vy * s;
+		S.avx += (-wf * wf * S.ax - 2 * zf * wf * S.avx) * s; S.ax += S.avx * s;   // the foot comes in first...
+		S.avy += (-wf * wf * S.ay - 2 * zf * wf * S.avy) * s; S.ay += S.avy * s;
+		S.bvx += (-wb * wb * (S.bx - S.ax) - 2 * zf * wb * S.bvx) * s; S.bx += S.bvx * s;   // ...and the top after it
+		S.bvy += (-wb * wb * (S.by - S.ay) - 2 * zf * wb * S.bvy) * s; S.by += S.bvy * s;
 	}
 	item.hidesCaret = true;
 	plugin.hideCaret('slime', true);   // only the jelly is seen, never the line caret under it
@@ -2441,13 +2475,18 @@ function drawSlime(plugin, ctx, item, now, dt) {
 	const L = edge(-1), R = edge(1).reverse();
 	const curve = (pts) => { for (let i = 1; i < pts.length - 1; i++) ctx.quadraticCurveTo(pts[i].x, pts[i].y, (pts[i].x + pts[i + 1].x) / 2, (pts[i].y + pts[i + 1].y) / 2); ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y); };
 	ctx.save();
-	ctx.translate(cx, base);
+	ctx.translate(cx + S.ax, base + S.ay);   // the body's head: the part that is first to arrive
 	ctx.beginPath();
-	ctx.moveTo(L[0].x, L[0].y);
-	curve(L);
-	ctx.lineTo(R[0].x, R[0].y);
-	curve(R);
-	ctx.closePath();
+	const tx = S.bx - S.ax, ty = S.by - S.ay, reach = Math.hypot(tx, ty);
+	if (reach < 0.5) {
+		ctx.moveTo(L[0].x, L[0].y);
+		curve(L);
+		ctx.lineTo(R[0].x, R[0].y);
+		curve(R);
+		ctx.closePath();
+	} else {
+		slimeDrip(ctx, [...L, ...R], tx, ty, 1 / (1 + reach / (3 * h)));
+	}
 	paintCaretBody(ctx, plugin.col(), 0.45, 1);
 	ctx.restore();
 	plugin.kick();   // it never rests: standing still it is still swaying

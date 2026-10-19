@@ -71,7 +71,7 @@ The caret itself takes your chosen color, even when you are not typing, and reac
 
 Four more effects are ported from [Cursor-Smith](https://github.com/Sadsnake1/cursor-smith) by Sadsnake1, an Obsidian plugin (MIT). They are off until you choose them on the `Caret FX: open settings` page: Motion smear is a switch there, the other three are Special presets (one at a time, like Lightning).
 
-- **Motion smear** (a switch on the settings page) – the caret stretches as it moves and snaps back when it arrives, on a spring. While you type, only its tail trails.
+- **Motion smear** (a switch on the settings page) – the caret stretches as it moves and snaps back when it arrives, on a spring, to another line as well as along one. While you type, only its tail trails.
 - **Fresh ink** (Special preset) – the letters you just typed stay wet in the caret color and dry into the text over a second or two.
 - **Bracket tether** (Special preset) – a line under the span between the matching brackets or quotes around the caret; it follows a span that wraps onto more lines.
 - **Back-man** (Special preset) – while Backspace or Delete eats text, the caret becomes a little creature that takes one bite per letter and gulps it down. A word or a selection is one big bite.
@@ -114,11 +114,11 @@ Run `Caret FX: open settings` from the command palette: it opens a page in the p
   | Health | tiny glowing pluses, a few pixels across like Holy's glints, rise slowly out of the caret as you write, each with a short trail of light behind it, and a soft glow opens on the caret; in the preset's greens, or a red cross if you pick red colors |
   | Zephyr | an anime-style wind skill: pointed, cel-shaded leaves are swept up round the caret and off behind it, fluttering, while thin speed lines streak back from the caret; a new line or a jump is a full gust |
   | Tide | a stylized water skill: every letter flicks a small spray of teardrops (round head, tapering tail, white glint) out of the caret to arc up and fall back, and now and then a bubble drifts up and pops; a new line or a jump is a big splash |
-  | Combo | typing as a game: every letter in a run adds one to a counter above the caret that pops with each hit and runs down if you pause (NICE, GREAT, SUPER, ULTRA at 10, 25, 50, 100); the caret itself changes color with the count - red from 10, orange from 25, blue from 50, white-hot blue from 100 - and throws sparks, more of them the higher you go; a broken run of ten or more drops away |
+  | Combo | typing as a game: every letter in a run adds one to a counter above the caret that follows it on a spring, rolls its digits as they change and pops with each hit; it runs down if you pause (a bar under it flashes red when the run is nearly out). A new mark (NICE, GREAT, SUPER, ULTRA at 10, 25, 50, 100) sends a shockwave out from the caret, bursts into sparks and earns a rank letter (C, B, A, S) that stays beside the counter; the caret itself changes color with the count - red from 10, orange from 25, blue from 50, white-hot blue from 100 - and throws streaks of sparks and drifting embers, more of them the higher you go. A broken run of ten or more shatters and its pieces fall |
 
   Holy, Prism, Health, Zephyr and Tide answer writing, not deleting.
 
-- **Effects** – four switches: **Block cursor** (a box the width of the letter instead of the line caret), **Motion smear**, **Trail** and **Bounce**
+- **Effects** – six switches: **Block cursor** (a box the width of the letter instead of the line caret), **Motion smear**, **Trail**, **Bounce**, **Sleepy caret** (after a while without writing - `sleepAfterMs`, 15000 - the caret sinks, dims and breathes, little z's float up from it, and any key or move wakes it with a stretch) and **Confetti** (a task ticked off by a click or a key bursts into confetti from its checkbox - `confettiCount`, 46). Sleepy caret and Confetti are off until switched on
 - **Intensity** – a slider from 0.3× (subtle) to 2× (intense); it also scales petals, leaves, crackles, glints, prism stars and pluses
 
 Other commands: `Caret FX: next preset` cycles through every preset.

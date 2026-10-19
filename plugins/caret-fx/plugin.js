@@ -16,6 +16,9 @@
  * through a lens), Health (tiny pluses rising out of the caret as you write, each with a trail of light, as if you were gaining health) and Zephyr (an anime-style wind skill: speed lines and leaves swept up round the caret) and Tide
  * (a stylized water skill: sprays of teardrops and drifting bubbles). Pick them on the "Caret FX: open settings" page under Special.
  *
+ * Two more are switches like Motion smear: Sleepy caret (the caret dozes off when you stop writing, z's floating up,
+ * and wakes with a stretch) and Confetti (a task ticked off bursts into confetti from its checkbox). Both start off.
+ *
  * Scope: the Thymer editor only. The plugin follows Thymer's own caret element
  * (div.listview-caret-self) and never touches the command palette, rename fields,
  * dropdowns or other plugins' inputs. Effects are clipped to the editor's scroll
@@ -90,6 +93,8 @@ const PAGE_SWITCHES = [
 	['smear', 'Motion smear', 'Stretches as it moves, snaps back'],
 	['trail', 'Trail', 'A comet ribbon behind the caret'],
 	['bounce', 'Bounce', 'A hop on every letter'],
+	['sleep', 'Sleepy caret', 'Dozes off when you stop writing'],
+	['confetti', 'Confetti', 'A burst when you tick off a task'],
 ];
 
 // The settings page
@@ -372,6 +377,8 @@ function lineEdit(before, after, caret) {
 //   - onSample(plugin, cur, info): after every look at the caret, moved or not, with cur null when there is no caret;
 //     info = { typed, moved, now }. For effects that watch the text (what was typed, what is bracketed).
 //   - onKey(plugin, e, now): on a keydown in the editor, before the editor has acted on it (the DOM is still as it was).
+//   - onTaskDone(plugin, box, now): a task was ticked off by a click or a key; box = { x, y, w, h } of its checkbox on screen.
+//   - onDrop(plugin): the effect is switched off or the plugin unloads (keepsState effects): clear timers it set.
 //   - onPulse(plugin, rect, now): optional; a gentle "show the current look" trigger (theme/config change).
 //   - onShift(plugin, dx, dy, now): optional; the page scrolled under a still caret, which moved by (dx, dy) on screen
 //     without moving in the text. An effect that keeps screen positions (the trail's path) moves them along; it is not a move.
@@ -2512,17 +2519,26 @@ EFFECTS.slime = {
 // Typing as a game: every letter in a run adds one to a counter that floats above the caret and pops with each hit. The
 // run lives while the next letter comes within a moment; stop and it breaks. The higher the count, the hotter the caret:
 //   0-9    the caret as it is, white counter
-//   10     the caret turns red and sparks fly off it
-//   25     orange, more sparks
-//   50     blue, with blue sparks
-//   100    white-hot blue, sparks all over
-// Each mark is announced (NICE, GREAT, SUPER, ULTRA) with a flash and a glow that stays; a thin bar under the counter shows how long the run has
-// left, and a broken run of ten or more drops away as its number falls.
+//   10     rank C: the caret turns red and sparks fly off it
+//   25     rank B: orange, more sparks
+//   50     rank A: blue, with blue sparks
+//   100    rank S: white-hot blue, sparks all over
+// A new mark is announced (NICE, GREAT, SUPER, ULTRA) with a shockwave that races out from the caret, a flash, a burst of sparks and
+// its rank letter, which lands beside the counter and stays. The counter follows the caret on a spring, its digits roll as
+// they change and it shakes a little at the higher ranks; a thin bar under it shows how long the run has left (and flashes
+// red when it is nearly out). A broken run of ten or more shatters: the number comes apart and its pieces fall.
 // Settings: comboWindowMs (how long a run waits for the next letter; 1400 is normal).
-const COMBO_TIERS = [{ at: 0, hue: null, word: '' }, { at: 10, hue: 8, word: 'NICE' }, { at: 25, hue: 30, word: 'GREAT' }, { at: 50, hue: 215, word: 'SUPER' }, { at: 100, hue: -1, word: 'ULTRA' }];   // hue -1: white-hot blue, shifting toward violet
+const COMBO_TIERS = [
+	{ at: 0, hue: null, word: '', rank: '' }, { at: 10, hue: 8, word: 'NICE', rank: 'C' }, { at: 25, hue: 30, word: 'GREAT', rank: 'B' },
+	{ at: 50, hue: 215, word: 'SUPER', rank: 'A' }, { at: 100, hue: -1, word: 'ULTRA', rank: 'S' },   // hue -1: white-hot blue, shifting toward violet
+];
 const COMBO_SPARKS_PER_S = [0, 7, 14, 22, 40];   // sparks a second, by tier, on top of those a letter throws
-const COMBO_SPARKS_MAX = 60;
+const COMBO_SPARKS_MAX = 90;
 const COMBO_TINTS = [null, '#ff4d3a', '#ff9a2e', '#4da3ff', '#bfe3ff'];   // the caret's color by tier (null: its own)
+const COMBO_SHARDS = 7;         // the pieces a broken number comes apart in
+const COMBO_WAVE_MS = 650;      // a shockwave's life
+const COMBO_ROLL_MS = 150;      // a digit that changes rolls in over this long
+const COMBO_FOLLOW = 24;        // rad/s: how quickly the counter catches up with the caret (a spring, nearly critically damped)
 
 /** The tier a count has reached: an index into COMBO_TIERS. Pure. */
 const comboTier = (n) => COMBO_TIERS.reduce((t, c, i) => (n >= c.at ? i : t), 0);
@@ -2536,15 +2552,35 @@ function comboHue(tier, now) {
 /** The item that holds the run of `host` (the plugin, or a preview host). */
 function comboOf(host) {
 	const item = host.ensureItem('combo');
-	if (item.n === undefined) { item.n = 0; item.lastAt = 0; item.popAt = -1e9; item.wordAt = -1e9; item.word = ''; item.flashAt = -1e9; item.flashTier = 0; item.fallen = []; item.sparks = []; item.acc = 0; }
+	if (item.n === undefined) {
+		Object.assign(item, { n: 0, prevN: 0, lastAt: 0, popAt: -1e9, wordAt: -1e9, word: '', flashAt: -1e9, flashTier: 0, rankAt: -1e9, seed: 0, size: 18, fallen: [], sparks: [], rings: [], acc: 0, placed: false, ax: 0, ay: 0, avx: 0, avy: 0 });
+	}
 	return item;
 }
 
-/** Flicks `n` sparks up out of the flame at (x, y) of the tier `tier`. */
+/** Throws one spark: `vx`, `vy` px/s at the start; `ember` ones are slow, big and drift up for a second or more. */
+function comboSpark(item, x, y, vx, vy, r, tier, now, ember) {
+	if (item.sparks.length >= COMBO_SPARKS_MAX) return;
+	item.sparks.push({ x, y, vx, vy, r, cool: tier >= 3, t0: now, life: ember ? 900 + Math.random() * 700 : 500 + Math.random() * 600, ph: Math.random() * 6.28, ember });
+}
+
+/** Flicks `n` sparks up out of the caret at (x, y) of the tier `tier`: mostly quick streaks, from the second rank some embers that float. */
 function comboSparks(item, x, y, h, tier, n, now) {
-	for (let i = 0; i < n && item.sparks.length < COMBO_SPARKS_MAX; i++) {
-		const a = -Math.PI / 2 + (Math.random() - 0.5) * (tier >= 3 ? 2.4 : 1.7), v = (35 + Math.random() * 70) * (h / 24) * (tier >= 4 ? 1.4 : 1);
-		item.sparks.push({ x: x + (Math.random() - 0.5) * h * 0.25, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: (0.6 + Math.random() * 1.1) * (h / 24), cool: tier >= 3, t0: now, life: 500 + Math.random() * 600, ph: Math.random() * 6.28 });
+	const u = h / 24;
+	for (let i = 0; i < n; i++) {
+		const px = x + (Math.random() - 0.5) * h * 0.25;
+		if (tier >= 2 && Math.random() < 0.3) { comboSpark(item, px, y, (Math.random() - 0.5) * 26 * u, -(16 + Math.random() * 22) * u, (1.1 + Math.random() * 0.9) * u, tier, now, true); continue; }
+		const a = -Math.PI / 2 + (Math.random() - 0.5) * (tier >= 3 ? 2.4 : 1.7), v = (35 + Math.random() * 70) * u * (tier >= 4 ? 1.4 : 1);
+		comboSpark(item, px, y, Math.cos(a) * v, Math.sin(a) * v, (0.6 + Math.random() * 1.1) * u, tier, now, false);
+	}
+}
+
+/** A ring of sparks thrown out all round (x, y), for a new mark. */
+function comboBurst(item, x, y, h, tier, now) {
+	const u = h / 24, n = 14 + 4 * tier;
+	for (let i = 0; i < n; i++) {
+		const a = (i / n) * Math.PI * 2 + Math.random() * 0.3, v = (90 + Math.random() * 90) * u;
+		comboSpark(item, x, y, Math.cos(a) * v, Math.sin(a) * v * 0.8, (0.8 + Math.random() * 1.2) * u, tier, now, false);
 	}
 }
 
@@ -2552,23 +2588,57 @@ function comboSparks(item, x, y, h, tier, n, now) {
 function comboHit(host, rect, now) {
 	const item = comboOf(host), win = host.cfg.comboWindowMs || 1400;
 	if (item.n && now - item.lastAt > win) comboBreak(item, rect, now);
+	if (!item.n) item.placed = false;   // a new run: the counter starts at the caret
 	const before = comboTier(item.n);
+	item.prevN = item.n;
 	item.n++;
-	item.lastAt = now; item.popAt = now;
-	const tier = comboTier(item.n);
-	if (tier > before) { item.word = COMBO_TIERS[tier].word; item.wordAt = now; item.flashAt = now; item.flashTier = tier; }
-	if (tier >= 1) comboSparks(item, rect.x + rect.w / 2, rect.y + rect.h * 0.3, Math.max(rect.h, 16), tier, 2 + tier, now);
+	item.lastAt = now; item.popAt = now; item.seed = Math.random() * 1000;
+	const tier = comboTier(item.n), x = rect.x + rect.w / 2, h = Math.max(rect.h, 16);
+	if (tier > before) {
+		item.word = COMBO_TIERS[tier].word; item.wordAt = now; item.flashAt = now; item.flashTier = tier; item.rankAt = now;
+		item.rings.push({ t0: now, tier, x, y: rect.y + rect.h / 2, h, delay: 0 });
+		if (tier >= 3) item.rings.push({ t0: now, tier, x, y: rect.y + rect.h / 2, h, delay: 110 });
+		comboBurst(item, x, rect.y + rect.h / 2, h, tier, now);
+	}
+	if (tier >= 1) comboSparks(item, x, rect.y + rect.h * 0.3, h, tier, 2 + tier, now);
 }
 
-/** The run ends: a count of ten or more falls away. */
+/** The run ends: a count of ten or more shatters where its counter was. */
 function comboBreak(item, rect, now) {
-	if (item.n >= 10) item.fallen.push({ n: item.n, x: rect.x + rect.w / 2, y: rect.y - 6, tier: comboTier(item.n), t0: now, life: 800 });
+	if (item.n >= 10) {
+		const shards = [];
+		for (let i = 0; i < COMBO_SHARDS; i++) shards.push({ vx: (Math.random() - 0.5) * 90 + (i - COMBO_SHARDS / 2) * 9, vy: -(25 + Math.random() * 55), rot: (Math.random() - 0.5) * 5 });
+		item.fallen.push({ n: item.n, x: item.placed ? item.ax : rect.x + rect.w / 2, y: item.placed ? item.ay : rect.y - 6, size: item.size, tier: comboTier(item.n), t0: now, life: 950, shards });
+	}
 	item.n = 0;
+}
+
+/** The counter's text with digits that roll: a character that differs from the count before it slides up out and the new one in from below. */
+function drawComboNumber(ctx, item, cx, y, size, now, power, dark, hsl, c) {
+	const str = `×${item.n}`, prevStr = item.prevN ? `×${item.prevN}` : '';
+	const total = ctx.measureText(str).width, x0 = cx - total / 2, roll = prevStr ? easeOutBack(clamp01((now - item.popAt) / COMBO_ROLL_MS)) : 1, slide = size * 0.6;
+	ctx.textAlign = 'left';
+	const put = (ch, x, yy, a) => {
+		if (a < 0.02) return;
+		ctx.globalAlpha = a * power;
+		ctx.strokeText(ch, x, yy);
+		ctx.fillStyle = hsl(c);
+		ctx.fillText(ch, x, yy);
+	};
+	for (let i = 0; i < str.length; i++) {
+		const x = x0 + ctx.measureText(str.slice(0, i)).width, j = i - (str.length - prevStr.length), old = j >= 0 ? prevStr[j] : '';
+		if (roll >= 1 || old === str[i]) { put(str[i], x, y, 1); continue; }
+		const e = clamp01(roll);
+		put(str[i], x, y + (1 - roll) * slide, e);
+		if (old) put(old, x, y - roll * slide, 1 - e);
+	}
+	ctx.textAlign = 'center';
+	return total;
 }
 
 function drawCombo(plugin, ctx, item, now, k, dt) {
 	const alive = (q) => now - q.t0 < q.life;
-	item.fallen = item.fallen.filter(alive); item.sparks = item.sparks.filter(alive);
+	item.fallen = item.fallen.filter(alive); item.sparks = item.sparks.filter(alive); item.rings = item.rings.filter((q) => now - q.t0 < COMBO_WAVE_MS + q.delay);
 	const rect = plugin.last, win = plugin.cfg.comboWindowMs || 1400, s = Math.min((dt || 16) / 1000, 0.05);
 	if (rect && item.n && now - item.lastAt > win) comboBreak(item, rect, now);
 	const tier = comboTier(item.n);
@@ -2578,38 +2648,74 @@ function drawCombo(plugin, ctx, item, now, k, dt) {
 	item.acc += s * COMBO_SPARKS_PER_S[tier];
 	if (rect && item.n && item.acc >= 1) { const nn = Math.floor(item.acc); item.acc -= nn; comboSparks(item, rect.x + rect.w / 2, rect.y + rect.h * 0.3, Math.max(rect.h, 16), tier, nn, now); }
 	if (!item.n) item.acc = 0;
-	if (!item.n && !item.fallen.length && !item.sparks.length && (now - item.flashAt) > 400) { item.done = true; return; }
+	if (!item.n && !item.fallen.length && !item.sparks.length && !item.rings.length && (now - item.flashAt) > 400) { item.done = true; return; }
 	const dark = plugin.dark, power = Math.min(1, 0.75 + 0.25 * k), L = dark ? 0 : -22;
 	const hsl = (c, a = 1, dl = 0) => `hsla(${c[0]}, ${c[1]}%, ${c[2] + L + dl}%, ${a})`;
 	if (!dark) ctx.globalCompositeOperation = 'source-over';
 	ctx.save();
 	ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
 
-	for (const q of item.sparks) {   // sparks: thrown up, slowing, flickering
-		const t = (now - q.t0) / 1000, f = (now - q.t0) / q.life, drag = Math.exp(-1.8 * t);
-		const x = q.x + (q.vx * (1 - drag)) / 1.8, y = q.y + (q.vy * (1 - drag)) / 1.8 - 10 * t * t;
+	for (const q of item.sparks) {   // sparks: thrown up, slowing, flickering - streaks along their flight, embers that drift
+		const t = (now - q.t0) / 1000, f = (now - q.t0) / q.life;
+		if (q.ember) {
+			const x = q.x + q.vx * t + Math.sin(q.ph + t * 5) * 4, y = q.y + q.vy * t - 6 * t * t, a = Math.sin(Math.PI * Math.min(1, f)) * (0.7 + 0.3 * Math.sin(q.ph + t * 17)) * power;
+			if (a < 0.03) continue;
+			const c = q.cool ? [210, 100, 76] : [f < 0.5 ? 38 : 12, 100, f < 0.5 ? 62 : 52];
+			ctx.globalAlpha = Math.min(1, a);
+			ctx.shadowColor = hsl(c, 0.9); ctx.shadowBlur = 9;
+			ctx.fillStyle = hsl(c);
+			ctx.beginPath(); ctx.arc(x, y, q.r * (1 - 0.5 * f), 0, Math.PI * 2); ctx.fill();
+			continue;
+		}
+		const drag = Math.exp(-1.8 * t), x = q.x + (q.vx * (1 - drag)) / 1.8, y = q.y + (q.vy * (1 - drag)) / 1.8 - 10 * t * t;
 		const a = Math.sin(Math.PI * Math.min(1, f * 1.15)) * (0.6 + 0.4 * Math.sin(q.ph + t * 22)) * power;
 		if (a < 0.03) continue;
+		const vx = q.vx * drag, vy = q.vy * drag - 20 * t, tail = Math.min(0.045, 0.012 + 0.0005 * Math.hypot(vx, vy)) * (1 - 0.5 * f);   // the tail is the last few hundredths of a second of its flight
 		const c = q.cool ? [205, 100, f < 0.4 ? 82 : 68] : [f < 0.4 ? 44 : 14, 100, f < 0.4 ? 66 : 56];   // blue sparks from 50, hot ones before
 		ctx.globalAlpha = Math.min(1, a);
 		ctx.shadowColor = hsl(c, 0.9); ctx.shadowBlur = 5;
-		ctx.fillStyle = hsl(c);
-		ctx.beginPath(); ctx.arc(x, y, q.r * (1 - 0.4 * f), 0, Math.PI * 2); ctx.fill();
+		ctx.strokeStyle = hsl(c); ctx.lineCap = 'round'; ctx.lineWidth = Math.max(0.8, q.r * (1.5 - 0.7 * f));
+		ctx.beginPath(); ctx.moveTo(x - vx * tail, y - vy * tail); ctx.lineTo(x, y); ctx.stroke();
 	}
 	ctx.shadowBlur = 0; ctx.globalAlpha = 1;
 
-	for (const q of item.fallen) {   // a broken run: the number drops and fades
-		const f = (now - q.t0) / q.life, c = comboHue(q.tier, now), t = f * f;
-		ctx.globalAlpha = (1 - f) * 0.8 * power;
-		ctx.font = '700 16px system-ui, sans-serif';
+	for (const q of item.fallen) {   // a broken run: the number comes apart in strips that tumble down and fade
+		const t = (now - q.t0) / 1000, f = (now - q.t0) / q.life, c = comboHue(q.tier, now), u = q.size / 20, txt = `×${q.n}`;
+		ctx.font = `800 ${q.size}px system-ui, sans-serif`;
+		const W = ctx.measureText(txt).width, sw = W / COMBO_SHARDS;
+		ctx.globalAlpha = Math.min(1, (1 - f) * 1.3) * 0.85 * power;
 		ctx.fillStyle = hsl([c[0], 25, 62], 1);
-		ctx.fillText(`×${q.n}`, q.x, q.y + t * 46);
+		for (let i = 0; i < COMBO_SHARDS; i++) {
+			const sh = q.shards[i], mx = -W / 2 + sw * (i + 0.5), g = 520 * u;
+			ctx.save();
+			ctx.translate(q.x + mx + sh.vx * t * u, q.y - q.size * 0.35 + sh.vy * t * u + 0.5 * g * t * t);
+			ctx.rotate(sh.rot * t);
+			ctx.beginPath(); ctx.rect(-sw / 2 - 0.5, -q.size * 0.7, sw + 1, q.size * 1.1); ctx.clip();
+			ctx.fillText(txt, -mx, q.size * 0.35);
+			ctx.restore();
+		}
 	}
 	ctx.globalAlpha = 1;
 
 	if (rect && item.n) {
-		const h = Math.max(rect.h, 16), u = h / 24, cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, base = rect.y + rect.h, c = comboHue(tier, now);
+		const h = Math.max(rect.h, 16), u = h / 24, cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, c = comboHue(tier, now);
 		const left = clamp01(1 - (now - item.lastAt) / win), fl = (now - item.flashAt) / 400;
+		ctx.save();
+		if (dark) ctx.globalCompositeOperation = 'lighter';
+		for (const q of item.rings) {   // a shockwave at a new mark: a thin bright front racing out, with a soft wake behind it that thins as it goes
+			const f = (now - q.t0 - q.delay) / COMBO_WAVE_MS;
+			if (f < 0 || f >= 1) continue;
+			const rc = comboHue(q.tier, now), e = 1 - Math.pow(1 - f, 2.8), R = q.h * (0.5 + 3.6 * e), band = q.h * (0.14 + 0.9 * (1 - f)), fade = Math.pow(1 - f, 1.4) * power * (q.delay ? 0.6 : 1);
+			const g = ctx.createRadialGradient(q.x, q.y, Math.max(0, R - band), q.x, q.y, R + band * 0.15);
+			g.addColorStop(0, hsl(rc, 0, 0)); g.addColorStop(0.75, hsl(rc, 0.28 * fade, 0)); g.addColorStop(0.97, hsl(rc, 0.75 * fade, 14)); g.addColorStop(1, hsl(rc, 0, 14));
+			ctx.fillStyle = g;
+			ctx.beginPath(); ctx.arc(q.x, q.y, R + band * 0.15, 0, Math.PI * 2); ctx.fill();
+			ctx.globalAlpha = fade; ctx.strokeStyle = hsl(rc, 1, 24); ctx.lineWidth = Math.max(0.5, (1 - f) * 2.2 * u);
+			ctx.beginPath(); ctx.arc(q.x, q.y, R, 0, Math.PI * 2); ctx.stroke();
+			ctx.globalAlpha = 1;
+		}
+		ctx.restore();
+		ctx.shadowBlur = 0; ctx.globalAlpha = 1;
 		if (fl >= 0 && fl < 1) {   // a flash at a mark
 			const r = h * (1.2 + 1.4 * fl), g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r), fc = comboHue(item.flashTier, now);
 			g.addColorStop(0, hsl(fc, 0.5 * (1 - fl) * power)); g.addColorStop(1, hsl(fc, 0));
@@ -2620,28 +2726,48 @@ function drawCombo(plugin, ctx, item, now, k, dt) {
 			glow.addColorStop(0, hsl(c, (0.16 + 0.07 * tier) * power)); glow.addColorStop(1, hsl(c, 0));
 			ctx.fillStyle = glow; ctx.fillRect(cx - gr, cy - gr, gr * 2, gr * 2);
 		}
-		const pop = 1 + 0.55 * Math.max(0, 1 - (now - item.popAt) / 220) * Math.sin(Math.min(1, (now - item.popAt) / 220) * Math.PI * 0.5 + 1.2);
-		const size = (15 + 3 * tier) * u * (0.9 + 0.1 * Math.min(k, 1.5)) * pop, y = rect.y - 6 * u;
+
+		// the counter: it follows the caret on a spring, snapping to it at the start of a run
+		const tx = cx, ty = rect.y - 6 * u;
+		if (!item.placed) { item.ax = tx; item.ay = ty; item.avx = item.avy = 0; item.placed = true; }
+		for (let left2 = s; left2 > 1e-6;) {
+			const st = Math.min(1 / 120, left2); left2 -= st;
+			item.avx += (-COMBO_FOLLOW * COMBO_FOLLOW * (item.ax - tx) - 2 * 0.85 * COMBO_FOLLOW * item.avx) * st; item.ax += item.avx * st;
+			item.avy += (-COMBO_FOLLOW * COMBO_FOLLOW * (item.ay - ty) - 2 * 0.85 * COMBO_FOLLOW * item.avy) * st; item.ay += item.avy * st;
+		}
+		const age = now - item.popAt, pop = 1 + 0.55 * Math.max(0, 1 - age / 220) * Math.sin(Math.min(1, age / 220) * Math.PI * 0.5 + 1.2);
+		const size = (15 + 3 * tier) * u * (0.9 + 0.1 * Math.min(k, 1.5)) * pop;
+		item.size = size / pop;
+		const amp = tier >= 2 ? 0.7 * (tier - 1) * u * Math.max(0, 1 - age / 140) : 0;   // from the second rank the number shakes at a hit
+		const x = item.ax + (hash(item.seed) * 2 - 1) * amp, y = item.ay + (hash(item.seed + 7.7) * 2 - 1) * amp;
 		ctx.font = `800 ${size}px system-ui, sans-serif`;
 		ctx.shadowColor = hsl(c, 0.9, 0); ctx.shadowBlur = 6 + 4 * tier;
 		ctx.lineJoin = 'round'; ctx.lineWidth = size * 0.16; ctx.strokeStyle = dark ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.7)';
-		ctx.globalAlpha = power;
-		ctx.strokeText(`×${item.n}`, cx, y);
-		ctx.fillStyle = hsl(c);
-		ctx.fillText(`×${item.n}`, cx, y);
-		ctx.shadowBlur = 0;
-		const bw = 26 * u, by = y + 3 * u;   // the bar: how long the run has left
+		const total = drawComboNumber(ctx, item, x, y, size, now, power, dark, hsl, c);
+		ctx.shadowBlur = 0; ctx.globalAlpha = power;
+		const bw = 26 * u, by = y + 3 * u, low = left < 0.3, blink = 0.5 + 0.5 * Math.sin(now * 0.035);   // the bar: how long the run has left
 		ctx.fillStyle = dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)';
-		ctx.fillRect(cx - bw / 2, by, bw, 2 * u);
-		ctx.fillStyle = hsl(c, 0.95);
-		ctx.fillRect(cx - bw / 2, by, bw * left, 2 * u);
+		ctx.fillRect(x - bw / 2, by, bw, 2 * u);
+		ctx.fillStyle = low ? `hsla(2, 100%, ${dark ? 62 : 45}%, ${0.55 + 0.45 * blink})` : hsl(c, 0.95);
+		ctx.fillRect(x - bw / 2, by, bw * left, 2 * u);
+		if (tier >= 1) {   // its rank, beside the counter: it lands with a pop when it is earned
+			const ra = now - item.rankAt, rs = size * 1.25 * (ra < 420 ? lerp(2.4, 1, easeOutBack(clamp01(ra / 420))) : 1);
+			ctx.font = `900 italic ${rs}px system-ui, sans-serif`;
+			ctx.shadowColor = hsl(c, 0.95, 0); ctx.shadowBlur = 8 + 4 * tier;
+			ctx.lineWidth = rs * 0.14; ctx.globalAlpha = (ra < 0 ? 1 : clamp01(ra / 80)) * power;
+			const rx = x + total / 2 + size * 0.62, ry = y + size * 0.1;
+			ctx.strokeText(COMBO_TIERS[tier].rank, rx, ry);
+			ctx.fillStyle = hsl(c, 1, 6);
+			ctx.fillText(COMBO_TIERS[tier].rank, rx, ry);
+			ctx.shadowBlur = 0;
+		}
 		const wf2 = (now - item.wordAt) / 1000;   // the word of the mark, for a second
 		if (item.word && wf2 < 1) {
 			const wp = easeOutBack(clamp01(wf2 / 0.2));
 			ctx.globalAlpha = (wf2 < 0.7 ? 1 : 1 - (wf2 - 0.7) / 0.3) * power;
 			ctx.font = `900 ${11 * u * wp}px system-ui, sans-serif`;
 			ctx.fillStyle = hsl(c, 1, 8);
-			ctx.fillText(item.word, cx, y - size - 2 * u - wf2 * 6 * u);
+			ctx.fillText(item.word, x, y - size - 2 * u - wf2 * 6 * u);
 		}
 	}
 	ctx.restore();
@@ -2653,6 +2779,10 @@ EFFECTS.combo = {
 	preset: { name: 'Combo', color: '#ffe14d', accent: '#ff7a1a' },
 	defaults: { comboWindowMs: 1400 },
 	onMove(plugin, prev, cur, info) { if (isWriting(info)) comboHit(plugin, cur, info.now); },
+	onShift(plugin, dx, dy) {   // the page scrolled: the counter goes with the text rather than chasing it
+		const item = plugin.items.find((it) => it.effect === 'combo' && !it.done);
+		if (item && item.placed) { item.ax += dx; item.ay += dy; }
+	},
 	draw(plugin, ctx, item, p, k, now, dt) { drawCombo(plugin, ctx, item, now, k, dt); },
 	preview(plugin, pv, caret, now) {
 		if (now < (pv.comboNext || 0)) return;
@@ -2661,6 +2791,171 @@ EFFECTS.combo = {
 		if (item.n >= 130) item.lastAt = 0;   // the preview runs up through the tiers, lets go, and starts again
 		comboHit(pv, caret, now);
 	},
+};
+
+// ---- Effect: Sleepy caret --------------------------------------------------------------------------------------------
+// Stop writing for a while and the caret nods off: it sinks to a droop, dims and breathes slowly, and little z's float up
+// from it. Any key or move wakes it with a stretch (a bounce back to its full height) and the z's pop away.
+// Settings: sleepAfterMs (how long it waits before it dozes off; 15000 is normal).
+const SLEEP_FALL_MS = 900;       // the sinking into sleep
+const SLEEP_WAKE_MS = 420;       // the stretch on waking
+const SLEEP_DROOP = 0.62;        // the share of its height the sleeping caret keeps, at the bottom of a breath
+const SLEEP_BREATH_MS = 3600;    // one breath
+const SLEEP_Z_EVERY_MS = 1500;   // a new z this often
+const SLEEP_Z_LIFE_MS = 3200;
+
+/** The caret has done something: whatever it was, it is awake and the clock starts again. */
+function sleepNudge(plugin, now) {
+	const S = plugin.state('sleep');
+	clearTimeout(S.timer);
+	if (S.asleep) { S.asleep = false; S.wakeAt = now; plugin.kick(); }
+	S.timer = setTimeout(() => sleepDoze(plugin), Math.max(1000, Number(plugin.cfg.sleepAfterMs) || 15000));
+}
+
+/** The timer ran out: the caret falls asleep, unless something else has the caret or there is none to put to bed. */
+function sleepDoze(plugin) {
+	const S = plugin.state('sleep');
+	S.timer = 0;
+	if (!plugin.last || caretTaken(plugin) || document.hidden) { S.timer = setTimeout(() => sleepDoze(plugin), 5000); return; }   // look again in a while
+	S.asleep = true; S.sleepAt = performance.now(); S.wakeAt = 0; S.zs = []; S.zNext = S.sleepAt + 700;
+	plugin.ensureItem('sleep');
+	plugin.kick();
+}
+
+function drawSleep(plugin, ctx, item, now, dt) {
+	const S = plugin.state('sleep'), rect = caretBox(plugin);
+	if (!rect || caretTaken(plugin)) { S.asleep = false; plugin.hideCaret('sleep', false); item.done = true; return; }
+	const waking = !S.asleep, wake = waking ? (now - (S.wakeAt || now)) / SLEEP_WAKE_MS : 0;
+	if (waking && (wake >= 1 || !S.wakeAt)) {   // awake again: the real caret is back, and the z's are gone
+		plugin.hideCaret('sleep', false);
+		if (!(S.zs || []).length) { item.done = true; return; }
+	}
+	const col = plugin.col(), dark = plugin.dark, w = Math.max(rect.w, 2), h = rect.h, u = h / 24;
+	let scale = 1, alpha = 1;
+	if (S.asleep) {
+		const fall = easeInOutSine(clamp01((now - S.sleepAt) / SLEEP_FALL_MS)), breath = 0.5 + 0.5 * Math.sin((now - S.sleepAt) / SLEEP_BREATH_MS * Math.PI * 2);
+		scale = lerp(1, SLEEP_DROOP + (1 - SLEEP_DROOP) * 0.45 * breath, fall);   // it settles, then rises and sinks with each breath
+		alpha = lerp(1, 0.5 + 0.35 * breath, fall);
+	} else if (wake < 1) {
+		scale = lerp(SLEEP_DROOP, 1, easeOutBack(clamp01(wake)));   // up again, a little past full height and back
+		alpha = lerp(0.5, 1, clamp01(wake * 2));
+	}
+	if (S.asleep || wake < 1) {
+		plugin.hideCaret('sleep', true);
+		item.hidesCaret = true;
+		const bh = h * scale, block = plugin.cfg.style === 'block';
+		ctx.save();
+		ctx.globalAlpha = clamp01(alpha);
+		ctx.beginPath();
+		if (block) { const r = Math.min(2, w / 3); ctx.roundRect ? ctx.roundRect(rect.x, rect.y + h - bh, w, bh, r) : ctx.rect(rect.x, rect.y + h - bh, w, bh); } else ctx.rect(rect.x, rect.y + h - bh, w, bh);
+		paintCaretBody(ctx, col, block ? 0.42 : 1, block ? 1 : 0);
+		ctx.restore();
+	}
+	// the z's: one now and then from above the caret, each bigger than the last, drifting up and a little right
+	const zs = S.zs || (S.zs = []);
+	if (S.asleep && now >= S.zNext) { S.zNext = now + SLEEP_Z_EVERY_MS; zs.push({ t0: now, n: (S.zCount = (S.zCount || 0) + 1) % 3, ph: Math.random() * 6.28 }); }
+	S.zs = zs.filter((z) => now - z.t0 < SLEEP_Z_LIFE_MS && (S.asleep || now - (S.wakeAt || now) < 220));
+	if (S.zs.length) {
+		ctx.save();
+		ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+		for (const z of S.zs) {
+			const f = (now - z.t0) / SLEEP_Z_LIFE_MS, grow = 0.7 + 0.5 * z.n * 0.5 + 0.35 * f, size = 16 * u * grow;
+			const x = rect.x + w + (6 + 20 * f) * u + Math.sin(f * 7 + z.ph) * 3 * u, y = rect.y + h * 0.2 - 30 * u * f;
+			const popOut = S.asleep ? 1 : 1 - clamp01((now - S.wakeAt) / 220);
+			ctx.globalAlpha = Math.sin(Math.PI * Math.min(1, f * 1.1)) * 0.9 * popOut;
+			ctx.font = `800 italic ${size}px system-ui, sans-serif`;
+			ctx.lineWidth = size * 0.18; ctx.strokeStyle = dark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.75)';
+			ctx.shadowColor = rgba(col, 0.7); ctx.shadowBlur = 5;
+			ctx.save();
+			ctx.translate(x, y); ctx.rotate(Math.sin(f * 5 + z.ph) * 0.18);
+			ctx.strokeText('z', 0, 0);
+			ctx.fillStyle = dark ? lighten(col, 0.35) : col;
+			ctx.fillText('z', 0, 0);
+			ctx.restore();
+		}
+		ctx.restore();
+	}
+	plugin.kick();   // it breathes, the z's rise
+}
+
+EFFECTS.sleep = {
+	id: 'sleep', label: 'Sleepy caret', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
+	defaults: { sleepAfterMs: 15000 },
+	onMove(plugin, prev, cur, info) { sleepNudge(plugin, info.now); },
+	onKey(plugin, e, now) { sleepNudge(plugin, now); },
+	onSample(plugin, cur, info) {
+		const S = plugin.state('sleep');
+		if (!cur) { if (S.asleep) sleepNudge(plugin, info.now); return; }
+		if (!S.timer && !S.asleep) sleepNudge(plugin, info.now);   // first sight of the caret since the effect came on
+	},
+	onPulse(plugin, rect, now) { sleepNudge(plugin, now); },
+	onDrop(plugin) { const S = plugin.fxState.sleep; if (S) clearTimeout(S.timer); },
+	draw(plugin, ctx, item, p, k, now, dt) { drawSleep(plugin, ctx, item, now, dt); },
+};
+
+// ---- Effect: Confetti ------------------------------------------------------------------------------------------------
+// A task ticked off bursts into confetti from its checkbox: paper strips and dots thrown up, tumbling as they fall, in the
+// caret's colors and a few more; a ring opens where the box is. Only a tick you make (a click on the box or a key) counts - a
+// task that is already done, or one a sync ticks on another device, stays quiet.
+// Settings: confettiCount (pieces in a burst; 46 is normal).
+const CONFETTI_MAX = 220;
+const CONFETTI_PALETTE = ['#ff4d6d', '#ffb629', '#4dd6a0', '#4da3ff', '#b57bff', '#ffe14d'];
+
+/** Throws a burst from (x, y); `h` the height of the box it comes out of. */
+function confettiBurst(plugin, x, y, h, now) {
+	const item = plugin.ensureItem('confetti');
+	if (!item.pieces) { item.pieces = []; item.rings = []; }
+	const u = Math.max(0.7, h / 18), n = clamp(Math.round(Number(plugin.cfg.confettiCount) || 46), 8, 120), colors = [plugin.col(), plugin.acc(), ...CONFETTI_PALETTE];
+	item.rings.push({ x, y, t0: now, u });
+	for (let i = 0; i < n && item.pieces.length < CONFETTI_MAX; i++) {
+		const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.5, v = (170 + Math.random() * 380) * u;
+		item.pieces.push({
+			x: x + (Math.random() - 0.5) * 6 * u, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+			w: (5 + Math.random() * 5) * u, h: (2.4 + Math.random() * 2.4) * u, dot: Math.random() < 0.25,
+			rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * 16, flip: Math.random() * 6.28, flipSpeed: 6 + Math.random() * 9,
+			color: colors[Math.floor(Math.random() * colors.length)], t0: now, life: 1300 + Math.random() * 1100, sway: Math.random() * 6.28,
+		});
+	}
+	plugin.kick();
+}
+
+function drawConfetti(plugin, ctx, item, now, dt) {
+	if (!item.pieces) { item.done = true; return; }
+	const s = Math.min((dt || 16) / 1000, 0.05);
+	item.pieces = item.pieces.filter((q) => now - q.t0 < q.life);
+	item.rings = item.rings.filter((r) => now - r.t0 < 480);
+	if (!item.pieces.length && !item.rings.length) { item.done = true; return; }
+	ctx.save();
+	for (const r of item.rings) {   // the ring where the box is
+		const f = (now - r.t0) / 480, e = 1 - Math.pow(1 - f, 3);
+		ctx.globalAlpha = (1 - f) * 0.8; ctx.lineWidth = Math.max(0.6, (1 - f) * 3 * r.u);
+		ctx.strokeStyle = plugin.col(); ctx.shadowColor = plugin.col(); ctx.shadowBlur = 8;
+		ctx.beginPath(); ctx.arc(r.x, r.y, (6 + 26 * e) * r.u, 0, Math.PI * 2); ctx.stroke();
+	}
+	ctx.shadowBlur = 0;
+	for (const q of item.pieces) {
+		const drag = Math.exp(-2.1 * s);   // air: the burst slows at once and then the paper drifts down
+		q.vx *= drag; q.vy = q.vy * drag + 880 * s * (0.55 + 0.45 * Math.min(1, (now - q.t0) / 400));
+		q.x += q.vx * s + Math.sin(q.sway + (now - q.t0) * 0.006) * 0.35; q.y += q.vy * s;
+		q.rot += q.spin * s; q.flip += q.flipSpeed * s;
+		const f = (now - q.t0) / q.life, a = f < 0.7 ? 1 : 1 - (f - 0.7) / 0.3;
+		ctx.globalAlpha = a;
+		ctx.fillStyle = q.color;
+		ctx.save();
+		ctx.translate(q.x, q.y); ctx.rotate(q.rot);
+		if (q.dot) { ctx.beginPath(); ctx.arc(0, 0, q.h * 0.9, 0, Math.PI * 2); ctx.fill(); }
+		else { ctx.scale(1, Math.max(0.12, Math.abs(Math.cos(q.flip)))); ctx.fillRect(-q.w / 2, -q.h / 2, q.w, q.h); }   // the strip tumbles: seen edge-on now and then
+		ctx.restore();
+	}
+	ctx.restore();
+	plugin.kick();
+}
+
+EFFECTS.confetti = {
+	id: 'confetti', label: 'Confetti', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
+	defaults: { confettiCount: 46 },
+	onTaskDone(plugin, box, now) { confettiBurst(plugin, box.x + box.w / 2, box.y + box.h / 2, box.h, now); },
+	draw(plugin, ctx, item, p, k, now, dt) { drawConfetti(plugin, ctx, item, now, dt); },
 };
 
 // ---- Defaults: core keys + every effect's keys (toggle key per 'always' effect, plus its own defaults) ----
@@ -2729,6 +3024,7 @@ class Plugin extends AppPlugin {
 
 		this.installCaretObserver();
 		this.installThemeObserver();
+		this.installTaskObserver();
 
 		this.ui.registerCustomPanelType(PAGE_TYPE, (panel) => this.renderPage(panel));
 		this.ui.addCommandPaletteCommand({ label: 'Caret FX: open settings', icon: 'ti-palette', onSelected: () => this.openPage() });
@@ -2801,6 +3097,36 @@ class Plugin extends AppPlugin {
 		this.cleanup.push(() => { tree.disconnect(); observers.forEach(([o]) => o.disconnect()); observers.length = 0; });
 	}
 
+	// A task ticked off: its checkbox (.listitem-task) gains .state-done. Only a tick the user made counts - a click or a key
+	// a moment before - so a row that is drawn already done, or recycled by the list, stays quiet.
+	installTaskObserver() {
+		let gesture = 0, fired = 0, boxClick = 0;
+		const mark = (e) => { gesture = performance.now(); if (e.type === 'pointerdown' && e.target.closest && e.target.closest('.listitem-task')) boxClick = gesture; };
+		document.addEventListener('pointerdown', mark, { capture: true, passive: true });
+		document.addEventListener('keydown', mark, { capture: true, passive: true });
+		const fire = (el) => {
+			const now = performance.now(), b = el.getBoundingClientRect();
+			if (now - fired < 400 || !(b.width > 0) || !(b.height > 0)) return;
+			fired = now;
+			for (const e of this.activeEffects()) this.callHook(e, 'onTaskDone', { x: b.left, y: b.top, w: b.width, h: b.height }, now);
+			this.kick();
+		};
+		const done = (el) => el.classList && el.classList.contains('listitem-task') && el.classList.contains('state-done');
+		const mo = new MutationObserver((muts) => {
+			if (performance.now() - gesture > 1200) return;
+			for (const m of muts) {
+				if (m.type === 'attributes') { if (done(m.target) && !/\bstate-done\b/.test(m.oldValue || '')) fire(m.target); continue; }
+				if (performance.now() - boxClick > 1200) continue;   // a box that is drawn anew: only after a click on a box
+				for (const n of m.addedNodes) {
+					if (!(n instanceof Element)) continue;
+					if (done(n)) fire(n); else { const el = n.querySelector && n.querySelector('.listitem-task.state-done'); if (el) fire(el); }
+				}
+			}
+		});
+		mo.observe(document.body, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, childList: true, subtree: true });
+		this.cleanup.push(() => { mo.disconnect(); document.removeEventListener('pointerdown', mark, true); document.removeEventListener('keydown', mark, true); });
+	}
+
 	installThemeObserver() {
 		const check = () => {
 			const dark = isDarkTheme();
@@ -2870,6 +3196,7 @@ class Plugin extends AppPlugin {
 	// What an effect that keeps state leaves behind when it stops: its items, its state, its hold on the caret.
 	dropEffect(id) {
 		if (id === 'combo' && this.tint) { this.tint = null; this.applyCaretStyle(); }
+		this.callHook(EFFECTS[id] || {}, 'onDrop');
 		this.items = this.items.filter((it) => it.effect !== id);
 		delete this.fxState[id];
 		this.hideCaret(id, false);

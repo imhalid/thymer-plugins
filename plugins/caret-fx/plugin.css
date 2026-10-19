@@ -54,3 +54,6 @@
 .cfx-block { position: fixed; pointer-events: none; z-index: 499; box-sizing: border-box; border-radius: 2px; animation: cfx-blockblink 1.1s steps(1) .6s infinite; }
 @keyframes cfx-blockblink { 50% { opacity: .3; } }
 body.cfx-caret-off div.listview-caret-self, body.cfx-caret-off div.cfx-pcaret, body.cfx-caret-off .cfx-block { opacity: 0 !important; animation: none !important; transition: none !important; }
+
+/* Bracket tether with Zephyr: the letters in the gust are made transparent where they are (a highlight, set from the code), and the canvas draws them again, leaning. */
+::highlight(cfx-gust) { color: transparent; }

@@ -1107,6 +1107,7 @@ EFFECTS.ink = {
 // It is a plain depth count over one line's text, not a syntax-aware match, and decorative: nothing edits from it.
 // Differences from Cursor-Smith: a Thymer line is its own block, so there are no blockquote markers or code fences to
 // cut a span at, and angle brackets are left out (in notes "<" and ">" are comparisons far more often than tags).
+// How it is drawn follows the preset (see TETHER_STYLES): a plain line, crackling lightning, petals, glints, a spectrum, a pulse...
 // Settings: tetherStrength (0..1, the line's opacity).
 const BRACKET_OPEN = { '(': ')', '[': ']', '{': '}' };
 const BRACKET_CLOSE = { ')': '(', ']': '[', '}': '{' };
@@ -1201,7 +1202,7 @@ function tetherSpan(lineText, pos) {
 
 /**
  * The rules to draw under characters [from, to] of `line`: one per visual line the span covers, top to bottom, each
- * { left, right, bottom }. The text measures itself - a span that wraps comes back already split at its wrap points -
+ * { left, right, top, bottom }. The text measures itself - a span that wraps comes back already split at its wrap points -
  * and the boxes of one baseline (a bold stretch, a link) are folded into a single rule rather than a dashed row.
  */
 function tetherSegments(line, from, to) {
@@ -1209,8 +1210,8 @@ function tetherSegments(line, from, to) {
 	for (const r of line.rects(from, to + 1)) {
 		const bottom = r.y + r.h;
 		const row = rows.find((o) => Math.abs(o.bottom - bottom) < 1.5);
-		if (row) { row.left = Math.min(row.left, r.x); row.right = Math.max(row.right, r.x + r.w); }
-		else rows.push({ left: r.x, right: r.x + r.w, bottom });
+		if (row) { row.left = Math.min(row.left, r.x); row.right = Math.max(row.right, r.x + r.w); row.top = Math.min(row.top, r.y); }
+		else rows.push({ left: r.x, right: r.x + r.w, top: r.y, bottom });
 	}
 	return rows.sort((a, b) => a.bottom - b.bottom || a.left - b.left);
 }
@@ -1230,35 +1231,544 @@ EFFECTS.tether = {
 			span = S.span;
 		}
 		const segs = span ? tetherSegments(cl.line, span.from, span.to) : null;
-		const sig = segs ? segs.map((s) => `${Math.round(s.left)},${Math.round(s.right)},${Math.round(s.bottom)}`).join('|') : '';
-		if (sig === S.sig) return;
-		S.sig = sig;
+		const sig = segs ? segs.map((s) => `${Math.round(s.left)},${Math.round(s.right)},${Math.round(s.top)},${Math.round(s.bottom)}`).join('|') : '';
+		const style = TETHER_STYLES[plugin.cfg.fx] || TETHER_STYLES.default, gk = sig + '#' + (span ? S.key : '') + (style.glyphs ? 'g' : '');
+		if (gk === S.gk) return;
+		S.gk = gk;
 		S.segs = segs && segs.length ? segs : null;
+		S.glyphs = S.segs && style.glyphs && span.to - span.from < TETHER_GLYPHS_MAX ? tetherGlyphs(cl.line, span.from, span.to) : null;   // the letters, for the styles that light them
+		if (S.segs) tetherLay(S);
+		S.bg = S.glyphs && style.patch ? tetherBackground(cl.line.el) : null;   // what a letter is painted out with, for the styles that redraw letters in the place of their own
+		S.len = S.segs ? S.segs.reduce((n, s) => n + s.right - s.left, 0) : 0;
+		if (!S.segs) { S.parts = []; tetherUnhide(S); }
 		// A still item: it is redrawn whenever a frame runs, and asks for none of its own.
-		if (S.segs) plugin.ensureItem('tether').rest = true;
+		if (S.segs) plugin.ensureItem('tether').rest = !style.animated;
 		plugin.kick();
 	},
-	draw(plugin, ctx, item, p, k) {
-		const segs = plugin.state('tether').segs;
-		if (!segs) { item.done = true; return; }
-		const alpha = clamp01(plugin.cfg.tetherStrength * Math.min(k, 1.5));
-		let total = 0;
-		for (const s of segs) total += s.right - s.left;
-		if (alpha <= 0.01 || total < 2) return;   // the caret sits on its own match, an empty pair: nothing to underline
+	onDrop(plugin) { tetherUnhide(plugin.fxState.tether); },
+	onShift(plugin, dx, dy) {   // the page scrolled: the pieces in the air go with the text (the rules themselves are measured afresh at the next look)
+		const S = plugin.fxState.tether;
+		if (S && S.parts) for (const q of S.parts) { q.x += dx; q.y += dy; }
+	},
+	draw(plugin, ctx, item, p, k, now, dt) {
+		const S = plugin.state('tether');
+		if (!S.segs) { tetherUnhide(S); item.done = true; return; }
+		const alpha = clamp01(plugin.cfg.tetherStrength * Math.min(k, 1.5)), style = TETHER_STYLES[plugin.cfg.fx] || TETHER_STYLES.default;
+		item.rest = !style.animated;   // an animated style asks for frames while the caret is inside a span
+		if (style !== TETHER_STYLES.zephyr) tetherUnhide(S);
+		if (alpha <= 0.01 || S.len < 2) { tetherUnhide(S); return; }   // the caret sits on its own match, an empty pair: nothing to mark
+		const s = Math.min(0.05, Math.max(0, (dt || 16) / 1000));
+		if (!S.parts) S.parts = [];
+		S.parts = S.parts.filter((q) => now - q.t0 < q.life);
+		for (const q of S.parts) { q.x += q.vx * s; q.y += q.vy * s; q.vx += (q.ax || 0) * s; q.vy += (q.ay || 0) * s; q.rot += (q.spin || 0) * s; }
 		ctx.save();
-		ctx.lineWidth = 1.5;
-		ctx.lineCap = 'round';
-		ctx.strokeStyle = rgba(plugin.col(), alpha);
-		ctx.beginPath();
-		segs.forEach((s, i) => {
-			const y = s.bottom + TETHER_DROP;
-			ctx.moveTo(s.left, y);
-			ctx.lineTo(s.right, y);
-			if (i === 0) { ctx.moveTo(s.left, y); ctx.lineTo(s.left, y - TETHER_TICK); }
-			if (i === segs.length - 1) { ctx.moveTo(s.right, y); ctx.lineTo(s.right, y - TETHER_TICK); }
-		});
-		ctx.stroke();
+		try { style.draw(plugin, ctx, S, now, s, Math.min(2.5, alpha / 0.35)); } catch (err) { tetherUnhide(S); throw err; }   // whatever goes wrong, the page's own letters come back
 		ctx.restore();
+	},
+};
+
+// How the span is marked follows the preset. Each style washes the whole of it - a highlight behind the text, faint enough
+// to read through - and then does what the preset does: petals fall through it, glints twinkle in it, letters light up in
+// turn, a jelly swallows it, water fills it. The canvas lies over the page, so what is drawn over a letter is drawn with
+// care: a wash is a few hundredths of alpha, and a letter that glows is that letter again, in its own font, on itself.
+// A style is { animated, glyphs, draw(plugin, ctx, S, now, dt, m) }: `animated` asks for frames of its own while the caret
+// is inside a span, `glyphs` has the letters measured, S holds segs (a rule per visual line: left, right, top, bottom),
+// glyphs, parts (pieces in the air) and acc (what each emitter has stored up), dt is in seconds and m the strength setting
+// (1 at its default of 0.35).
+const TETHER_GLYPHS_MAX = 700;   // a longer span has no letters lit one by one
+const TETHER_PARTS_MAX = 36;
+const TETHER_STYLES = {};
+const tetherY = (s) => s.bottom + TETHER_DROP;
+
+/** Lays the span's rules end to end: each gets `cum`, how far along the span it begins, and each letter its `pos`, how far along the span it is - so that what sweeps through a span reads it in order, line after line. */
+function tetherLay(S) {
+	let cum = 0;
+	for (const s of S.segs) { s.cum = cum; cum += s.right - s.left; }
+	if (!S.glyphs) return;
+	for (const g of S.glyphs) {
+		const mid = g.top + g.h / 2;
+		let row = S.segs[S.segs.length - 1];
+		for (const s of S.segs) if (mid <= s.bottom + 2) { row = s; break; }
+		g.pos = row.cum + clamp(g.x + g.w / 2 - row.left, 0, row.right - row.left);
+	}
+}
+
+/** How far along the span (its rules laid end to end) a point of rule `s` at `x` is. */
+const tetherAlong = (s, x) => (s.cum || 0) + clamp(x - s.left, 0, s.right - s.left);
+
+/** Where a sweep of `speed` px a second is along a span of `len` px: it comes in 60 px before the start and goes out 60 px past the end, then again. */
+const tetherSweep = (now, len, speed) => ((now * speed * 0.001) % (len + 120)) - 60;
+
+/** The two ends of a span: [x, y] of the start of its first rule and of the end of its last. */
+const tetherEnds = (segs) => [[segs[0].left, tetherY(segs[0])], [segs[segs.length - 1].right, tetherY(segs[segs.length - 1])]];
+
+let TETHER_SCRATCH = null;
+const tetherScratch = () => TETHER_SCRATCH || (TETHER_SCRATCH = document.createElement('canvas').getContext('2d'));
+
+/** The letters of characters [from, to] of `line`, each with where it is drawn, the baseline it sits on, and the font and color it is drawn in. */
+function tetherGlyphs(line, from, to) {
+	const ctx = tetherScratch(), hosts = new Map(), metrics = new Map(), out = [], text = line.text;
+	for (let i = from; i <= to && i < text.length; i++) {
+		let ch = text[i];
+		if (!ch.trim()) continue;
+		if (ch >= '\ud800' && ch <= '\udbff') ch = text.slice(i, i + 2);   // a surrogate pair is one letter
+		else if (ch >= '\udc00' && ch <= '\udfff') continue;
+		const r = line.charRect(i, ch.length);
+		if (!r) continue;
+		const host = line.styleHost(i);
+		let st = hosts.get(host);
+		if (!st) { const cs = getComputedStyle(host); st = { font: `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`, color: cs.color }; hosts.set(host, st); }
+		let mt = metrics.get(st.font);
+		if (!mt) { ctx.font = st.font; const t = ctx.measureText('M'); mt = { a: t.fontBoundingBoxAscent ?? 11, d: t.fontBoundingBoxDescent ?? 3 }; metrics.set(st.font, mt); }
+		let k = line.nodes.length - 1;
+		while (k > 0 && line.starts[k] > i) k--;
+		out.push({ ch, node: line.nodes[k], off: i - line.starts[k], x: r.x, w: r.w, h: r.h, top: r.y, y: r.y + mt.a + (r.h - mt.a - mt.d) / 2, st, n: out.length, h1: hash(out.length * 1.93 + from * 0.37), h2: hash(out.length * 4.71 + 9.1) });
+	}
+	return out;
+}
+
+/** Lets go of the letters Zephyr has hidden (they are drawn by the canvas while they lean). */
+function tetherUnhide(S) {
+	if (S && S.hlKey !== undefined) { S.hlKey = undefined; try { CSS.highlights.delete('cfx-gust'); } catch (e) { /* none to delete */ } }
+}
+
+/** The color of the page behind `el` as a CSS color, or null when it cannot be told (a gradient, an image). Any color syntax the browser reads is read, by painting it on a pixel. */
+function tetherBackground(el) {
+	const ctx = tetherScratch();
+	for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+		const cs = getComputedStyle(n);
+		if (cs.backgroundImage && cs.backgroundImage !== 'none') return null;
+		const c = cs.backgroundColor;
+		if (!c || c === 'transparent') continue;
+		ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'copy'; ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1); ctx.restore();
+		const px = ctx.getImageData(0, 0, 1, 1).data;
+		if (px[3] >= 250) return `rgb(${px[0]},${px[1]},${px[2]})`;
+		if (px[3] > 0) return null;   // a see-through color: what is behind it is not known from here
+	}
+	return null;
+}
+
+/** One letter drawn again over itself: with `o.color` instead of its own, a glow (`o.blur`), a shift (`o.dx`) and a lean (`o.skew`, to the right at the top); `o.exact` leaves it off the pixel grid, for letters that are moving. */
+function tetherGlyph(ctx, g, a, o = {}) {
+	if (a < 0.02) return;
+	const dpr = window.devicePixelRatio || 1;
+	ctx.save();
+	ctx.font = g.st.font; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+	ctx.globalAlpha = Math.min(1, a); ctx.fillStyle = o.color || g.st.color;
+	if (o.blur) { ctx.shadowColor = o.glow || o.color || g.st.color; ctx.shadowBlur = o.blur; }
+	ctx.translate(o.exact ? g.x + (o.dx || 0) : Math.round((g.x + (o.dx || 0)) * dpr) / dpr, o.exact ? g.y : Math.round(g.y * dpr) / dpr);
+	if (o.skew) ctx.transform(1, 0, -o.skew, 1, 0, 0);
+	ctx.fillText(g.ch, 0, 0);
+	ctx.restore();
+}
+
+/** The path of a rule's highlight: the line's box, a little proud of the text, its corners rounded. */
+function tetherPill(ctx, s, pad = 2) {
+	const x = s.left - pad, y = s.top - 1, w = s.right - s.left + pad * 2, h = s.bottom - s.top + 3;
+	ctx.beginPath();
+	if (ctx.roundRect) ctx.roundRect(x, y, w, h, Math.min(5, h / 2)); else ctx.rect(x, y, w, h);
+}
+
+/** Fills every rule's highlight with `fill` (a style, or a function of the rule that gives one). */
+function tetherWash(ctx, segs, fill) {
+	for (const s of segs) { tetherPill(ctx, s); ctx.fillStyle = typeof fill === 'function' ? fill(s) : fill; ctx.fill(); }
+}
+
+/** Clips to the highlights, for what must stay inside the span. */
+function tetherClip(ctx, segs) {
+	ctx.beginPath();
+	for (const s of segs) { const x = s.left - 2, y = s.top - 1, w = s.right - s.left + 4, h = s.bottom - s.top + 3; ctx.rect(x, y, w, h); }
+	ctx.clip();
+}
+
+/** A point inside the span, chosen by width: { s, x }. `u` and `v` are 0..1. */
+function tetherPoint(S, u, v) {
+	let at = u * S.len;
+	for (const s of S.segs) { const w = s.right - s.left; if (at <= w || s === S.segs[S.segs.length - 1]) return { s, x: s.left + Math.min(at, w), y: s.top + (s.bottom - s.top) * v }; at -= w; }
+	return null;
+}
+
+/** Lets an emitter that makes `rate` pieces a second (per 120 px of span) throw the pieces it has stored up: `make(point)` each. */
+function tetherEmit(S, key, rate, dt, make) {
+	S.acc = S.acc || {};
+	S.acc[key] = (S.acc[key] || 0) + rate * dt * Math.max(0.5, Math.min(4, S.len / 120));
+	while (S.acc[key] >= 1) {
+		S.acc[key] -= 1;
+		if (S.parts.length >= TETHER_PARTS_MAX) continue;
+		const q = make(tetherPoint(S, Math.random(), Math.random()));
+		if (q) S.parts.push(q);
+	}
+}
+
+/** Strokes the plain rule of each segment, with the ticks at the two ends. */
+function tetherRule(ctx, segs, ticks) {
+	ctx.beginPath();
+	segs.forEach((s, i) => {
+		const y = tetherY(s);
+		ctx.moveTo(s.left, y); ctx.lineTo(s.right, y);
+		if (ticks && i === 0) { ctx.moveTo(s.left, y); ctx.lineTo(s.left, y - TETHER_TICK); }
+		if (ticks && i === segs.length - 1) { ctx.moveTo(s.right, y); ctx.lineTo(s.right, y - TETHER_TICK); }
+	});
+	ctx.stroke();
+}
+
+/** A four-pointed glint of radius `r` at (x, y), filled with the current fill style. */
+function tetherGlint(ctx, x, y, r) {
+	ctx.beginPath();
+	ctx.moveTo(x, y - r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.quadraticCurveTo(x, y, x, y + r); ctx.quadraticCurveTo(x, y, x - r, y); ctx.quadraticCurveTo(x, y, x, y - r);
+	ctx.fill();
+}
+
+/** A leaf or petal of length `len` (width `wid`) at (x, y) turned by `rot`: two curves meeting at both tips. */
+function tetherPetal(ctx, x, y, len, wid, rot) {
+	ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+	ctx.beginPath(); ctx.moveTo(-len / 2, 0); ctx.quadraticCurveTo(0, -wid, len / 2, 0); ctx.quadraticCurveTo(0, wid, -len / 2, 0); ctx.fill();
+	ctx.restore();
+}
+
+/** A plus of arm `r` at (x, y), stroked with the current stroke style. */
+function tetherPlus(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.moveTo(x, y - r); ctx.lineTo(x, y + r); ctx.stroke(); }
+
+/** The fade of a piece over its life: in quickly, out slowly. */
+const tetherLife = (q, now) => { const f = (now - q.t0) / q.life; return Math.min(1, f * 8) * (1 - Math.pow(f, 2)); };
+
+// Colors with no preset of their own, and Fresh ink: a highlighter and the plain rule.
+TETHER_STYLES.default = {
+	draw(plugin, ctx, S, now, dt, m) {
+		tetherWash(ctx, S.segs, rgba(plugin.col(), 0.16 * m));
+		ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.strokeStyle = rgba(plugin.col(), 0.35 * m);
+		tetherRule(ctx, S.segs, true);
+	},
+};
+
+// Lightning: a storm over the span. Most of the time it is a faint blue glow; every second or two a bolt comes down into it, the
+// rule and the highlight blaze white-blue and die away - a second, weaker flash a moment after the first - and the letters are
+// struck outward from where the bolt landed, a few at a time.
+TETHER_STYLES.lightning = {
+	animated: true, glyphs: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m), CYC = 2400, c = Math.floor(now / CYC), ts = now - c * CYC - (400 + hash(c * 3.7) * 900);
+		const f = ts < 0 ? 0 : ts < 160 ? Math.exp(-ts / 70) : 0.7 * Math.exp(-(ts - 160) / 110), shape = c * 2 + (ts > 160 ? 1 : 0);   // the flash, and which of its two beats this is
+		tetherWash(ctx, S.segs, rgba(acc, (0.06 + 0.2 * f) * m));
+		ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+		ctx.strokeStyle = rgba(acc, 0.28 * a); ctx.lineWidth = 1;
+		tetherRule(ctx, S.segs, false);
+		if (f < 0.03) return;
+		const jag = (s, y, k) => {   // a jagged line along a rule, the same for the length of one beat
+			const n = Math.max(2, Math.round((s.right - s.left) / 7)), pts = [];
+			for (let i = 0; i <= n; i++) pts.push([s.left + ((s.right - s.left) * i) / n, y + (i === 0 || i === n ? 0 : (hash(shape * 13.7 + i * 3.1 + k) * 2 - 1) * 1.8)]);
+			ctx.beginPath(); pts.forEach(([x, yy], i) => (i ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy)));
+		};
+		S.segs.forEach((s, si) => {
+			ctx.shadowColor = rgba(acc, f * a); ctx.shadowBlur = 8;
+			jag(s, tetherY(s), si * 50); ctx.lineWidth = 2.6; ctx.strokeStyle = rgba(acc, 0.6 * f * a); ctx.stroke();
+			ctx.shadowBlur = 0;
+			jag(s, tetherY(s), si * 50); ctx.lineWidth = 1; ctx.strokeStyle = rgba('#eaf4ff', Math.min(1, f * 1.1) * a); ctx.stroke();
+		});
+		const strike = tetherPoint(S, hash(c * 9.1), 0.5);
+		if (strike) {   // the bolt itself: down from above the span to where it lands, with a fork
+			const top = strike.s.top - 13, n = 6;
+			let x = strike.x + (hash(c * 2.3) - 0.5) * 16, y = top;
+			ctx.beginPath(); ctx.moveTo(x, y);
+			for (let i = 1; i <= n; i++) { x += (strike.x - x) / (n - i + 1) + (i < n ? (hash(shape * 7.7 + i * 5.3) - 0.5) * 9 : 0); y = top + ((strike.y - top) * i) / n; ctx.lineTo(x, y); }
+			ctx.shadowColor = rgba(acc, f * a); ctx.shadowBlur = 8; ctx.lineWidth = 2.2; ctx.strokeStyle = rgba(acc, 0.55 * f * a); ctx.stroke();
+			ctx.shadowBlur = 0; ctx.lineWidth = 1; ctx.strokeStyle = rgba('#ffffff', Math.min(1, f * 1.2) * a); ctx.stroke();
+			if (S.glyphs && S.glyphs.length) {   // the letters it strikes, spreading out from the landing, not all of them
+				const front = Math.max(0, ts) * 0.5, reach = Math.max(60, S.len * 0.6), at = tetherAlong(strike.s, strike.x);
+				for (const g of S.glyphs) {
+					const d = Math.abs(g.pos - at);
+					if (d > front || hash(g.n * 1.7 + c * 4.1) < 0.4) continue;
+					tetherGlyph(ctx, g, Math.min(1, 1.1 * f * (1 - 0.7 * d / reach) * a), { color: '#eaf4ff', blur: 9, glow: acc });
+				}
+			}
+		}
+	},
+};
+
+// Sakura, Autumn, Paper: a tint behind the span, a rule, and now and then a petal or a leaf comes away from the top of it and
+// falls, swaying, through the letters and out below.
+const tetherFalling = (tint, round, palette) => ({
+	animated: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m), colors = palette ? palette(col, acc) : [col, acc];
+		tetherWash(ctx, S.segs, rgba(tint(col, acc), 0.2 * m));
+		ctx.lineWidth = 1; ctx.strokeStyle = rgba(acc, 0.3 * a); ctx.lineCap = 'round';
+		tetherRule(ctx, S.segs, false);
+		tetherEmit(S, 'fall', 2.2, dt, (pt) => pt && ({ x: pt.x, y: pt.s.top + 1, vx: (Math.random() - 0.3) * 10, vy: 16 + Math.random() * 12, ay: 0, rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * 3, size: 4 + Math.random() * 3, t0: now, life: 2800 + Math.random() * 1400, c: Math.random() < 0.5 ? 0 : 1, ph: Math.random() * 6.28 }));
+		for (const q of S.parts) {
+			const al = tetherLife(q, now) * a;
+			if (al < 0.03) continue;
+			ctx.fillStyle = rgba(colors[q.c], 0.9 * al);
+			tetherPetal(ctx, q.x + Math.sin(q.ph + (now - q.t0) * 0.0023) * 5, q.y, q.size, q.size * (round ? 0.6 : 0.42) * (0.5 + 0.5 * Math.abs(Math.cos(q.rot * 2))), q.rot + Math.sin(q.ph + (now - q.t0) * 0.003) * 0.6);
+		}
+	},
+});
+TETHER_STYLES.sakura = tetherFalling((col, acc) => acc, true);
+TETHER_STYLES.autumn = tetherFalling((col, acc) => col, false, (col, acc) => [col, acc, lighten(col, 0.25)]);
+TETHER_STYLES.paper = tetherFalling((col) => col, false, (col, acc) => [acc, lighten(acc, 0.3)]);
+
+// Holy: a golden glow behind the span, glints that twinkle all through it, and a light that passes over the letters.
+TETHER_STYLES.holy = {
+	animated: true, glyphs: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m);
+		for (const s of S.segs) {
+			const g = ctx.createLinearGradient(s.left - 2, 0, s.right + 2, 0);
+			g.addColorStop(0, rgba(acc, 0.07 * m)); g.addColorStop(0.5, rgba(acc, 0.24 * m)); g.addColorStop(1, rgba(acc, 0.07 * m));
+			tetherPill(ctx, s); ctx.fillStyle = g; ctx.fill();
+		}
+		ctx.lineWidth = 1.4; ctx.lineCap = 'round'; ctx.strokeStyle = rgba(col, 0.55 * a); ctx.shadowColor = rgba(acc, 0.8 * a); ctx.shadowBlur = 6;
+		tetherRule(ctx, S.segs, false);
+		if (S.glyphs && S.glyphs.length) {   // a light moving left to right over the letters, lighting each as it passes
+			const span = Math.max(40, S.len), wx = tetherSweep(now, span, 110), wid = 18 + Math.min(span, 300) * 0.07;
+			for (const g of S.glyphs) {
+				const d = (g.pos - wx) / wid, w = Math.exp(-d * d);
+				if (w > 0.05) tetherGlyph(ctx, g, 0.85 * w * a, { color: lighten(col, 0.4), blur: 7, glow: acc });
+			}
+		}
+		ctx.shadowBlur = 5;
+		const n = Math.max(2, Math.round(S.len / 38));
+		for (let i = 0; i < n; i++) {   // glints: each at a place of its own for a moment, then another
+			const cyc = 2000 + 900 * hash(i * 3.1), t = now + hash(i * 7.7) * 5000, c = Math.floor(t / cyc), f = (t % cyc) / cyc, pt = tetherPoint(S, hash(c * 5.3 + i * 11.7), hash(c * 2.9 + i * 4.3));
+			if (!pt) continue;
+			const tw = Math.sin(Math.PI * f);
+			ctx.fillStyle = rgba(lighten(col, 0.3), tw * a); tetherGlint(ctx, pt.x, pt.y, 1.5 + 3.2 * tw);
+		}
+		tetherEnds(S.segs).forEach(([x, y], e) => { const tw = 0.6 + 0.4 * Math.sin(now * 0.0035 + e * 2); ctx.fillStyle = rgba(col, 0.95 * a); tetherGlint(ctx, x, y - 1.5, 3.4 * tw + 1); });
+		ctx.shadowBlur = 0;
+	},
+};
+
+// Prism: holographic foil - pastel bands of aqua, lavender, pink, peach, yellow and mint running diagonally across the span, slowly
+// sliding, a silver sheen sweeping over them, letters that catch the light here and there, and the same foil for a rule.
+const HOLO = ['#8ff0e6', '#9fb6ff', '#d7a6ff', '#ffa9d6', '#ffcfa3', '#fff1a0', '#b7f2a8', '#8ff0e6'];
+const HOLO_DEEP = ['#0e9f94', '#3b5bdb', '#8a3ffc', '#d6336c', '#e8590c', '#a37800', '#2b8a3e'];   // the same colors for letters on a light page, where light ones would fade
+const HOLO_PERIOD = 150;   // px: one run through the colors, across
+/** A gradient of the foil over [x0, x1] at height y, slanted, shifted by `phase` (0..1 a period) and `a` strong. */
+function holoGradient(ctx, x0, x1, y, slant, phase, a) {
+	const P = HOLO_PERIOD, start = x0 - P + phase * P, n = Math.ceil((x1 - start) / P) + 1, g = ctx.createLinearGradient(start, y, start + n * P, y + n * P * slant);
+	for (let k = 0; k < n; k++) for (let i = 0; i < HOLO.length - 1; i++) g.addColorStop(Math.min(1, (k + i / (HOLO.length - 1)) / n), rgba(HOLO[i], a));
+	g.addColorStop(1, rgba(HOLO[0], a));
+	return g;
+}
+TETHER_STYLES.prism = {
+	animated: true, glyphs: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const a = Math.min(1, m), dark = plugin.dark, phase = (now * 0.00007) % 1, sheenAt = tetherSweep(now, Math.max(40, S.len), 160);
+		for (const s of S.segs) {
+			if (dark) { tetherPill(ctx, s); ctx.fillStyle = `rgba(255,255,255,${0.08 * m})`; ctx.fill(); }   // silver underneath
+			ctx.globalCompositeOperation = dark ? 'lighter' : 'multiply';   // light added to a dark page glows; on a light one the foil is a tint the letters show through
+			tetherPill(ctx, s); ctx.fillStyle = holoGradient(ctx, s.left, s.right, s.top, 0.45, phase, (dark ? 0.26 : 0.8) * m); ctx.fill();
+			ctx.globalCompositeOperation = 'source-over';
+			const sheen = s.left + sheenAt - (s.cum || 0), g = ctx.createLinearGradient(sheen - 30, 0, sheen + 30, 0);   // a band of silver light
+			g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, `rgba(255,255,255,${(dark ? 0.2 : 0.4) * m})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+			tetherPill(ctx, s); ctx.fillStyle = g; ctx.fill();
+		}
+		if (S.glyphs) for (const g of S.glyphs) {   // each letter has a rhythm of its own and catches the light at the top of it
+			const f = Math.pow(Math.max(0, Math.sin(now * (0.0012 + 0.0016 * g.h2) + g.h1 * 6.28)), 7);
+			if (f > 0.05) { const k = Math.floor((g.h1 * 7 + now * 0.0004) % 7), c = HOLO[k]; tetherGlyph(ctx, g, 0.95 * f * a, { color: dark ? lighten(c, 0.35) : HOLO_DEEP[k], blur: dark ? 9 : 5, glow: c }); }
+		}
+		ctx.lineCap = 'round'; ctx.lineWidth = 1.7;
+		for (const s of S.segs) { const y = tetherY(s); ctx.strokeStyle = holoGradient(ctx, s.left, s.right, y, 0, phase, 0.95 * a); ctx.beginPath(); ctx.moveTo(s.left, y); ctx.lineTo(s.right, y); ctx.stroke(); }
+	},
+};
+
+// Health: a green glow behind the span, a plain rule, and pluses rising out of it.
+TETHER_STYLES.health = {
+	animated: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m);
+		tetherWash(ctx, S.segs, rgba(acc, 0.15 * m));
+		ctx.lineCap = 'round'; ctx.lineWidth = 1.4; ctx.strokeStyle = rgba(col, 0.6 * a);
+		tetherRule(ctx, S.segs, false);
+		tetherEmit(S, 'plus', 2.4, dt, (pt) => pt && ({ x: pt.x, y: pt.y, vx: (Math.random() - 0.5) * 6, vy: -(14 + Math.random() * 12), size: 1.8 + Math.random() * 1.6, t0: now, life: 1500 + Math.random() * 700, ph: Math.random() * 6.28 }));
+		ctx.shadowColor = rgba(acc, 0.9 * a); ctx.shadowBlur = 4; ctx.lineWidth = 1.1;
+		for (const q of S.parts) { const al = tetherLife(q, now) * a; if (al < 0.03) continue; ctx.strokeStyle = rgba(lighten(col, 0.2), 0.95 * al); tetherPlus(ctx, q.x + Math.sin(q.ph + (now - q.t0) * 0.004) * 2, q.y, q.size); }
+		ctx.shadowBlur = 0;
+	},
+};
+
+/**
+ * A wisp of wind, drawn as the anime ones are: a long soft ribbon, thin at the tail and strongest at the head, that ripples as
+ * it goes and ends in a small curl (up when `side` is -1, down when 1). `x`, `y` is the tail, `len` how far it runs, `ph` where
+ * the ripple is: it runs along the wisp from tail to head as `ph` grows.
+ */
+function drawWindWisp(ctx, x, y, len, color, a, width, side, ph) {
+	if (a < 0.03) return;
+	const r = Math.max(2.5, len * 0.12), g = ctx.createLinearGradient(x, 0, x + len + r, 0);
+	g.addColorStop(0, rgba(color, 0)); g.addColorStop(0.5, rgba(color, a * 0.7)); g.addColorStop(1, rgba(color, a));
+	ctx.strokeStyle = g; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+	ctx.beginPath();
+	let ey = y;
+	for (let px = 0; px <= len + 0.1; px += 3) {
+		ey = y + side * (1.2 + 2.4 * (px / len)) * Math.sin(px * 0.11 - ph);
+		px ? ctx.lineTo(x + px, ey) : ctx.moveTo(x + px, ey);
+	}
+	if (side > 0) ctx.arc(x + len, ey + r, r, -Math.PI / 2, -Math.PI / 2 + 4.3, false); else ctx.arc(x + len, ey - r, r, Math.PI / 2, Math.PI / 2 - 4.3, true);   // the curl: a small loop that goes on forward, then round
+	ctx.stroke();
+}
+
+// Zephyr: a breeze through the span - a lighter band of air sweeping over it, streaks of wind, a few leaves carried along, and
+// the letters in the gust leaning to the right and coming back (the letters of the span are hidden where they are and drawn again, upright in still air and slanted in the gust).
+TETHER_STYLES.zephyr = {
+	animated: true, glyphs: true, patch: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m), span = Math.max(40, S.len), gp = tetherSweep(now, span, 70), gw = 26 + Math.min(span, 300) * 0.08;
+		const lean = S.glyphs ? S.glyphs.map((g) => { const d = (g.pos - gp) / gw; return Math.exp(-d * d * 0.7); }) : [];
+		// The letters of the span are taken out of the page - made transparent where they are, all at once, by a highlight
+		// (::highlight(cfx-gust) in the plugin's CSS) - and drawn on the canvas instead, upright where the air is still and
+		// leaning in the gust. Hiding only the letters in the gust would change the highlight at every few frames, which makes
+		// the page restyle its text each time. Failing that (no highlights), the letters in the gust are painted out with the
+		// page's color, or only echoed.
+		const hl = typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight !== 'undefined';
+		let hidden = false;
+		if (hl && S.glyphs) {
+			if (S.hlKey !== S.gk) {
+				S.hlKey = S.gk;
+				const byNode = new Map();
+				for (const g of S.glyphs) { if (!g.node || !g.node.isConnected) continue; const e = byNode.get(g.node); if (e) e[1] = g.off + g.ch.length; else byNode.set(g.node, [g.off, g.off + g.ch.length]); }
+				const ranges = [];
+				for (const [node, [from, to]] of byNode) { const r = document.createRange(); try { r.setStart(node, from); r.setEnd(node, to); ranges.push(r); } catch (e) { /* the text moved on */ } }
+				if (ranges.length) CSS.highlights.set('cfx-gust', new Highlight(...ranges)); else CSS.highlights.delete('cfx-gust');
+			}
+			hidden = true;
+		} else {
+			tetherUnhide(S);   // no letters to draw in their place (a span too long for that): the page's own are left as they are
+			if (S.bg && S.glyphs) S.glyphs.forEach((g, i) => { if (lean[i] > 0.05) { ctx.fillStyle = S.bg; ctx.fillRect(g.x - 0.5, g.top, g.w + 1, g.h); hidden = true; } });
+		}
+		tetherWash(ctx, S.segs, rgba(acc, 0.15 * m));
+		ctx.save();
+		tetherClip(ctx, S.segs);
+		for (const s of S.segs) {   // the gust: a soft slanted band, in the line it has reached
+			const gx = s.left + gp - s.cum;
+			if (gx < s.left - gw - 8 || gx > s.right + gw + 8) continue;
+			const g = ctx.createLinearGradient(gx - gw, 0, gx + gw, 0);
+			g.addColorStop(0, rgba(col, 0)); g.addColorStop(0.5, rgba(col, 0.22 * m)); g.addColorStop(1, rgba(col, 0));
+			ctx.fillStyle = g;
+			ctx.beginPath(); ctx.moveTo(gx - gw + 6, s.top - 2); ctx.lineTo(gx + gw + 6, s.top - 2); ctx.lineTo(gx + gw - 6, s.bottom + 3); ctx.lineTo(gx - gw - 6, s.bottom + 3); ctx.closePath(); ctx.fill();
+		}
+		ctx.lineCap = 'round';
+		S.segs.forEach((s, si) => {   // wisps of wind, along the top and the bottom of the line (not through the letters). Each flows the whole length of the line at its own gentle pace, its body rippling as it goes, a curl at its head, and fades only as it leaves; the next one comes at another height
+			const len = s.right - s.left, n = Math.max(2, Math.round(len / 55));
+			for (let i = 0; i < n; i++) {
+				const h = hash(i * 2.9 + si * 31), size = 36 + 24 * hash(i * 7.1 + si), speed = 32 + 24 * h, travel = len + size + 20, u = (now * 0.001 * speed) / travel + h, k = Math.floor(u), t = u - k;
+				const r = hash(i * 3.7 + si * 5.1 + k * 11.3), env = smoothStep(t / 0.1) * smoothStep((1 - t) / 0.1);
+				const hx = s.left - 10 + t * travel, y0 = s.top + (s.bottom - s.top) * (r < 0.5 ? 0.05 + 0.3 * r : 0.65 + 0.3 * (r - 0.5)) + Math.sin(now * 0.0016 + h * 6.28) * 1.4;
+				drawWindWisp(ctx, hx - size, y0, size, (h < 0.5 ? col : acc), a * (0.55 + 0.4 * h) * env, 0.9 + 0.5 * h, r < 0.5 ? -1 : 1, now * 0.004 + h * 6.28);
+			}
+		});
+		ctx.restore();
+		ctx.strokeStyle = rgba(acc, 0.35 * a); ctx.lineWidth = 1;
+		tetherRule(ctx, S.segs, false);
+		if (S.glyphs && hl) {   // the letters of the span, in place of the page's own: upright in a run of one font and color, each of those in the gust on its own, leaning
+			const dpr = window.devicePixelRatio || 1, vh = window.innerHeight + 20;
+			let font = null, color = null;
+			ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+			S.glyphs.forEach((g, i) => {
+				if (g.top > vh || g.top + g.h < -20) return;
+				if (lean[i] > 0.004) { tetherGlyph(ctx, g, 1, { dx: 2.6 * lean[i], skew: 0.34 * lean[i], exact: true }); return; }
+				if (g.st.font !== font) { font = g.st.font; ctx.font = font; }
+				if (g.st.color !== color) { color = g.st.color; ctx.fillStyle = color; }
+				ctx.fillText(g.ch, Math.round(g.x * dpr) / dpr, Math.round(g.y * dpr) / dpr);
+			});
+			ctx.restore();
+		} else if (S.glyphs) S.glyphs.forEach((g, i) => { if (lean[i] > 0.05) tetherGlyph(ctx, g, hidden ? 1 : 0.5 * lean[i] * a, { dx: 2.6 * lean[i], skew: 0.34 * lean[i], exact: true }); });
+		tetherEmit(S, 'leaf', 0.8, dt, (pt) => pt && ({ x: S.segs[0].left - 4, y: pt.y, vx: 28 + Math.random() * 20, vy: (Math.random() - 0.5) * 12, rot: Math.random() * 6.28, spin: 3 + Math.random() * 4, size: 3.5 + Math.random() * 2.5, t0: now, life: Math.max(1500, (span + 30) / 38 * 1000), ph: Math.random() * 6.28, c: Math.random() < 0.5 ? 0 : 1 }));
+		for (const q of S.parts) { const al = tetherLife(q, now) * a; if (al < 0.03 || q.x > S.segs[S.segs.length - 1].right + 6) continue; ctx.fillStyle = rgba(q.c ? acc : col, 0.9 * al); tetherPetal(ctx, q.x, q.y + Math.sin(q.ph + (now - q.t0) * 0.007) * 3, q.size, q.size * 0.45, q.rot); }
+	},
+};
+
+// Tide: the span is under water - a blue tint that deepens toward the bottom of each line, a slow ripple of light passing over it
+// and a quiet wave for a rule. Nothing else: on a span of many lines it stays calm.
+TETHER_STYLES.tide = {
+	animated: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m), span = Math.max(40, S.len), rp = tetherSweep(now, span, 70), rw = 30 + Math.min(span, 300) * 0.1;
+		for (const s of S.segs) {
+			const g = ctx.createLinearGradient(0, s.top, 0, s.bottom + 3);
+			g.addColorStop(0, rgba(col, 0.12 * m)); g.addColorStop(1, rgba(acc, 0.24 * m));
+			tetherPill(ctx, s); ctx.fillStyle = g; ctx.fill();
+		}
+		ctx.save();
+		tetherClip(ctx, S.segs);
+		for (const s of S.segs) {   // the ripple of light, in the line it has reached
+			const rx = s.left + rp - s.cum;
+			if (rx < s.left - rw || rx > s.right + rw) continue;
+			const g = ctx.createLinearGradient(rx - rw, 0, rx + rw, 0);
+			g.addColorStop(0, rgba(col, 0)); g.addColorStop(0.5, rgba(lighten(col, 0.4), 0.16 * m)); g.addColorStop(1, rgba(col, 0));
+			ctx.fillStyle = g; ctx.fillRect(rx - rw, s.top - 2, rw * 2, s.bottom - s.top + 5);
+		}
+		ctx.restore();
+		ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 1.4; ctx.strokeStyle = rgba(col, 0.7 * a);
+		for (const s of S.segs) { ctx.beginPath(); for (let x = s.left; x <= s.right + 0.1; x += 2) { const y = tetherY(s) + 1 + Math.sin((x - now * 0.02) * 0.4) * 1; x === s.left ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke(); }
+	},
+};
+
+// Slime: as if swallowed by it - a jelly round the whole span with a wobbling edge and a gloss, bubbles inside, and drops
+// that swell under it and let go.
+TETHER_STYLES.slime = {
+	animated: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m);
+		for (const s of S.segs) {
+			const L = s.left - 3, R = s.right + 3, T = s.top - 1, B = s.bottom + 2.5, mid = (T + B) / 2, pts = [];
+			const wob = (x, k) => Math.sin(x * 0.13 + now * 0.0038 * k) * 1.3 + Math.sin(x * 0.29 - now * 0.0027 * k) * 0.7;
+			for (let x = L + 3; x < R - 2; x += 6) pts.push([x, T + wob(x, 1) - 0.5]);
+			pts.push([R + 2 + Math.sin(now * 0.004) * 0.8, mid]);
+			for (let x = R - 3; x > L + 2; x -= 6) pts.push([x, B + wob(x, -1) * 0.8 + 0.5]);
+			pts.push([L - 2 - Math.sin(now * 0.004 + 1) * 0.8, mid]);
+			const n = pts.length, md = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+			ctx.beginPath(); let m0 = md(pts[n - 1], pts[0]); ctx.moveTo(m0[0], m0[1]);
+			for (let i = 0; i < n; i++) { const e = md(pts[i], pts[(i + 1) % n]); ctx.quadraticCurveTo(pts[i][0], pts[i][1], e[0], e[1]); }
+			ctx.closePath();
+			ctx.fillStyle = rgba(col, 0.26 * m); ctx.fill();
+			ctx.lineWidth = 1.5; ctx.strokeStyle = rgba(acc, 0.6 * a); ctx.stroke();
+			ctx.strokeStyle = `rgba(255,255,255,${0.35 * a})`; ctx.lineWidth = 1.6; ctx.lineCap = 'round';   // the gloss
+			ctx.beginPath(); ctx.moveTo(L + 8, T + 2.2 + wob(L, 1) * 0.3); ctx.lineTo(Math.min(R - 8, L + 8 + (R - L) * 0.45), T + 2.2 + wob(L + 30, 1) * 0.3); ctx.stroke();
+			// the drops: each swells below the jelly, hangs by a thread, lets go and falls
+			const nd = s === S.segs[S.segs.length - 1] ? Math.max(1, Math.round((s.right - s.left) / 60)) : 0;   // drops only under the last line of the span
+			for (let i = 0; i < nd; i++) {
+				const h = hash(i * 6.1 + s.top * 0.13), cyc = 3000 + 1500 * h, t = now + h * 9000, f = (t % cyc) / cyc, x = s.left + (s.right - s.left) * (0.12 + 0.76 * h);
+				ctx.fillStyle = rgba(col, 0.5 * a); ctx.strokeStyle = rgba(col, 0.5 * a);
+				if (f < 0.72) { const len = 1 + 7 * Math.pow(f / 0.72, 2), r = 1.2 + 1.2 * (f / 0.72); ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(x, B); ctx.lineTo(x, B + len); ctx.stroke(); ctx.beginPath(); ctx.arc(x, B + len + r * 0.6, r, 0, Math.PI * 2); ctx.fill(); }
+				else { const u = (f - 0.72) / 0.28; ctx.globalAlpha = 1 - u; ctx.beginPath(); ctx.ellipse(x, B + 9 + u * 16, 2.1, 2.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+			}
+		}
+		tetherEmit(S, 'bub', 2, dt, (pt) => pt && ({ x: pt.x, y: pt.s.bottom, vx: 0, vy: -(8 + Math.random() * 8), size: 1 + Math.random() * 1.6, t0: now, life: 1300 + Math.random() * 800, top: pt.s.top, ph: Math.random() * 6.28 }));
+		ctx.lineWidth = 0.8;
+		for (const q of S.parts) { const al = tetherLife(q, now) * a; if (al < 0.03 || q.y < q.top) continue; ctx.strokeStyle = `rgba(255,255,255,${0.7 * al})`; ctx.beginPath(); ctx.arc(q.x + Math.sin(q.ph + (now - q.t0) * 0.005) * 1.4, q.y, q.size, 0, Math.PI * 2); ctx.stroke(); }
+	},
+};
+
+// Combo: a highlight in the color of the rank that heats with it, sparks rising off the top from rank C, and from B the letters glow in turn.
+TETHER_STYLES.combo = {
+	animated: true, glyphs: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const it = plugin.items.find((q) => q.effect === 'combo' && !q.done), tier = comboTier(it ? it.n : 0), c = comboHue(tier, now), a = Math.min(1, m), L = plugin.dark ? 0 : -22;
+		const hsl = (al, dl = 0) => `hsla(${c[0]}, ${c[1]}%, ${c[2] + L + dl}%, ${al})`, flick = 0.85 + 0.15 * Math.sin(now * 0.02 * (1 + tier));
+		tetherWash(ctx, S.segs, hsl((0.14 + 0.04 * tier) * flick * m));
+		ctx.lineCap = 'round';
+		ctx.lineWidth = 1.4 + 0.35 * tier; ctx.strokeStyle = hsl((0.55 + 0.1 * tier) * flick * a); ctx.shadowColor = hsl(0.9 * a); ctx.shadowBlur = 3 + 3 * tier;
+		tetherRule(ctx, S.segs, true);
+		ctx.shadowBlur = 0;
+		if (tier >= 2 && S.glyphs) {   // a glow that runs through the letters, left to right and round again
+			const span = Math.max(40, S.len), wx = tetherSweep(now, span, 70 + 25 * tier), wid = 16 + Math.min(span, 300) * 0.06;
+			for (const g of S.glyphs) { const d = (g.pos - wx) / wid, w = Math.exp(-d * d); if (w > 0.06) tetherGlyph(ctx, g, 0.85 * w * a, { color: hsl(1, 12), blur: 7, glow: hsl(1) }); }
+		}
+		if (tier >= 1) tetherEmit(S, 'spark', 1.5 * tier, dt, (pt) => pt && ({ x: pt.x, y: pt.s.top, vx: (Math.random() - 0.5) * 24, vy: -(24 + Math.random() * 30), ay: 30, size: 0.8 + Math.random() * 1.1, t0: now, life: 600 + Math.random() * 500 }));
+		ctx.shadowColor = hsl(0.9 * a); ctx.shadowBlur = 5;
+		for (const q of S.parts) { const al = tetherLife(q, now) * a; if (al < 0.03) continue; ctx.fillStyle = hsl(al, 8); ctx.beginPath(); ctx.arc(q.x, q.y, q.size, 0, Math.PI * 2); ctx.fill(); }
+		ctx.shadowBlur = 0;
+	},
+};
+
+// Back-man: a yellow wash and a plain rule.
+TETHER_STYLES.backman = {
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col();
+		tetherWash(ctx, S.segs, rgba(col, 0.16 * m));
+		ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.strokeStyle = rgba(col, 0.6 * Math.min(1, m));
+		tetherRule(ctx, S.segs, false);
 	},
 };
 
@@ -1792,8 +2302,9 @@ EFFECTS.holy = {
 
 // ---- Effect: Prism -------------------------------------------------------------------------------------------------
 // A burst of light through glass: each letter sets off a flash on the caret with a thin anamorphic lens streak through it
-// (cold blue-white) and a small violet lens-orb on the streak, and flings a few chunky glowing stars out - gold and orange
-// mostly, now and then cyan with a tail - that slow down, spin and fade, with embers drifting among them. A new line or a
+// (a run of the holographic foil's pastels - aqua, lavender, pink, peach, yellow, mint - round a white heart) and a small pink
+// lens-orb on the streak, and flings a few chunky glowing stars out in those same colors, now and then aqua with a tail, that
+// slow down, spin and fade, with pearly embers drifting among them. A new line or a
 // jump is a big burst. Everything is additive light.
 // Settings: prismStrength (1 is normal).
 const PRISM_GAP_MS = 80;                 // the least time between two bursts, so a fast typist does not bury the page in them
@@ -1801,7 +2312,7 @@ const PRISM_STARS_MAX = 18;              // the most stars alive at once
 const PRISM_EMBERS_MAX = 26;             // the most embers alive at once
 const PRISM_STAR_MS = [750, 1150];       // how long a star flies
 const PRISM_FLASH_MS = 380;              // how long the flash and its streak last
-const PRISM_HUES = [[44, 100, 62], [44, 100, 62], [30, 100, 58], [30, 100, 58], [190, 100, 66], [270, 100, 72]];   // gold, orange, cyan, violet: [h, s, l]
+const PRISM_HUES = [[172, 85, 72], [228, 100, 80], [275, 100, 82], [330, 100, 78], [28, 100, 78], [52, 100, 72], [108, 75, 76]];   // holographic foil - aqua, lavender, violet, pink, peach, yellow, mint: [h, s, l]
 
 /** The outline of a five-pointed star of outer radius `r`, turned by `rot`. */
 function traceStar(ctx, r, rot) {
@@ -1832,10 +2343,10 @@ function prismSprite(i, dark) {
 	g.translate(S / 2, S / 2);
 	if (i < 0) {   // an ember: a soft orange dot
 		const light = dark ? 62 : 42, grad = g.createRadialGradient(0, 0, 0, 0, 0, R);
-		grad.addColorStop(0, `hsl(36, 100%, ${light + 12}%)`);
-		grad.addColorStop(0.3, `hsla(36, 100%, ${light + 12}%, 0.9)`);
-		grad.addColorStop(0.5, 'hsla(30, 100%, 60%, 0.35)');
-		grad.addColorStop(1, 'hsla(30, 100%, 60%, 0)');
+		grad.addColorStop(0, `hsl(190, 100%, ${light + 24}%)`);
+		grad.addColorStop(0.3, `hsla(190, 100%, ${light + 22}%, 0.9)`);
+		grad.addColorStop(0.5, 'hsla(305, 100%, 78%, 0.35)');
+		grad.addColorStop(1, 'hsla(305, 100%, 78%, 0)');
 		g.fillStyle = grad;
 		g.fillRect(-R, -R, 2 * R, 2 * R);
 	} else {   // a chunky star with rounded points, its glow, and a bright heart
@@ -1871,7 +2382,7 @@ function kindlePrism(host, rect, big, now) {
 		const hi = Math.floor(Math.random() * PRISM_HUES.length), hue = PRISM_HUES[hi], a = Math.random() * Math.PI * 2, v = (60 + Math.random() * 90) * u;
 		item.stars.push({
 			x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 15 * u, r: (2.6 + Math.random() * 3.4) * u, hue, hi,
-			spin: (Math.random() - 0.5) * 6, rot: Math.random() * 6.28, tail: hue[0] === 190, t0: now + i * 25, life: lerp(PRISM_STAR_MS[0], PRISM_STAR_MS[1], Math.random()),
+			spin: (Math.random() - 0.5) * 6, rot: Math.random() * 6.28, tail: hi === 0, t0: now + i * 25, life: lerp(PRISM_STAR_MS[0], PRISM_STAR_MS[1], Math.random()),
 		});
 	}
 	for (let i = 0; i < (big ? 10 : 2) && item.embers.length < PRISM_EMBERS_MAX; i++) {
@@ -1896,23 +2407,24 @@ function drawPrism(plugin, ctx, item, now, k) {
 	if (flash >= 0 && flash < 1) {   // the flash, its anamorphic streak and the lens-orb on it
 		const f = 1 - flash, a = f * f * power * (item.big ? 1.3 : 1), reach = h * (item.big ? 4.5 : 3) * (0.6 + 0.4 * flash + 0.3);
 		const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, h * 1.1);
-		glow.addColorStop(0, `rgba(255,${dark ? 240 : 200},200,${0.55 * a})`);
-		glow.addColorStop(1, 'rgba(255,170,60,0)');
+		glow.addColorStop(0, `rgba(255,${dark ? 240 : 215},${dark ? 250 : 235},${0.55 * a})`);
+		glow.addColorStop(1, 'rgba(190,150,255,0)');
 		ctx.fillStyle = glow;
 		ctx.fillRect(cx - h * 1.1, cy - h * 1.1, h * 2.2, h * 2.2);
 		const g = ctx.createLinearGradient(cx - reach, cy, cx + reach, cy);
-		g.addColorStop(0, 'rgba(90,170,255,0)');
-		g.addColorStop(0.42, `hsla(205, 100%, ${light + 8}%, ${0.75 * a})`);
+		const holo = (h) => `hsla(${h}, 100%, ${light + 12}%, ${0.75 * a})`;   // the streak runs through the foil's colors: aqua, lavender and pink to either side of the white heart
+		g.addColorStop(0, 'rgba(160,200,255,0)');
+		g.addColorStop(0.2, holo(172)); g.addColorStop(0.32, holo(228)); g.addColorStop(0.42, holo(330));
 		g.addColorStop(0.5, `rgba(255,255,255,${a})`);
-		g.addColorStop(0.58, `hsla(205, 100%, ${light + 8}%, ${0.75 * a})`);
-		g.addColorStop(1, 'rgba(90,170,255,0)');
+		g.addColorStop(0.58, holo(52)); g.addColorStop(0.68, holo(28)); g.addColorStop(0.8, holo(108));
+		g.addColorStop(1, 'rgba(160,255,230,0)');
 		ctx.fillStyle = g;
 		ctx.fillRect(cx - reach, cy - 1.1 * u, reach * 2, 2.2 * u);
 		ctx.fillRect(cx - 0.8 * u, cy - reach * 0.22, 1.6 * u, reach * 0.44);   // and a short vertical one across it
 		const ox = cx + reach * 0.7, orb = ctx.createRadialGradient(ox, cy, 0, ox, cy, 5 * u);
-		orb.addColorStop(0, `hsla(265, 100%, 78%, ${0.7 * a})`);
-		orb.addColorStop(0.6, `hsla(265, 100%, 70%, ${0.25 * a})`);
-		orb.addColorStop(1, 'hsla(265, 100%, 70%, 0)');
+		orb.addColorStop(0, `hsla(305, 100%, 82%, ${0.7 * a})`);
+		orb.addColorStop(0.6, `hsla(275, 100%, 78%, ${0.25 * a})`);
+		orb.addColorStop(1, 'hsla(275, 100%, 78%, 0)');
 		ctx.fillStyle = orb;
 		ctx.fillRect(ox - 5 * u, cy - 5 * u, 10 * u, 10 * u);
 	}
@@ -1954,7 +2466,7 @@ function drawPrism(plugin, ctx, item, now, k) {
 
 EFFECTS.prism = {
 	id: 'prism', label: 'Prism', mode: 'signature', keepsState: true, blend: 'lighter',
-	preset: { name: 'Prism', color: '#bfe9ff', accent: '#ff9a2e' },
+	preset: { name: 'Prism', color: '#c9ecff', accent: '#e0a8ff' },
 	defaults: { prismStrength: 1 },
 	onMove(plugin, prev, cur, info) {
 		const big = info.typed ? info.dy >= cur.h * 0.8 : info.dist > cur.h * 4;   // a new line, or a jump

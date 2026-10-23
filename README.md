@@ -10,6 +10,7 @@ Personal plugins for [Thymer](https://thymer.com).
 | [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
 | [`home`](plugins/home) | A dashboard opened from a Home button beside Tasks: a full-width WebGL sky (a nebula, a neural field or a star atlas, in one of six biomes) in which every day you changed something is a star, brighter the more changed, days in a row joined by lines that pass light along; then the last 30 days, today's journal and recently edited pages |
 | [`bookmarks`](plugins/bookmarks) | A collection for saved sites with a view of cards under their category: each with the site's preview image as its cover, its favicon, domain and description, category chips to filter by, and a field to paste a new link into |
+| [`auto-banner`](plugins/auto-banner) | A page without a banner gets a picture drawn in the banner's place from its title, on a canvas (nothing is uploaded, the page is not changed): the title is the seed and its words pick the scene (sea, mountains, forest, dunes, a skyline, a synthwave grid for code, an aurora for the night, a planet, a contour map) and the palette, in a coarse dither or smooth |
 
 ## Install a plugin
 
@@ -182,3 +183,9 @@ The code of a **collection** (not a global plugin) for saved sites, with fields 
 A link pasted into the field beside the chips becomes a bookmark (in the chosen category, if one is chosen); `Bookmarks: add from clipboard` does the same with the link on the clipboard. The page is read for its title, description and preview image, which become the record's title, Description and banner, but most sites do not let a page in Thymer read them (CORS), and then the bookmark is saved with its domain as the title and no cover. A link already saved is not added twice.
 
 To install: create a collection, open **Edit as Code**, paste `plugin.json` into the Configuration tab (it holds the fields, the custom view and the Gallery, Table and List views), `plugin.js` into the code tab and `plugin.css` into the CSS tab.
+
+## Auto Banner
+
+A page without a banner of its own gets a picture at the top, in the banner's place, drawn from its title on a canvas each time the page is shown. Nothing is generated into the workspace: no image is uploaded and the page is not changed, so turning the plugin off leaves every page as it was, and a page with a banner (its own or its collection's) keeps showing that. The same title always gives the same picture, and its words choose what is drawn (Turkish and English, suffixes allowed: `deniz`, `dağları`, `orman`, `çöl`, `istanbul`, `ssh`, `docker`, `gece`, `uzay`, `ders notları`, ...). A title with none of them falls back on its collection's name, then on the seed alone. Ten scenes (mountains, hills, sea, dunes, forest, city, grid, contour map, aurora, space) in twelve palettes; words like `gece`, `kış`, `sonbahar`, `sunset` pick the palette too. The strip takes a banner's height while it shows a picture; the picture follows the title once it settles and the panel's width.
+
+Commands: `Auto Banner: another picture for this page` (same words, another seed, kept on this device), `Auto Banner: back to this page's own picture`, `Auto Banner: switch between dither and smooth`, `Auto Banner: turn on or off` (both kept per device). Under `custom` in the Configuration: `"exclude": ["Journal"]` skips collections by name, `"style": "smooth"` sets the default style.

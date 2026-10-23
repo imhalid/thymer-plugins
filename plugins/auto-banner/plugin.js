@@ -6,10 +6,11 @@
  * changed, and turning the plugin off leaves every page as it was. The title is the seed: what is drawn and in which
  * colours is left to chance, but the same title always gives the same picture.
  *
- * The scenes: layered mountains, rolling hills, the sea with a sun on the water, dunes, a forest in fog, a skyline, a
- * synthwave grid, a contour map, an aurora over mountains, and a planet in space; each in one of twelve palettes (dusk,
- * dawn, day, meadow, desert, night, ice, ember, teal, synth, autumn, lavender). They are drawn in a fine ordered dither (Bayer 8x8, a dot to a CSS pixel, ten shades a channel) or smooth with a
- * little grain. Sizes and frequencies go by the strip's height, so a wide panel shows more of the land, not a stretched one.
+ * The scenes: layered mountains, rolling hills, the sea with a sun on the water, a lake mirroring its mountains, waves in
+ * rows, dunes, buttes and saguaros, a sea of clouds with peaks, a forest in fog, a skyline, a synthwave grid, a contour map,
+ * an aurora over mountains, a nebula full of stars, cherry branches in blossom, and lines flowing in a field; each in one of
+ * twelve palettes (dusk, dawn, day, meadow, desert, night, ice, ember, teal, synth, autumn, lavender). They are drawn in a
+ * fine ordered dither (Bayer 8x8, a dot to a CSS pixel, ten shades a channel) or smooth with a little grain. Sizes and frequencies go by the strip's height, so a wide panel shows more of the land, not a stretched one.
  *
  * A page with a banner (its own or its collection's) shows that, as before. The strip takes a banner's height while it
  * shows a picture. The picture follows the title (once it has stayed the same for a moment) and the panel's width; pictures
@@ -109,6 +110,12 @@ const SCENES = {
 	grid: { weight: 1, palettes: ['synth', 'night', 'ember', 'dusk', 'teal'] },
 	aurora: { weight: 1, palettes: ['night'] },
 	space: { weight: 1, palettes: ['night', 'synth', 'ember'] },
+	lake: { weight: 1.5, palettes: ['dawn', 'dusk', 'day', 'ice', 'lavender', 'autumn', 'teal'] },
+	waves: { weight: 1, palettes: ['teal', 'day', 'dusk', 'lavender', 'ice', 'night'] },
+	mesas: { weight: 1, palettes: ['desert', 'dusk', 'ember', 'autumn', 'dawn'] },
+	clouds: { weight: 1, palettes: ['dawn', 'dusk', 'lavender', 'day', 'autumn'] },
+	sakura: { weight: 1, palettes: ['dawn', 'lavender', 'day', 'dusk', 'night'] },
+	flow: { weight: 1, palettes: Object.keys(PALETTES) },
 };
 
 const pickWeighted = (rand, entries) => {
@@ -487,34 +494,225 @@ const DRAW = {
 		}
 		g.putImageData(img, 0, 0);
 		stars(g, w, h, R, 320, h, Math.max(1, h / 320));
-		// a planet rising from the bottom
-		const px = w * (0.2 + R() * 0.6), pr = h * (0.75 + R() * 0.35), py = h + pr * (0.35 + R() * 0.3);
-		const lx = px + pr * (R() - 0.5) * 0.8, ly = py - pr * 0.9;
-		const body = g.createRadialGradient(lx, ly, pr * 0.1, px, py, pr);
-		body.addColorStop(0, css(mix(pal.land[0], pal.sun, 0.35)));
-		body.addColorStop(0.7, css(pal.land[2]));
-		body.addColorStop(1, css(pal.land[3]));
+		// a few bright stars with glints, and now and then a shooting star
+		const u = Math.max(1, h / 210);
+		for (let k = 0, n = 3 + ((R() * 4) | 0); k < n; k++) {
+			const x = R() * w, y = R() * h * 0.8, r = u * (2 + R() * 2.5), c = mix(WHITE, pal.glow, R() * 0.4);
+			const halo = g.createRadialGradient(x, y, 0, x, y, r * 1.8);
+			halo.addColorStop(0, css(c, 0.45)); halo.addColorStop(1, css(c, 0));
+			g.fillStyle = halo; g.fillRect(x - r * 2, y - r * 2, r * 4, r * 4);
+			g.fillStyle = css(c, 0.85);
+			g.fillRect(x - r, y - u * 0.5, r * 2, u); g.fillRect(x - u * 0.5, y - r, u, r * 2);
+		}
+		if (R() < 0.5) {
+			const x = w * (0.2 + R() * 0.6), y = h * (0.1 + R() * 0.3), len = h * (0.5 + R() * 0.5), ang = 0.35 + R() * 0.3;
+			const tr = g.createLinearGradient(x, y, x - Math.cos(ang) * len, y - Math.sin(ang) * len);
+			tr.addColorStop(0, css(WHITE, 0.9)); tr.addColorStop(1, css(WHITE, 0));
+			g.strokeStyle = tr; g.lineWidth = u * 1.2;
+			g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.cos(ang) * len, y - Math.sin(ang) * len); g.stroke();
+		}
+	},
+
+	lake(g, w, h, R, N, pal) {
+		const horizon = h * (0.5 + R() * 0.06);
+		sky(g, w, h, pal, horizon);
+		sun(g, w * (0.15 + R() * 0.7), horizon * (0.35 + R() * 0.4), h * (0.05 + R() * 0.03), pal);
+		clouds(g, w, h, R, pal, horizon, 2 + ((R() * 3) | 0));
+		for (let i = 0; i < 3; i++) {
+			const t = i / 2, color = mix(landAt(pal, 0.2 + t * 0.6), pal.sky[2], (1 - t) * 0.35);
+			ridge(g, w, h, { base: horizon, amp: h * (0.42 - t * 0.14), freq: 2.2 + t * 2, phase: R() * 50, sharp: true, peak: 1.6, color, N });
+			if (i < 2) mist(g, w, horizon, h * 0.1, pal.sky[2], 0.3);
+		}
+		const shore = landAt(pal, 1);
+		for (let x = R() * 10; x < w; x += h * ASPECT * (0.004 + R() * 0.006)) pine(g, x, horizon + 1, h * (0.03 + R() * 0.05) * (0.5 + N.n1(x / h * 3)), shore);
+		// the water: what is above, upside down, a little darker, with ripples
 		g.save();
-		g.beginPath(); g.arc(px, py, pr, 0, Math.PI * 2); g.fillStyle = body; g.fill(); g.clip();
-		for (let k = 0; k < 9; k++) {
-			g.fillStyle = css(k % 2 ? pal.land[1] : pal.sun, 0.06 + R() * 0.08);
-			g.fillRect(px - pr, py - pr + pr * 2 * R(), pr * 2, pr * (0.02 + R() * 0.06));
-		}
+		g.translate(0, horizon * 2);
+		g.scale(1, -1);
+		g.drawImage(g.canvas, 0, 0, w, horizon, 0, 0, w, horizon);
 		g.restore();
-		g.strokeStyle = css(pal.glow, 0.6);
-		g.lineWidth = Math.max(1, h * 0.006);
-		g.beginPath(); g.arc(px, py, pr, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
-		if (R() < 0.6) {   // a ring
-			g.strokeStyle = css(mix(pal.sun, pal.glow, 0.5), 0.45);
-			g.lineWidth = Math.max(1, h * 0.012);
-			g.beginPath(); g.ellipse(px, py - pr * 0.1, pr * 1.6, pr * 0.22, -0.12, Math.PI * 1.02, Math.PI * 1.98); g.stroke();
+		const water = g.createLinearGradient(0, horizon, 0, h);
+		water.addColorStop(0, css(mix(pal.sky[2], pal.land[3], 0.4), 0.35));
+		water.addColorStop(1, css(pal.land[3], 0.75));
+		g.fillStyle = water;
+		g.fillRect(0, horizon, w, h - horizon);
+		const ripple = mix(pal.sky[2], WHITE, 0.3);
+		for (let i = 0, k = 160 * w / (h * ASPECT); i < k; i++) {
+			const d = Math.pow(R(), 1.4), y = horizon + 2 + d * (h - horizon);
+			g.fillStyle = css(ripple, 0.08 + 0.15 * R());
+			g.fillRect(R() * w, y, h * ASPECT * (0.01 + d * 0.04), Math.max(1, h * 0.003));
 		}
-		if (R() < 0.7) {   // a moon
-			const mx = (px + w * 0.5 + R() * w * 0.4) % w, my = h * (0.15 + R() * 0.3), mr = h * (0.025 + R() * 0.03);
-			g.fillStyle = css(mix(pal.sun, pal.land[0], 0.4));
-			g.beginPath(); g.arc(mx, my, mr, 0, Math.PI * 2); g.fill();
-			g.fillStyle = css(pal.sky[0], 0.6);
-			g.beginPath(); g.arc(mx + mr * 0.4, my - mr * 0.2, mr * 0.95, 0, Math.PI * 2); g.fill();
+	},
+
+	waves(g, w, h, R, N, pal) {
+		const horizon = h * (0.42 + R() * 0.08);
+		sky(g, w, h, pal, horizon);
+		sun(g, w * (0.15 + R() * 0.7), horizon * (0.4 + R() * 0.4), h * (0.07 + R() * 0.04), pal, 0.5);
+		clouds(g, w, h, R, pal, horizon, 2 + ((R() * 3) | 0));
+		const rows = 6, foam = mix(pal.sky[2], WHITE, 0.55), u = Math.max(1, h / 210);
+		for (let i = 0; i < rows; i++) {
+			const t = i / (rows - 1), color = mix(landAt(pal, t), pal.sky[2], (1 - t) * 0.35);
+			const base = horizon + (h - horizon) * (0.05 + t * 0.85), amp = h * (0.02 + t * 0.07);
+			const f1 = (5 - t * 2.5) / (h * ASPECT), ph = R() * 50, skew = 0.6;
+			const f = (x) => { const a = x * f1 * Math.PI * 2 + ph; return base - amp * (Math.sin(a + skew * Math.sin(a)) * 0.8 + 0.4 * N.n1(x * f1 * 3 + ph)); };
+			const step = Math.max(1, w / 640);
+			g.beginPath(); g.moveTo(0, h);
+			for (let x = 0; x <= w + step; x += step) g.lineTo(x, f(x));
+			g.lineTo(w, h); g.closePath();
+			g.fillStyle = css(color); g.fill();
+			g.strokeStyle = css(foam, 0.35 + t * 0.45); g.lineWidth = u * (1 + t);
+			g.beginPath();
+			for (let x = 0; x <= w + step; x += step) x ? g.lineTo(x, f(x)) : g.moveTo(x, f(x));
+			g.stroke();
+			// inner lines that follow the crest, and spray on the tallest crests
+			g.strokeStyle = css(foam, 0.12 + t * 0.12); g.lineWidth = u;
+			for (let k = 1; k <= 2; k++) {
+				g.beginPath();
+				for (let x = 0; x <= w + step; x += step) { const y = f(x) + amp * 0.35 * k + h * 0.01 * k; x ? g.lineTo(x, y) : g.moveTo(x, y); }
+				g.stroke();
+			}
+			g.fillStyle = css(foam, 0.7);
+			for (let x = R() * 20; x < w; x += step * 3) {
+				const y = f(x);
+				if (y < base - amp * 0.75 && R() < 0.35) g.fillRect(x + (R() - 0.5) * 6 * u, y - R() * amp * 0.4, u * 1.5, u * 1.5);
+			}
+		}
+	},
+
+	mesas(g, w, h, R, N, pal) {
+		const horizon = h * (0.58 + R() * 0.08);
+		sky(g, w, h, pal, horizon);
+		sun(g, w * (0.15 + R() * 0.7), horizon * (0.35 + R() * 0.4), h * (0.06 + R() * 0.04), pal, 0.55);
+		clouds(g, w, h, R, pal, horizon, 1 + ((R() * 3) | 0));
+		const U = h * ASPECT, u = Math.max(1, h / 210);
+		for (let i = 0; i < 2; i++) {
+			const t = i, color = mix(landAt(pal, 0.2 + t * 0.45), pal.sky[2], (1 - t) * 0.35);
+			const base = horizon + h * t * 0.12;
+			for (let x = -R() * U * 0.2; x < w; x += U * (0.18 + R() * 0.35)) {
+				// a flat-topped butte: steep sides with scree at the foot, a ragged top, a few strata
+				const wd = U * (R() < 0.3 ? 0.03 + R() * 0.04 : 0.08 + R() * 0.16), top = base - h * (0.12 + R() * 0.2) * (1 + t * 0.3);
+				const foot = wd * (0.25 + R() * 0.2), cliff = (base - top) * (0.55 + R() * 0.2);
+				g.beginPath();
+				g.moveTo(x - foot, base + 1);
+				g.quadraticCurveTo(x - foot * 0.2, base - (base - top - cliff) * 0.2, x, top + cliff);
+				g.lineTo(x + wd * 0.04, top);
+				for (let k = 1; k < 10; k++) g.lineTo(x + wd * (0.04 + 0.92 * k / 10), top + (N.n1(x * 0.05 + k * 1.7) - 0.5) * h * 0.012);
+				g.lineTo(x + wd * 0.96, top);
+				g.lineTo(x + wd, top + cliff);
+				g.quadraticCurveTo(x + wd + foot * 0.2, base - (base - top - cliff) * 0.2, x + wd + foot, base + 1);
+				g.closePath();
+				g.fillStyle = css(color); g.fill();
+				g.save(); g.clip();
+				for (let k = 1; k < 4; k++) {   // strata
+					g.fillStyle = css(k % 2 ? mix(color, pal.sun, 0.12) : mix(color, BLACK, 0.08));
+					g.fillRect(x - foot, top + cliff * (k / 4), wd + foot * 2, cliff * 0.08);
+				}
+				g.fillStyle = css(mix(color, BLACK, 0.12));   // the shaded side
+				g.fillRect(x + wd * 0.78, top, wd * 0.22 + foot, base - top);
+				g.restore();
+			}
+			g.fillStyle = css(color);
+			g.fillRect(0, base, w, h - base);
+			mist(g, w, base + h * 0.03, h * 0.12, pal.sky[2], 0.3);
+		}
+		const ground = landAt(pal, 0.85), gy = horizon + h * 0.2;
+		ridge(g, w, h, { base: gy, amp: h * 0.04, freq: 2, phase: R() * 50, oct: 2, color: ground, N });
+		const near = pal.land[3];
+		for (let x = R() * U * 0.1; x < w; x += U * (0.06 + R() * 0.2)) {   // saguaros
+			if (R() < 0.35) continue;
+			const ch = h * (0.1 + R() * 0.12), cw = u * (2 + R() * 2), by = gy + h * 0.04 + R() * h * 0.08;
+			g.fillStyle = css(near);
+			g.fillRect(x - cw / 2, by - ch, cw, ch);
+			for (const side of [-1, 1]) {
+				if (R() < 0.3) continue;
+				const ay = by - ch * (0.35 + R() * 0.3), ah = ch * (0.2 + R() * 0.25), ax = x + side * cw * 1.6;
+				g.fillRect(Math.min(x, ax), ay, Math.abs(ax - x) + cw / 2, cw);
+				g.fillRect(ax - cw / 2, ay - ah, cw, ah + cw);
+			}
+		}
+	},
+
+	clouds(g, w, h, R, N, pal) {
+		const horizon = h * (0.42 + R() * 0.08);
+		sky(g, w, h, pal, horizon);
+		const sx = w * (0.15 + R() * 0.7), sr = h * (0.06 + R() * 0.03);
+		sun(g, sx, horizon - sr * (0.3 + R() * 1.5), sr, pal, 0.6);
+		ridge(g, w, h, { base: horizon + h * 0.12, amp: h * 0.4, freq: 2.4, phase: R() * 50, sharp: true, peak: 1.8, color: mix(pal.land[2], pal.sky[1], 0.35), N });
+		const rows = 6, lit = mix(mix(pal.sky[2], WHITE, 0.45), pal.sun, 0.3);
+		for (let i = 0; i < rows; i++) {
+			const t = i / (rows - 1);
+			const base = horizon + (h - horizon) * (0.1 + t * 0.85), r0 = h * (0.04 + t * 0.1);
+			const dark = mix(mix(pal.sky[1], pal.land[1], 0.35 + t * 0.3), pal.sky[2], 0.3 - t * 0.2);
+			for (let x = -r0; x < w + r0; x += r0 * (0.8 + R() * 0.9)) {
+				const r = r0 * (0.6 + R() * 0.8), y = base + r * 0.4 - N.n1(x / h * 2 + i * 7) * r0 * 1.4;
+				const gr = g.createLinearGradient(0, y - r, 0, y + r);
+				gr.addColorStop(0, css(lit));
+				gr.addColorStop(0.45, css(mix(lit, dark, 0.45)));
+				gr.addColorStop(1, css(dark));
+				g.fillStyle = gr;
+				g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+			}
+			g.fillStyle = css(dark);
+			g.fillRect(0, base + r0 * 0.4, w, h - base);
+		}
+	},
+
+	sakura(g, w, h, R, N, pal) {
+		const horizon = h * (0.62 + R() * 0.08);
+		sky(g, w, h, pal, horizon);
+		sun(g, w * (0.3 + R() * 0.4), horizon * (0.45 + R() * 0.35), h * (0.08 + R() * 0.04), pal, 0.4);
+		for (let i = 0; i < 2; i++) ridge(g, w, h, { base: horizon + h * i * 0.12, amp: h * (0.12 - i * 0.04), freq: 1.6 + i, phase: R() * 50, oct: 2, color: mix(landAt(pal, 0.3 + i * 0.4), pal.sky[2], 0.4 - i * 0.2), N });
+		const bark = mix(pal.land[3], BLACK, 0.3), u = Math.max(1, h / 210);
+		const pinks = [hex('#ffc2d6'), hex('#ff9fbf'), hex('#ffe1ea'), hex('#f78fb3')];
+		const blossoms = [];
+		const branch = (x, y, ang, len, wd, depth) => {
+			const ex = x + Math.cos(ang) * len, ey = y + Math.sin(ang) * len;
+			const mx = (x + ex) / 2 + Math.cos(ang + Math.PI / 2) * len * 0.12 * (R() - 0.5), my = (y + ey) / 2 + Math.sin(ang + Math.PI / 2) * len * 0.12 * (R() - 0.5);
+			g.strokeStyle = css(bark); g.lineWidth = wd; g.lineCap = 'round';
+			g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(mx, my, ex, ey); g.stroke();
+			if (depth <= 2) for (let k = 0; k < 4; k++) blossoms.push([x + (ex - x) * R(), y + (ey - y) * R()]);
+			if (depth === 0) { for (let k = 0; k < 5; k++) blossoms.push([ex + (R() - 0.5) * len * 0.6, ey + (R() - 0.5) * len * 0.6]); return; }
+			const n = 2 + (R() < 0.4 ? 1 : 0);
+			for (let k = 0; k < n; k++) branch(ex, ey, ang + (R() - 0.5) * 1.1, len * (0.6 + R() * 0.2), Math.max(u, wd * 0.65), depth - 1);
+		};
+		const fromLeft = R() < 0.5;
+		const sides = R() < 0.4 ? [true, false] : [fromLeft];
+		for (const left of sides) {
+			const x0 = left ? -h * 0.1 : w + h * 0.1, y0 = h * (0.05 + R() * 0.25);
+			branch(x0, y0, left ? 0.15 + R() * 0.3 : Math.PI - 0.15 - R() * 0.3, h * (0.45 + R() * 0.25), u * (6 + R() * 3), 5);
+		}
+		for (const [x, y] of blossoms) {
+			for (let k = 0; k < 3; k++) {
+				const r = u * (1.5 + R() * 2.5);
+				g.fillStyle = css(pinks[(R() * pinks.length) | 0], 0.85);
+				g.beginPath(); g.arc(x + (R() - 0.5) * r * 3, y + (R() - 0.5) * r * 3, r, 0, Math.PI * 2); g.fill();
+			}
+		}
+		for (let i = 0, k = 60 * w / (h * ASPECT); i < k; i++) {   // falling petals
+			g.fillStyle = css(pinks[(R() * pinks.length) | 0], 0.5 + R() * 0.4);
+			g.beginPath(); g.ellipse(R() * w, R() * h, u * (1.2 + R()), u * (0.6 + R() * 0.5), R() * Math.PI, 0, Math.PI * 2); g.fill();
+		}
+	},
+
+	flow(g, w, h, R, N, pal) {
+		const bg = g.createLinearGradient(0, 0, w * 0.3, h);
+		bg.addColorStop(0, css(pal.sky[0])); bg.addColorStop(0.6, css(mix(pal.sky[1], pal.land[3], 0.5))); bg.addColorStop(1, css(pal.land[3]));
+		g.fillStyle = bg; g.fillRect(0, 0, w, h);
+		const ramp = [pal.sky[2], pal.glow, pal.sun, pal.land[0], pal.sky[1]];
+		const sc = 0.7 + R() * 0.6, ox = R() * 100, turn = 2 + R() * 2, u = Math.max(1, h / 210), step = u * 2;
+		g.lineCap = 'round';
+		for (let i = 0, n = 420 * w / (h * ASPECT); i < n; i++) {
+			let x = R() * w, y = R() * h;
+			const c = ramp[(R() * ramp.length) | 0];
+			g.strokeStyle = css(c, 0.08 + R() * 0.3);
+			g.lineWidth = u * (0.6 + R() * 1.4);
+			g.beginPath(); g.moveTo(x, y);
+			for (let k = 0, len = 30 + R() * 60; k < len; k++) {
+				const a = (N.fbm2(x / h * sc + ox, y / h * sc, 3) - 0.5) * Math.PI * turn;
+				x += Math.cos(a) * step; y += Math.sin(a) * step;
+				g.lineTo(x, y);
+			}
+			g.stroke();
 		}
 	},
 };
@@ -555,10 +753,11 @@ const canvasOf = (w, h) => { const c = document.createElement('canvas'); c.width
  * Draws the picture for a title into a canvas of the given size (in canvas pixels) and returns what was drawn.
  * `variant` gives another picture for the same words.
  */
-function paintBanner(canvas, title, { style = 'dither', variant = 0, levels = LEVELS } = {}) {
+function paintBanner(canvas, title, { style = 'dither', variant = 0, levels = LEVELS, scene: only = null } = {}) {
 	const seed = fnv(fold(title.trim()) + (variant ? '#' + variant : ''));
 	const R = mulberry(seed), N = makeNoise(mulberry(seed ^ 0x9e3779b9));
-	const { scene, palette } = choose(R);
+	let { scene, palette } = choose(R);
+	if (only && DRAW[only]) { scene = only; palette = SCENES[only].palettes[(R() * SCENES[only].palettes.length) | 0]; }
 	const w = canvas.width, h = canvas.height, g = canvas.getContext('2d', { willReadFrequently: true });
 	DRAW[scene](g, w, h, R, N, PALETTES[palette]);
 	if (style === 'smooth') grain(g, w, h, R, 10);

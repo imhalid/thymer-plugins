@@ -48,6 +48,7 @@
 .bm-img, .bm-dither { position: absolute; inset: 0; width: 100%; height: 100%; -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent); }
 .bm-img { object-fit: cover; object-position: top center; opacity: 0; transition: opacity .3s; }
 .bm-cover.has-img .bm-img { opacity: 1; }
+.bm-cover.seen .bm-img { transition: none; }   /* a cover seen before does not fade in again */
 /* the drawn cover of a site without one, in the category's colour */
 .bm-dither { color: var(--bm-fg); image-rendering: pixelated; }
 

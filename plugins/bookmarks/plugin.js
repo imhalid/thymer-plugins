@@ -127,7 +127,10 @@ class Plugin extends CollectionPlugin {
 
 	onLoad() {
 		this.covers = new Map();   // blob guid -> Promise of an object URL
-		this.tones = new Map();    // cover URL -> its tone (or null)
+		this.tones = new Map();    // cover URL -> its tone (or null), once its image has loaded
+		this.noFavicon = new Set();   // hosts whose /favicon.ico did not load
+		this.category = '';        // the chosen chip, kept while switching to another view and back
+		this.lastRecords = [];     // what the view showed last, drawn at once when it opens again
 		this.views.register(VIEW, (ctx) => this.createView(ctx));
 		this.ui.addCommandPaletteCommand({ label: 'Bookmarks: add from clipboard', icon: 'ti-clipboard-plus', onSelected: () => this.addFromClipboard() });
 	}
@@ -145,7 +148,7 @@ class Plugin extends CollectionPlugin {
 
 	createView(ctx) {
 		const esc = (s) => this.ui.htmlEscape(s || '');
-		const state = { category: '', records: [] };
+		const state = { category: this.category, records: [] };
 		let root, chips, groups, addInput, addButton;
 
 		const matches = (r) => !state.category || r.category === state.category;
@@ -189,21 +192,31 @@ class Plugin extends CollectionPlugin {
 				(titleSaysHost(r.name, r.host) ? '' : `<div class="bm-host">${esc(r.host)}</div>`) +
 				`<div class="bm-desc">${esc(r.description)}</div></div>`;
 			const fav = el.querySelector('.bm-fav img');
-			if (fav) fav.onerror = () => fav.parentElement.classList.add('none');
+			if (fav && this.noFavicon.has(r.host)) { fav.parentElement.classList.add('none'); fav.remove(); }
+			else if (fav) fav.onerror = () => { this.noFavicon.add(r.host); fav.parentElement.classList.add('none'); };
 
 			const fv = r.record.getBanner();
 			if (!(fv && (fv.guid || fv.imgUrl))) dither(el, r);
 			else this.coverUrl(r.record).then((src) => {
 				if (ctx.isDestroyed()) return;
 				if (!src) { dither(el, r); return; }
+				const cover = el.querySelector('.bm-cover');
 				const img = new Image();
 				img.className = 'bm-img';
 				img.alt = '';
-				img.onload = () => {
-					if (!this.tones.has(src)) this.tones.set(src, toneOf(img));
+				// a cover seen before is in the image cache: shown at once, in its tone, without fading in
+				if (this.tones.has(src)) {
 					const tone = this.tones.get(src);
 					if (tone) el.style.setProperty('--bm-tone', tone);
-					el.querySelector('.bm-cover').classList.add('has-img');
+					cover.classList.add('has-img', 'seen');
+				}
+				img.onload = () => {
+					if (!this.tones.has(src)) {
+						this.tones.set(src, toneOf(img));
+						const tone = this.tones.get(src);
+						if (tone) el.style.setProperty('--bm-tone', tone);
+					}
+					cover.classList.add('has-img');
 				};
 				img.onerror = () => { img.remove(); dither(el, r); };
 				img.src = src;
@@ -236,6 +249,17 @@ class Plugin extends CollectionPlugin {
 					paintDither(canvas, r.host || r.name);
 				}
 			}
+		};
+
+		// the cards are drawn again only when a record has changed (the first onRefresh brings what onLoad drew)
+		let drawn = '';
+		const show = (records) => {
+			const sig = records.map((r) => r.guid + ':' + (r.getUpdatedAt()?.getTime() ?? '')).join(',');
+			if (sig === drawn) return;
+			drawn = sig;
+			this.lastRecords = records;
+			state.records = records.map(read);
+			renderGroups();
 		};
 
 		const openCard = (el, e) => {
@@ -276,7 +300,7 @@ class Plugin extends CollectionPlugin {
 				chips.addEventListener('click', (e) => {
 					const chip = e.target.closest('.bm-chip');
 					if (!chip) return;
-					state.category = state.category === chip.dataset.cat ? '' : chip.dataset.cat;
+					state.category = this.category = state.category === chip.dataset.cat ? '' : chip.dataset.cat;
 					renderGroups();
 				});
 				groups.addEventListener('click', (e) => {
@@ -286,11 +310,11 @@ class Plugin extends CollectionPlugin {
 					if (e.target.closest('.bm-page')) ctx.openRecordInOtherPanel(el.dataset.guid);
 					else openCard(el, e);
 				});
+				// draw at once, not a frame later in the first onRefresh: what the view holds, or else what it showed last time
+				const records = ctx.getAllRecords();
+				if (records.length || this.lastRecords.length) show(records.length ? records : this.lastRecords);
 			},
-			onRefresh: ({ records }) => {
-				state.records = records.map(read);
-				renderGroups();
-			},
+			onRefresh: ({ records }) => show(records),
 			onKeyboardNavigation: () => {},
 			onPanelResize: () => {},
 			onFocus: () => {},

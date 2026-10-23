@@ -1,0 +1,92 @@
+<!doctype html>
+<!-- Auto Banner preview: draws the scenes outside Thymer, with plugin.js loaded as is (a stub stands in for AppPlugin).
+     Open this file in a browser; ?scene=clouds&palette=dusk&t=12 picks what is shown first. -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auto Banner preview</title>
+<style>
+	:root { color-scheme: dark; }
+	body { margin: 0; padding: 16px; background: #15161a; color: #ddd; font: 13px/1.4 ui-monospace, Menlo, monospace; }
+	.bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; position: sticky; top: 0; background: #15161a; padding: 6px 0; z-index: 2; }
+	select, input, button { font: inherit; background: #23252b; color: #ddd; border: 1px solid #3a3d45; border-radius: 6px; padding: 4px 8px; }
+	.grid { display: grid; gap: 14px; }
+	figure { margin: 0; }
+	figcaption { margin: 0 0 4px; color: #9aa; }
+	canvas { display: block; width: 100%; max-width: 811px; border-radius: 10px; image-rendering: pixelated; }
+	canvas.smooth { image-rendering: auto; }
+</style>
+</head>
+<body>
+<div class="bar">
+	<label>scene <select id="scene"></select></label>
+	<label>palette <select id="palette"></select></label>
+	<label>seed <input id="seed" value="01 - Veri Tipleri ve Boyutlar" size="28"></label>
+	<label>t <input id="t" type="number" value="12" step="1" style="width:5em"></label>
+	<label><input id="play" type="checkbox"> play</label>
+	<label>style <select id="style"><option>dither</option><option>smooth</option></select></label>
+	<label>width <input id="w" type="number" value="811" step="10" style="width:5em"></label>
+	<label>moon <input id="phase" type="number" value="" min="0" max="1" step="0.05" placeholder="today" style="width:5em"></label>
+</div>
+<div class="grid" id="grid"></div>
+<script>class AppPlugin {}</script>
+<script src="plugin.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+$('scene').innerHTML = '<option value="">all scenes</option>' + Object.keys(SCENES).map((s) => `<option>${s}</option>`).join('');
+$('palette').innerHTML = '<option value="">its own palettes</option><option value="*">every palette</option>' + Object.keys(PALETTES).map((p) => `<option>${p}</option>`).join('');
+for (const k of ['scene', 'palette', 'seed', 't', 'style', 'w', 'phase']) if (q.has(k)) $(k).value = q.get(k);
+
+let cells = [];
+function build() {
+	const scene = $('scene').value, palette = $('palette').value, seed = $('seed').value, w = +$('w').value || 811, h = 210;
+	const pairs = [];
+	for (const s of scene ? [scene] : Object.keys(SCENES)) {
+		const pals = palette === '*' ? Object.keys(PALETTES) : palette ? [palette] : scene ? SCENES[s].palettes : [SCENES[s].palettes[fnv(seed) % SCENES[s].palettes.length]];
+		for (const p of pals) pairs.push([s, p]);
+	}
+	$('grid').innerHTML = '';
+	cells = pairs.map(([s, p]) => {
+		const fig = document.createElement('figure'), cap = document.createElement('figcaption'), c = canvasOf(w, h);
+		cap.textContent = `${s} · ${p}`;
+		fig.append(cap, c);
+		$('grid').append(fig);
+		const sd = fnv(fold(seed.trim()));
+		return { c, b: { seed: sd, scene: s, palette: p, id: `${sd}|${s}|${p}`, N: makeNoise(mulberry(sd ^ 0x9e3779b9)) } };
+	});
+	draw();
+}
+function draw() {
+	const t = +$('t').value, style = $('style').value, phase = $('phase').value === '' ? moonPhase() : +$('phase').value;
+	for (const { c, b } of cells) {
+		c.className = style === 'smooth' ? 'smooth' : '';
+		try { drawFrame(c, b, style, t, true, phase); } catch (e) { console.error(b.scene, e); }
+	}
+}
+for (const k of ['scene', 'palette', 'seed', 'w']) $(k).addEventListener('change', build);
+for (const k of ['t', 'style', 'phase']) $(k).addEventListener('input', draw);
+// a contact sheet of [scene, palette, t] triples, as a PNG data URL (for looking at frames outside the page)
+window.sheet = (list, seed = $('seed').value, w = 811, h = 210, style = 'dither', phase = 0.4) => {
+	const pad = 18, out = canvasOf(w, list.length * (h + pad)), og = out.getContext('2d');
+	og.fillStyle = '#15161a'; og.fillRect(0, 0, out.width, out.height);
+	og.font = '12px monospace'; og.fillStyle = '#aab';
+	const sd = fnv(fold(seed.trim()));
+	list.forEach(([s, p, t = 12, ph = phase], i) => {
+		const c = canvasOf(w, h);
+		drawFrame(c, { seed: sd, scene: s, palette: p, id: `${sd}|${s}|${p}`, N: makeNoise(mulberry(sd ^ 0x9e3779b9)) }, style, t, true, ph);
+		og.fillText(`${s} · ${p} · t=${t}`, 4, i * (h + pad) + 13);
+		og.drawImage(c, 0, i * (h + pad) + pad);
+	});
+	return out.toDataURL('image/png');
+};
+let last = 0;
+(function tick(now) {
+	if ($('play').checked && now - last > 100) { last = now; $('t').value = (+$('t').value + 0.1).toFixed(1); draw(); }
+	requestAnimationFrame(tick);
+})(0);
+build();
+</script>
+</body>
+</html>

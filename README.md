@@ -9,6 +9,7 @@ Personal plugins for [Thymer](https://thymer.com).
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 | [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
 | [`home`](plugins/home) | A dashboard opened from a Home button beside Tasks: a full-width WebGL sky (a nebula, a neural field or a star atlas, in one of six biomes) in which every day you changed something is a star, brighter the more changed, days in a row joined by lines that pass light along; then the last 30 days, today's journal and recently edited pages |
+| [`auto-banner`](plugins/auto-banner) | A page without a banner gets a picture drawn in its place from its title: one of 22 moving, dithered landscapes (mountains, a sea of clouds, windmills, a lighthouse, rain over a city, ...) in a palette that follows the time of day, with lit, puffed clouds and the moon in tonight's phase |
 
 ## Install a plugin
 
@@ -173,3 +174,15 @@ and its biome, the colours any shape is drawn in: Nebula, Ember, Aurora, Ice, Go
 What changed when is read from the workspace when Home opens (again after two minutes): a page counts on the day it was made, a line on the day it was written and the day it was last changed. Lines written while Home is open brighten today's star. Off on phones and tablets.
 
 To install: paste `plugin.js` into a new global plugin's code tab and `plugin.css` into its CSS tab.
+
+## Auto Banner
+
+A page with no banner of its own (nor its collection's) gets a picture drawn in the banner's place, from its title: the title is the seed, so the same title always gives the same scene, and nothing is uploaded or written to the page. There are 22 scenes (mountains, hills, the sea, a lake, waves, dunes, buttes, a sea of clouds, a forest, a skyline, a synthwave grid, a contour map, an aurora, a nebula, cherry blossom, flow lines, a lighthouse, windmills, a snowed village, rain, a volcano, palm islands, fireflies), each moving a little, in a palette that suits the hour, drawn in a fine ordered dither or smooth with grain.
+
+The clouds are heaps of round puffs and long thin bands, each puff lit on the side the light comes from, with a flat shaded underside and a bright rim: white by day, warm underneath at dawn and dusk, dark with a silver edge at night, a low grey ceiling in the rain; they turn their lit side to the sun as they pass it. The sea of clouds is banks of the same puffs, the rain's ceiling banks hanging upside down. At night the moon is in tonight's phase. The windmills are smock mills with a gallery, a cap and lattice sails, over polders with tulip rows; the volcano's smoke billows, lit red from below.
+
+Commands: another picture for this page, back to its own picture, dither or smooth, motion on or off, follow the time of day or not, turn on or off. `custom.exclude` in the Configuration skips collections by name.
+
+`preview.html` draws the scenes outside Thymer (serve the `plugins` folder, e.g. `python3 -m http.server -d plugins`, and open `/auto-banner/preview.html`): every scene or one, in its own palettes or all of them, at a time or playing, with the moon in any phase.
+
+To install: paste `plugin.js` into a new global plugin's code tab, `plugin.css` into its CSS tab and `plugin.json` into its Configuration tab.

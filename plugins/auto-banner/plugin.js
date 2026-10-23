@@ -11,6 +11,12 @@
  * an aurora over mountains, a nebula full of stars, cherry branches in blossom, lines flowing in a field, a lighthouse on a
  * headland, windmills in the polders, a snowed village, rain, a smoking volcano, palm islands and fireflies in a meadow.
  *
+ * The clouds are heaps of round puffs and long thin bands, each puff lit on the side the light comes from with a dark seam
+ * where it meets the next, a flat shaded underside and a bright rim: white and lit from above by day, warm underneath from a
+ * low sun at dawn and dusk, dark with a silver edge by the moon at night, grey and hanging low in the rain; they turn their
+ * lit side to the sun as they pass it and sink into shadow away from it. The sea of clouds is banks of the same puffs. At
+ * night the moon is in tonight's phase, its seas on it and the rest of the disc faint in earthshine.
+ *
  * Each moves a little, and only in ways that mean something: clouds drift, birds now and then cross, the sun shimmers on
  * the water and the lake's reflection wavers, waves roll in, sand blows off the dunes' crests, fog drifts through the
  * forest, windows in the city go on and off, the grid runs towards you, the sun moves over the contour map, the aurora
@@ -48,7 +54,7 @@ const ASPECT = 3;          // the scenes' frequencies are set for a strip this m
 const LEVELS = 10;         // shades per colour channel in the dither
 const SETTLE_MS = 700;     // a title has to stay the same this long before the picture follows it
 const FPS = 10;            // frames a second, unless the scene asks for more
-const STORE_MAX = 12;      // cached layers (a nebula, a contour field, flow lines, grain)
+const STORE_MAX = 24;      // cached layers (a nebula, a contour field, flow lines, cloud shapes, grain)
 
 // ---------------------------------------------------------------------------------------------------------- randomness
 
@@ -90,22 +96,23 @@ const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[
 const css = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 const WHITE = [255, 255, 255], BLACK = [0, 0, 0];
 
-// sky: top, middle, horizon; land: far to near; glow: lights, grid lines, windows
+// sky: top, middle, horizon; land: far to near; glow: lights, grid lines, windows; clouds: how they are lit (by day from
+// above when not given, 'glow' by a low sun from below, 'moon' dark with a bright rim, 'storm' grey); moon: the light is the moon
 const PALETTES = {
-	dusk: { sky: ['#2a1f4e', '#9c4a78', '#f4a571'], sun: '#ffe1a6', land: ['#9a5a7c', '#6b3a66', '#40264f', '#1f1530'], glow: '#ff8fa3', dark: true },
-	dawn: { sky: ['#4f6ea8', '#c7a3c6', '#fdd5b8'], sun: '#fff4e0', land: ['#b29bc0', '#857199', '#584d7a', '#302a4f'], glow: '#ffd0a8' },
+	dusk: { sky: ['#2a1f4e', '#9c4a78', '#f4a571'], sun: '#ffe1a6', land: ['#9a5a7c', '#6b3a66', '#40264f', '#1f1530'], glow: '#ff8fa3', dark: true, clouds: 'glow' },
+	dawn: { sky: ['#4f6ea8', '#c7a3c6', '#fdd5b8'], sun: '#fff4e0', land: ['#b29bc0', '#857199', '#584d7a', '#302a4f'], glow: '#ffd0a8', clouds: 'glow' },
 	day: { sky: ['#2f74c9', '#86bde8', '#e2f1f7'], sun: '#fffbea', land: ['#97bccd', '#6694ab', '#3f6c82', '#21445a'], glow: '#ffffff' },
 	meadow: { sky: ['#4a8cc6', '#a6d3e5', '#eef6e2'], sun: '#fffdf0', land: ['#a3c7b2', '#73a789', '#4b855f', '#2a5639'], glow: '#fff6c8' },
-	desert: { sky: ['#cf6f45', '#f0ae78', '#fde4b6'], sun: '#fff3d4', land: ['#e9a66b', '#cf8450', '#a5603b', '#683824'], glow: '#ffe0a0' },
-	night: { sky: ['#050816', '#121a42', '#2b3a6e'], sun: '#eef1ff', land: ['#283461', '#1b2449', '#111733', '#080c1c'], glow: '#9fb7ff', dark: true },
-	moonlit: { sky: ['#020d14', '#0b2b3a', '#1f5266'], sun: '#e8f4ff', land: ['#21495a', '#163644', '#0d2430', '#06141c'], glow: '#8fe3ff', dark: true },
+	desert: { sky: ['#cf6f45', '#f0ae78', '#fde4b6'], sun: '#fff3d4', land: ['#e9a66b', '#cf8450', '#a5603b', '#683824'], glow: '#ffe0a0', clouds: 'glow' },
+	night: { sky: ['#050816', '#121a42', '#2b3a6e'], sun: '#eef1ff', land: ['#283461', '#1b2449', '#111733', '#080c1c'], glow: '#9fb7ff', dark: true, moon: true, clouds: 'moon' },
+	moonlit: { sky: ['#020d14', '#0b2b3a', '#1f5266'], sun: '#e8f4ff', land: ['#21495a', '#163644', '#0d2430', '#06141c'], glow: '#8fe3ff', dark: true, moon: true, clouds: 'moon' },
 	ice: { sky: ['#1d3c6a', '#6ea1c6', '#dbeef4'], sun: '#ffffff', land: ['#bcd8e6', '#8ab5cd', '#5c8cac', '#305a7a'], glow: '#e6f6ff' },
-	ember: { sky: ['#160911', '#541826', '#c4472e'], sun: '#ffb56d', land: ['#6e2b2a', '#4b1c22', '#2d1118', '#16090d'], glow: '#ff7a3d', dark: true },
+	ember: { sky: ['#160911', '#541826', '#c4472e'], sun: '#ffb56d', land: ['#6e2b2a', '#4b1c22', '#2d1118', '#16090d'], glow: '#ff7a3d', dark: true, clouds: 'glow' },
 	teal: { sky: ['#0e3a4e', '#2e7f8b', '#bfe3d4'], sun: '#fff2cb', land: ['#47918d', '#2d6d70', '#1d4f56', '#0f3239'], glow: '#9ff5e0' },
-	synth: { sky: ['#0b0220', '#3a0e5c', '#ff4f8b'], sun: '#ffd36e', land: ['#5b1c7c', '#3e1060', '#260a42', '#13052a'], glow: '#ff5fd2', dark: true },
-	autumn: { sky: ['#6689b0', '#deb08a', '#f8ddb0'], sun: '#fff1d0', land: ['#bc8058', '#935a3a', '#633c2b', '#351f19'], glow: '#ffcf8a' },
-	lavender: { sky: ['#3a3772', '#8e7dc0', '#ecc9dd'], sun: '#fff0f4', land: ['#a68fc2', '#7a67a3', '#524780', '#2c2752'], glow: '#ffd6ec' },
-	storm: { sky: ['#1c2530', '#3d4b5a', '#7d8b98'], sun: '#dfe6ee', land: ['#5d6b78', '#46535f', '#2f3a44', '#1a2128'], glow: '#ffd98a' },
+	synth: { sky: ['#0b0220', '#3a0e5c', '#ff4f8b'], sun: '#ffd36e', land: ['#5b1c7c', '#3e1060', '#260a42', '#13052a'], glow: '#ff5fd2', dark: true, clouds: 'glow' },
+	autumn: { sky: ['#6689b0', '#deb08a', '#f8ddb0'], sun: '#fff1d0', land: ['#bc8058', '#935a3a', '#633c2b', '#351f19'], glow: '#ffcf8a', clouds: 'glow' },
+	lavender: { sky: ['#3a3772', '#8e7dc0', '#ecc9dd'], sun: '#fff0f4', land: ['#a68fc2', '#7a67a3', '#524780', '#2c2752'], glow: '#ffd6ec', clouds: 'glow' },
+	storm: { sky: ['#1c2530', '#3d4b5a', '#7d8b98'], sun: '#dfe6ee', land: ['#5d6b78', '#46535f', '#2f3a44', '#1a2128'], glow: '#ffd98a', clouds: 'storm' },
 };
 for (const p of Object.values(PALETTES)) { p.sky = p.sky.map(hex); p.land = p.land.map(hex); p.sun = hex(p.sun); p.glow = hex(p.glow); }
 
@@ -206,7 +213,20 @@ function sky(g, w, h, pal, horizon) {
 /** The sky's colour at a height, for cutting stripes out of a sun. */
 const skyAt = (pal, y, horizon) => { const t = Math.max(0, Math.min(1, y / horizon)); return t < 0.55 ? mix(pal.sky[0], pal.sky[1], t / 0.55) : mix(pal.sky[1], pal.sky[2], (t - 0.55) / 0.45); };
 
+// Where the sun (or the moon) of the frame is, for the clouds to be lit from its side; above the middle until one is drawn.
+let SUN = { x: 0, y: 0 };
+// The moon's phase in the frame: 0 new, 0.5 full.
+let PHASE = 0.5;
+
+/** The moon's phase on a day, from a known new moon (6 January 2000, 18:14 UTC) and the synodic month. */
+const moonPhase = (d = new Date()) => { const p = ((d.getTime() / 864e5 - 10962.7597) / 29.530588853) % 1; return p < 0 ? p + 1 : p; };
+
+// The moon's seas, as seen from the north: x, y and radius in moon radii.
+const MARIA = [[-0.32, -0.36, 0.3], [0.14, -0.38, 0.18], [0.32, -0.04, 0.22], [0.64, -0.24, 0.11], [-0.56, 0.08, 0.3], [-0.16, 0.42, 0.18], [0.5, 0.26, 0.13]];
+
 function sun(g, x, y, r, pal, glow = 0.45) {
+	SUN = { x, y };
+	if (pal.moon) { moon(g, x, y, r * 0.92, pal, glow); return; }
 	const halo = g.createRadialGradient(x, y, r * 0.5, x, y, r * 7);
 	halo.addColorStop(0, css(pal.sun, glow));
 	halo.addColorStop(0.35, css(pal.sun, glow * 0.25));
@@ -215,6 +235,36 @@ function sun(g, x, y, r, pal, glow = 0.45) {
 	g.fillRect(x - r * 7, y - r * 7, r * 14, r * 14);
 	g.fillStyle = css(pal.sun);
 	g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+}
+
+/** The moon in tonight's phase: the lit part with its grey seas, the rest faint in earthshine, a halo as bright as it is full. */
+function moon(g, x, y, r, pal, glow) {
+	const k = Math.cos(PHASE * TAU), lit = (1 - k) / 2, waning = PHASE > 0.5;
+	const halo = g.createRadialGradient(x, y, r * 0.9, x, y, r * 6.5);
+	halo.addColorStop(0, css(pal.sun, glow * (0.2 + 0.8 * lit)));
+	halo.addColorStop(0.3, css(pal.sun, glow * 0.22 * (0.2 + 0.8 * lit)));
+	halo.addColorStop(1, css(pal.sun, 0));
+	g.fillStyle = halo;
+	g.fillRect(x - r * 6.5, y - r * 6.5, r * 13, r * 13);
+	g.save();
+	g.translate(x, y);
+	g.fillStyle = css(mix(pal.sky[1], pal.sun, 0.14));
+	g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
+	// the lit part: half the disc on the sun's side, closed by the terminator, an ellipse as wide as the phase is far from a half
+	if (waning) g.scale(-1, 1);
+	g.beginPath();
+	g.arc(0, 0, r, -Math.PI / 2, Math.PI / 2);
+	g.ellipse(0, 0, r * Math.abs(k), r, 0, Math.PI / 2, -Math.PI / 2, k > 0);
+	g.closePath();
+	g.fillStyle = css(pal.sun);
+	g.fill();
+	g.clip();
+	if (waning) g.scale(-1, 1);
+	g.filter = `blur(${Math.max(0.5, r * 0.08)}px)`;
+	g.fillStyle = css(mix(pal.sun, pal.sky[1], 0.3), 0.55);
+	for (const [mx, my, mr] of MARIA) { g.beginPath(); g.arc(mx * r, my * r, mr * r, 0, TAU); g.fill(); }
+	g.filter = 'none';
+	g.restore();
 }
 
 /** Stars, twinkling. */
@@ -234,17 +284,242 @@ function nightStars(g, w, h, R, pal, count, maxY, size) {
 	if (pal.dark) stars(g, w, h, r, count, maxY, size);
 }
 
-/** Thin clouds drifting slowly with the wind. */
-function clouds(g, w, h, rand, pal, horizon, n, tint = null) {
-	const c = tint || mix(pal.sky[1], WHITE, 0.35), U = h * ASPECT;
-	for (let i = 0, k = n * w / U; i < k; i++) {
-		const len = U * (0.08 + rand() * 0.16), span = w + len * 2, sp = h * (0.006 + rand() * 0.01);
-		const cx = wrapX(rand() * span + T * sp, span) - len, cy = horizon * (0.15 + rand() * 0.55), th = h * (0.012 + rand() * 0.02);
-		g.fillStyle = css(c, 0.18 + rand() * 0.2);
-		for (let j = 0; j < 6; j++) {
-			const ex = cx + (rand() - 0.5) * len, ey = cy + (rand() - 0.5) * th * 2;
-			g.beginPath(); g.ellipse(ex, ey, len * (0.25 + rand() * 0.35), th * (0.6 + rand() * 0.8), 0, 0, TAU); g.fill();
+// ------------------------------------------------------------------------------------------------------------- clouds
+
+/**
+ * The colours a palette's clouds are lit in: the shadowed body, the half-lit and the lit puffs, the rim where the light
+ * grazes the edge, and the shade gathering underneath. ly is where the light comes from (up -1, below +1), lean how much
+ * it comes from the side the sun is on, fade how much a cloud far from the sun sinks into its shadow colour, bands how
+ * many of the clouds are long thin bands instead of heaps.
+ */
+function cloudTones(pal, style = pal.clouds) {
+	if (style === 'moon') return {
+		shadow: mix(pal.sky[0], pal.sky[1], 0.8), mid: mix(pal.sky[1], pal.sky[2], 0.3), lit: mix(pal.sky[2], pal.sun, 0.35),
+		rim: pal.sun, rimA: 0.85, under: mix(pal.sky[0], BLACK, 0.2), ly: -0.6, lean: 0.8, fade: 0.75, bands: 0.5,
+	};
+	if (style === 'glow') return {
+		shadow: mix(mix(pal.sky[0], pal.sky[1], 0.65), pal.land[1], 0.2), mid: mix(pal.sky[1], pal.glow, 0.6), lit: mix(pal.glow, pal.sun, 0.6),
+		rim: mix(pal.sun, WHITE, 0.3), rimA: 0.8, under: null, ly: 0.6, lean: 0.75, fade: 0.45, bands: 0.55,
+	};
+	if (style === 'storm') return {
+		shadow: mix(pal.sky[0], pal.land[3], 0.25), mid: mix(pal.sky[0], pal.sky[1], 0.55), lit: mix(pal.sky[1], pal.sky[2], 0.35),
+		rim: pal.sky[2], rimA: 0.3, under: mix(pal.sky[0], BLACK, 0.35), ly: -1, lean: 0.25, fade: 0, bands: 0.2,
+	};
+	return {
+		shadow: mix(mix(pal.sky[1], pal.land[1], 0.35), WHITE, 0.25), mid: mix(pal.sky[2], WHITE, 0.6), lit: mix(WHITE, pal.sun, 0.5),
+		rim: mix(WHITE, pal.sun, 0.5), rimA: 0.45, under: mix(pal.sky[1], pal.land[2], 0.35), ly: -1, lean: 0.4, fade: 0.1, bands: 0.3,
+	};
+}
+
+/** The same tones, gone some way into the haze of the horizon. */
+const hazed = (L, pal, k) => ({ ...L, shadow: mix(L.shadow, pal.sky[2], k), mid: mix(L.mid, pal.sky[2], k * 0.8), lit: mix(L.lit, pal.sky[2], k * 0.6), under: L.under && mix(L.under, pal.sky[2], k) });
+
+// One canvas lent out for in-between work (a rim, a cross-fade); it grows to the largest size asked of it.
+let SCRATCH = null;
+function scratch(w, h) {
+	if (!SCRATCH || SCRATCH.width < w || SCRATCH.height < h) SCRATCH = canvasOf(Math.max(w, SCRATCH?.width || 0), Math.max(h, SCRATCH?.height || 0));
+	const c = SCRATCH.getContext('2d');
+	c.setTransform(1, 0, 0, 1, 0, 0);
+	c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; c.filter = 'none';
+	c.clearRect(0, 0, w + 2, h + 2);   // and a little beyond: a drawImage from it at a fractional place samples its edge
+	return c;
+}
+
+/** All the puffs as one path; each moved by (ox, oy) of its radius and (dx, dy) pixels, and its radius scaled by k. */
+function puffPath(c, puffs, ox, oy, k, dx = 0, dy = 0) {
+	c.beginPath();
+	for (const p of puffs) {
+		const sy = p.sy || 1, rx = p.r * k, x = p.x + ox * p.r + dx, y = p.y + oy * p.r * sy + dy;
+		c.moveTo(x + rx, y);
+		c.ellipse(x, y, rx, rx * sy, 0, 0, TAU);
+	}
+}
+
+/**
+ * Lights a heap of puffs drawn in c (W by H): the whole in shadow, then each puff again, smaller and moved towards the light,
+ * half-lit and lit, so every puff is round with a dark seam where it meets the next; then the shade underneath and a thin
+ * rim on the side the light comes from. `below`: points, left to right, through which the heap is solid down to the bottom
+ * (a bank of cloud, not one cloud).
+ */
+function shadePuffs(c, W, H, puffs, L, lx, ly, u, below = null, top = 0, base = H) {
+	const body = (cc, dx = 0, dy = 0) => {
+		puffPath(cc, puffs, 0, 0, 1, dx, dy);
+		if (!below) return;
+		// clockwise, as the puffs are, so that the two add up
+		cc.moveTo(below[0][0] + dx, H * 2);
+		for (const [x, y] of below) cc.lineTo(x + dx, y + dy);
+		cc.lineTo(below[below.length - 1][0] + dx, H * 2);
+		cc.closePath();
+	};
+	c.save();
+	body(c);
+	c.fillStyle = css(L.shadow);
+	c.fill();
+	c.globalCompositeOperation = 'source-atop';
+	c.filter = `blur(${u * 1.4}px)`;
+	puffPath(c, puffs, lx * 0.16, ly * 0.16, 0.92);
+	c.fillStyle = css(L.mid);
+	c.fill();
+	c.filter = `blur(${u * 1.1}px)`;
+	puffPath(c, puffs, lx * 0.45, ly * 0.45, 0.66);
+	c.fillStyle = css(L.lit);
+	c.fill();
+	c.filter = 'none';
+	if (L.under) {
+		const gr = c.createLinearGradient(0, top + (base - top) * 0.45, 0, base);
+		gr.addColorStop(0, css(L.under, 0)); gr.addColorStop(1, css(L.under, 0.5));
+		c.fillStyle = gr;
+		c.fillRect(0, 0, W, H);
+	}
+	// the rim: the shape, less itself moved away from the light
+	const s = scratch(W, H), rw = u * 1.6;
+	body(s);
+	s.fillStyle = css(L.rim);
+	s.fill();
+	s.globalCompositeOperation = 'destination-out';
+	body(s, -lx * rw, -ly * rw);
+	s.fill();
+	c.globalAlpha = L.rimA;
+	c.drawImage(s.canvas, 0, 0, W, H, 0, 0, W, H);
+	c.restore();
+}
+
+/** A heap: puffs along a flat base rising into one to three towers, with small lumps along its top. Coordinates from the
+ * base's left end, y up being negative. */
+function heapPuffs(r, W, least) {
+	const puffs = [], towers = [];
+	for (let i = 0, m = 1 + ((r() * 3) | 0); i < m; i++) towers.push([0.2 + r() * 0.6, 0.1 + r() * 0.14, 0.5 + r() * 0.5]);
+	const env = (t) => {
+		let e = 0.28;
+		for (const [c, wd, ht] of towers) e = Math.max(e, ht * Math.exp(-((t - c) ** 2) / (2 * wd * wd)));
+		return e * Math.min(1, 0.35 + t * 5, 0.35 + (1 - t) * 5);
+	};
+	const n = 7 + ((r() * 6) | 0);
+	for (let i = 0; i < n; i++) {
+		const t = (i + 0.5 + (r() - 0.5) * 0.5) / n, rad = Math.max(least * 1.5, W * (0.025 + 0.12 * env(t)) * (0.85 + r() * 0.3));
+		puffs.push({ x: W * t, y: -rad * (0.45 + r() * 0.2), r: rad });
+	}
+	for (let i = 0, m = 6 + ((r() * 8) | 0); i < m; i++) {
+		const p = puffs[(r() * n) | 0], a = -Math.PI * (0.15 + r() * 0.7);
+		puffs.push({ x: p.x + Math.cos(a) * p.r * 0.75, y: p.y + Math.sin(a) * p.r * 0.75, r: Math.max(least, p.r * (0.28 + r() * 0.3)) });
+	}
+	for (let x = W * 0.05; x < W * 0.95; x += W * 0.045) puffs.push({ x, y: -W * 0.018, r: Math.max(least, W * (0.022 + r() * 0.014)), sy: 0.7 });
+	return puffs;
+}
+
+/** A band: a long, thin streak of flattened puffs, each overlapping the next, thickest in its middle, along a gentle wave,
+ * with a few lumps on its back. */
+function bandPuffs(r, W, least) {
+	const puffs = [], wave = r() * TAU, thick = 0.03 + r() * 0.025;
+	for (let x = W * 0.02; x < W * 0.98;) {
+		const t = x / W, env = Math.pow(Math.sin(Math.PI * t), 0.6), rad = Math.max(least, W * thick * (0.3 + 0.7 * env) * (0.75 + r() * 0.5));
+		puffs.push({ x, y: -rad * 0.4 + Math.sin(t * 5 + wave) * W * 0.01, r: rad, sy: 0.45 });
+		x += rad * (0.6 + r() * 0.5);
+	}
+	for (let i = 0, n = puffs.length, m = 3 + ((r() * 5) | 0); i < m; i++) {
+		const p = puffs[((0.2 + r() * 0.6) * n) | 0];
+		puffs.push({ x: p.x + (r() - 0.5) * p.r, y: p.y - p.r * 0.3, r: p.r * (0.7 + r() * 0.4), sy: 0.55 });
+	}
+	return puffs;
+}
+
+/** A sum of a few sines that repeats every `span`: heights along a bank that wraps round. */
+const periodic = (r, span) => {
+	const waves = [1, 2, 3, 5, 8, 13].map((k) => [k, r() * TAU, (0.5 + r()) / Math.sqrt(k)]), norm = waves.reduce((sm, [, , a]) => sm + a, 0);
+	return (x) => 0.5 + 0.5 * waves.reduce((sm, [k, ph, a]) => sm + a * Math.sin((x / span) * k * TAU + ph), 0) / norm;
+};
+
+/**
+ * A bank of cloud as wide as the picture, wrapping round as it drifts: lumps of size r0 along its top over a solid body,
+ * lit from (lx, ly), darkening downwards. Drawn once into a canvas w wide and `deep` tall; its lumps' tops are near `lump`
+ * from the canvas' top.
+ */
+function bankSprite(r, w, deep, r0, L, lx, ly, u) {
+	const rise = r0 * (1.6 + r() * 1.2), top = r0 * 1.5 + rise, hgt = periodic(r, w), main = [], lumps = [];
+	for (let x = 0; x < w;) {
+		const e = hgt(x), rad = r0 * (0.5 + 0.7 * e) * (0.75 + r() * 0.5), y = top - rise * e + rad * 0.3;
+		main.push({ x, y, r: rad });
+		if (r() < 0.55) lumps.push({ x: x + (r() - 0.5) * rad, y: y - rad * (0.5 + r() * 0.3), r: rad * (0.35 + r() * 0.3) });
+		x += rad * (0.65 + r() * 0.55);
+	}
+	// drawn with a margin each side, so the blur of the lighting does not fade the edges where the bank meets itself
+	const m = Math.ceil(r0 * 3), wrap = (list) => list.flatMap((p) => [-w, 0, w].map((k) => ({ ...p, x: p.x + k + m }))).filter((p) => p.x > -r0 * 3 && p.x < w + m * 2 + r0 * 3);
+	const body = wrap(main).sort((a, b) => a.x - b.x), puffs = [...body, ...wrap(lumps)];
+	const c = canvasOf(w + m * 2, Math.ceil(deep)), cg = c.getContext('2d');
+	shadePuffs(cg, c.width, c.height, puffs, L, lx, ly, u, body.map((p) => [p.x, p.y]));
+	const gr = cg.createLinearGradient(0, top + r0, 0, c.height);
+	gr.addColorStop(0, css(L.shadow, 0)); gr.addColorStop(1, css(mix(L.shadow, BLACK, 0.1), 0.6));
+	cg.globalCompositeOperation = 'source-atop';
+	cg.fillStyle = gr;
+	cg.fillRect(0, 0, c.width, c.height);
+	return { c, top, m, w };
+}
+
+/** Draws a bank sprite wrapped round at offset x (and upside down, hanging from y, when `hang`). */
+function drawBank(g, w, bank, x, y, hang = false) {
+	const off = wrapX(x, w);
+	g.save();
+	if (hang) { g.translate(0, y); g.scale(1, -1); g.translate(0, -y); }
+	const { c, m } = bank, H = c.height;
+	g.drawImage(c, m, 0, w, H, off - w, y - bank.top, w, H);
+	g.drawImage(c, m, 0, w, H, off, y - bank.top, w, H);
+	g.restore();
+}
+
+/** A cloud drawn once into its own canvas, lit from (lx, ly); `by` is its base's height in it. */
+function cloudSprite(puffs, L, lx, ly, u) {
+	let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
+	for (const p of puffs) { x0 = Math.min(x0, p.x - p.r); x1 = Math.max(x1, p.x + p.r); y0 = Math.min(y0, p.y - p.r * (p.sy || 1)); }
+	const pad = Math.ceil(u * 4), W = Math.ceil(x1 - x0) + pad * 2, by = Math.ceil(-y0) + pad, H = by + pad;
+	const c = canvasOf(W, H), cg = c.getContext('2d'), moved = puffs.map((p) => ({ ...p, x: p.x - x0 + pad, y: p.y + by }));
+	cg.beginPath(); cg.rect(0, 0, W, by + u * 0.5); cg.clip();   // a flat underside
+	shadePuffs(cg, W, H, moved, L, lx, ly, u, null, pad, by);
+	return { c, by };
+}
+
+/**
+ * Clouds drifting with the wind: heaps and long bands, the far ones low, small and pale, each lit from the side the sun or
+ * the moon is on (they are drawn lit from the left and from the right, and cross-fade as they pass it) and sinking into
+ * their shadow colour away from it. Their shapes are drawn once per picture. `overcast`: a low ceiling of cloud instead.
+ */
+function clouds(g, w, h, S, pal, horizon, n, { style = pal.clouds, overcast = false, name = 'clouds' } = {}) {
+	const U = h * ASPECT, u = unit(h), L = cloudTones(pal, style);
+	if (overcast) {   // banks upside down, their lumps hanging, lit from below; the lower ones farther and paler
+		const decks = S.memo(name, (r) => [0, 1, 2].map((i) => bankSprite(r, w, h * 0.75, h * (0.04 + i * 0.018), hazed(L, pal, 0.35 - i * 0.17), 0, -1, u)));
+		decks.forEach((d, i) => drawBank(g, w, d, T * h * (0.004 + i * 0.006), horizon * (0.55 - i * 0.17), true));
+		return;
+	}
+	const set = S.memo(name, (r) => {
+		const list = [], dir = r() < 0.5 ? 1 : -1;
+		for (let i = 0, k = Math.max(1, Math.round(n * 1.4 * w / U)); i < k; i++) {
+			const z = r(), band = r() < L.bands * (1.2 - z * 0.6);
+			const W = U * (band ? 0.22 + r() * 0.25 : 0.12 + r() * 0.16) * (0.5 + z * 0.7), puffs = band ? bandPuffs(r, W, u * 2.4) : heapPuffs(r, W, u * 2);
+			list.push({
+				z, at: r(), sp: h * (0.003 + z * 0.012) * dir, y: horizon * (band ? 0.22 + (1 - z) * 0.55 : 0.2 + (1 - z) * 0.42),
+				left: cloudSprite(puffs, L, -L.lean, L.ly, u), right: cloudSprite(puffs, L, L.lean, L.ly, u),
+			});
 		}
+		return list.sort((a, b) => a.z - b.z);
+	});
+	for (const cl of set) {
+		const { c, by } = cl.left, cw = c.width, ch = c.height, span = w + cw;
+		const x = wrapX(cl.at * span + T * cl.sp, span) - cw, y = Math.max(cl.y, by * 0.85) - by, cx = x + cw / 2;
+		const t = Math.max(0, Math.min(1, 0.5 + (SUN.x - cx) / (w * 0.5))), right = t * t * (3 - 2 * t);
+		const far = Math.min(1, Math.hypot((SUN.x - cx) / (w * 0.45), (SUN.y - cl.y) / (h * 1.2)));
+		const s = scratch(cw, ch);
+		s.drawImage(c, 0, 0);
+		s.globalAlpha = right;
+		s.drawImage(cl.right.c, 0, 0);
+		if (L.fade) {
+			s.globalAlpha = L.fade * far * far * (3 - 2 * far);
+			s.globalCompositeOperation = 'source-atop';
+			s.fillStyle = css(L.shadow);
+			s.fillRect(0, 0, cw, ch);
+			s.globalCompositeOperation = 'source-over';
+		}
+		g.globalAlpha = 0.6 + 0.4 * cl.z;
+		g.drawImage(s.canvas, 0, 0, cw, ch, x, y, cw, ch);
+		g.globalAlpha = 1;
 	}
 }
 
@@ -340,6 +615,85 @@ function water(g, w, h, R, pal, horizon, sx, sr) {
 	}
 }
 
+/**
+ * A Dutch mill s tall, standing at (x, base): a brick foot, a gallery round it on struts, a tapering smock lit on the sun's
+ * side, a boat-shaped cap, and four lattice sails turned to `turn`; a lit window at night when `lamp`.
+ */
+function windmill(g, x, base, s, color, pal, turn, u, lamp) {
+	const side = SUN.x >= x ? 1 : -1, lit = mix(color, pal.sun, pal.dark ? 0.1 : 0.16), deep = mix(color, BLACK, 0.12);
+	const lw = Math.max(1, s * 0.012), detail = s > 30 * u;
+	const footW = s * 0.17, footH = s * 0.17, galY = base - footH, botW = s * 0.15, topW = s * 0.075, topY = base - s * 0.62;
+	// the foot
+	g.fillStyle = css(deep);
+	g.fillRect(x - footW, galY, footW * 2, footH);
+	// the smock: slightly hollow sides, the lit half a shade lighter
+	const smock = new Path2D();
+	smock.moveTo(x - botW, galY);
+	smock.quadraticCurveTo(x - botW * 0.82, (galY + topY) / 2, x - topW, topY);
+	smock.lineTo(x + topW, topY);
+	smock.quadraticCurveTo(x + botW * 0.82, (galY + topY) / 2, x + botW, galY);
+	smock.closePath();
+	g.fillStyle = css(color); g.fill(smock);
+	g.save(); g.clip(smock);
+	g.fillStyle = css(lit); g.fillRect(side > 0 ? x + botW * 0.15 : x - botW * 1.2, topY, botW * 1.05, galY - topY);
+	if (detail) {   // the edges of its eight sides
+		g.fillStyle = css(deep, 0.5);
+		for (const f of [-0.55, 0.15]) g.fillRect(x + botW * f, topY, lw, galY - topY);
+	}
+	g.restore();
+	// door and window
+	g.fillStyle = css(mix(deep, BLACK, 0.3));
+	g.fillRect(x - s * 0.025, base - s * 0.09, s * 0.05, s * 0.09);
+	const wy = galY - (galY - topY) * 0.55, ws = Math.max(1, s * 0.03);
+	if (lamp) {
+		const warm = hex('#ffcf7a');
+		glow(g, x, wy, s * 0.08, warm, 0.35);
+		g.fillStyle = css(warm, 0.95);
+	}
+	g.fillRect(x - ws / 2, wy - ws / 2, ws, ws * 1.3);
+	// the gallery: a deck, a railing and struts
+	const gw = s * 0.27;
+	g.fillStyle = css(deep);
+	g.fillRect(x - gw, galY - lw, gw * 2, lw * 1.6);
+	if (detail) {
+		g.fillRect(x - gw, galY - s * 0.045, gw * 2, Math.max(1, lw * 0.7));
+		for (let px = -gw; px <= gw + 0.1; px += gw / 4) g.fillRect(x + px - lw / 2, galY - s * 0.045, Math.max(1, lw * 0.7), s * 0.045);
+		g.strokeStyle = css(deep); g.lineWidth = Math.max(1, lw * 0.8);
+		g.beginPath();
+		for (const sd of [-1, 1]) { g.moveTo(x + sd * gw * 0.9, galY); g.lineTo(x + sd * footW, galY + footH * 0.45); }
+		g.stroke();
+	}
+	// the cap
+	g.fillStyle = css(color);
+	g.beginPath(); g.ellipse(x, topY + 1, topW * 1.45, s * 0.075, 0, Math.PI, TAU); g.fill();
+	g.fillStyle = css(lit, 0.8);
+	g.beginPath(); g.ellipse(x + side * topW * 0.5, topY - s * 0.02, topW * 0.6, s * 0.035, 0, Math.PI, TAU); g.fill();
+	// the sails: a stock through the hub, and on each arm a frame of laths with cloth between
+	const hx = x, hy = topY - s * 0.025, L = s * 0.56, sw = s * 0.1, cloth = mix(color, pal.sky[2], pal.dark ? 0.1 : 0.3);
+	for (let a = 0; a < 4; a++) {
+		const an = turn + a * TAU / 4, dx = Math.cos(an), dy = Math.sin(an), px = -dy * sw, py = dx * sw;
+		const p0x = hx + dx * L * 0.16, p0y = hy + dy * L * 0.16, p1x = hx + dx * L, p1y = hy + dy * L;
+		g.fillStyle = css(cloth, detail ? 0.28 : 0.75);
+		g.beginPath(); g.moveTo(p0x, p0y); g.lineTo(p1x, p1y); g.lineTo(p1x + px, p1y + py); g.lineTo(p0x + px, p0y + py); g.closePath(); g.fill();
+		g.strokeStyle = css(color); g.lineCap = 'butt';
+		if (detail) {
+			g.lineWidth = Math.max(1, lw * 0.7);
+			g.beginPath();
+			g.moveTo(p0x + px, p0y + py); g.lineTo(p1x + px, p1y + py); g.lineTo(p1x, p1y);
+			g.moveTo(p0x + px * 0.5, p0y + py * 0.5); g.lineTo(p1x + px * 0.5, p1y + py * 0.5);
+			for (let k = 0; k <= 7; k++) {
+				const q = 0.16 + 0.84 * k / 7, bx = hx + dx * L * q, by = hy + dy * L * q;
+				g.moveTo(bx, by); g.lineTo(bx + px, by + py);
+			}
+			g.stroke();
+		}
+		g.lineWidth = Math.max(1, s * 0.018);
+		g.beginPath(); g.moveTo(hx, hy); g.lineTo(p1x, p1y); g.stroke();
+	}
+	g.fillStyle = css(deep);
+	g.beginPath(); g.arc(hx, hy, Math.max(1, s * 0.022), 0, TAU); g.fill();
+}
+
 /** A soft round glow. */
 function glow(g, x, y, r, color, alpha) {
 	const gr = g.createRadialGradient(x, y, 0, x, y, r);
@@ -350,12 +704,12 @@ function glow(g, x, y, r, color, alpha) {
 // --------------------------------------------------------------------------------------------------------- the scenes
 
 const DRAW = {
-	mountains(g, w, h, R, N, pal) {
+	mountains(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.5 + R() * 0.1);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 140, horizon * 0.7, unit(h));
 		sun(g, w * (0.15 + R() * 0.7), horizon * (0.35 + R() * 0.45), h * (0.05 + R() * 0.03), pal);
-		clouds(g, w, h, R, pal, horizon, 2 + ((R() * 4) | 0));
+		clouds(g, w, h, S, pal, horizon, 2 + ((R() * 4) | 0));
 		const layers = 5, trees = R() < 0.5, flock = R() < 0.6;
 		for (let i = 0; i < layers; i++) {
 			const t = i / (layers - 1);
@@ -373,12 +727,12 @@ const DRAW = {
 		if (flock) birds(g, w, h, R, landAt(pal, 1), horizon);
 	},
 
-	hills(g, w, h, R, N, pal) {
+	hills(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.55 + R() * 0.08);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 140, horizon * 0.7, unit(h));
 		sun(g, w * (0.15 + R() * 0.7), horizon * (0.3 + R() * 0.5), h * (0.05 + R() * 0.03), pal);
-		clouds(g, w, h, R, pal, horizon, 3 + ((R() * 4) | 0));
+		clouds(g, w, h, S, pal, horizon, 3 + ((R() * 4) | 0));
 		const layers = 4, kind = R();
 		for (let i = 0; i < layers; i++) {
 			const t = i / (layers - 1);
@@ -397,13 +751,13 @@ const DRAW = {
 		birds(g, w, h, R, landAt(pal, 1), horizon);
 	},
 
-	sea(g, w, h, R, N, pal) {
+	sea(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.56 + R() * 0.08);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 140, horizon * 0.8, unit(h));
 		const sx = w * (0.2 + R() * 0.6), sr = h * (0.05 + R() * 0.03), sy = horizon - sr * (1.2 + R() * 4);
 		sun(g, sx, sy, sr, pal, 0.55);
-		clouds(g, w, h, R, pal, horizon, 2 + ((R() * 4) | 0));
+		clouds(g, w, h, S, pal, horizon, 2 + ((R() * 4) | 0));
 		// a coast far away, on one side
 		const side = R() < 0.5, reach = 0.3 + R() * 0.35, camp = h * (0.08 + R() * 0.08), cph = R() * 50;
 		g.beginPath(); g.moveTo(0, horizon + 1);
@@ -429,7 +783,7 @@ const DRAW = {
 		birds(g, w, h, R, landAt(pal, 1), horizon);
 	},
 
-	dunes(g, w, h, R, N, pal) {
+	dunes(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.55 + R() * 0.06), u = unit(h);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 160, horizon * 0.8, u);
@@ -467,7 +821,7 @@ const DRAW = {
 		}
 	},
 
-	forest(g, w, h, R, N, pal) {
+	forest(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.5 + R() * 0.08);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 140, horizon * 0.8, unit(h));
@@ -489,12 +843,12 @@ const DRAW = {
 		birds(g, w, h, R, landAt(pal, 1), horizon);
 	},
 
-	city(g, w, h, R, N, pal) {
+	city(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.6 + R() * 0.08), u = unit(h);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 120, horizon * 0.8, u);
 		sun(g, w * (0.15 + R() * 0.7), horizon * (0.3 + R() * 0.4), h * (0.05 + R() * 0.03), pal);
-		clouds(g, w, h, R, pal, horizon, 2);
+		clouds(g, w, h, S, pal, horizon, 2);
 		// an aeroplane crossing now and then, its light blinking
 		const pp = 70 + R() * 60, pph = R() * pp, py = horizon * (0.15 + R() * 0.3), pdir = R() < 0.5 ? 1 : -1;
 		const p = ((T + pph) % pp) / (pp * 0.6);
@@ -531,7 +885,7 @@ const DRAW = {
 		}
 	},
 
-	grid(g, w, h, R, N, pal) {
+	grid(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.58 + R() * 0.06);
 		sky(g, w, h, pal, horizon);
 		stars(g, w, h, R, 90, horizon * 0.7, unit(h));
@@ -694,7 +1048,7 @@ const DRAW = {
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 140, horizon * 0.8, u);
 		sun(g, w * (0.15 + R() * 0.7), horizon * (0.35 + R() * 0.4), h * (0.05 + R() * 0.03), pal);
-		clouds(g, w, h, R, pal, horizon, 2 + ((R() * 3) | 0));
+		clouds(g, w, h, S, pal, horizon, 2 + ((R() * 3) | 0));
 		for (let i = 0; i < 3; i++) {
 			const t = i / 2, color = mix(landAt(pal, 0.2 + t * 0.6), pal.sky[2], (1 - t) * 0.35);
 			ridge(g, w, h, { base: horizon, amp: h * (0.42 - t * 0.14), freq: 2.2 + t * 2, phase: R() * 50, sharp: true, peak: 1.6, color, N });
@@ -729,12 +1083,12 @@ const DRAW = {
 		birds(g, w, h, R, shore, horizon);
 	},
 
-	waves(g, w, h, R, N, pal) {
+	waves(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.42 + R() * 0.08);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 140, horizon * 0.8, unit(h));
 		sun(g, w * (0.15 + R() * 0.7), horizon * (0.4 + R() * 0.4), h * (0.07 + R() * 0.04), pal, 0.5);
-		clouds(g, w, h, R, pal, horizon, 2 + ((R() * 3) | 0));
+		clouds(g, w, h, S, pal, horizon, 2 + ((R() * 3) | 0));
 		const rows = 6, foam = mix(pal.sky[2], WHITE, 0.55), u = unit(h), dir = R() < 0.5 ? 1 : -1;
 		for (let i = 0; i < rows; i++) {
 			const t = i / (rows - 1), color = mix(landAt(pal, t), pal.sky[2], (1 - t) * 0.35);
@@ -766,12 +1120,12 @@ const DRAW = {
 		}
 	},
 
-	mesas(g, w, h, R, N, pal) {
+	mesas(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.58 + R() * 0.08);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 140, horizon * 0.8, unit(h));
 		sun(g, w * (0.15 + R() * 0.7), horizon * (0.35 + R() * 0.4), h * (0.06 + R() * 0.04), pal, 0.55);
-		clouds(g, w, h, R, pal, horizon, 1 + ((R() * 3) | 0));
+		clouds(g, w, h, S, pal, horizon, 1 + ((R() * 3) | 0));
 		const U = h * ASPECT, u = unit(h);
 		// a hawk circling high up
 		const hx = w * (0.2 + R() * 0.6), hy = horizon * (0.25 + R() * 0.25), hr = h * (0.12 + R() * 0.1), hs = 0.18 + R() * 0.12;
@@ -826,35 +1180,30 @@ const DRAW = {
 		g.beginPath(); g.moveTo(bx - s, by - s * flap); g.quadraticCurveTo(bx - s * 0.4, by - s * 0.15, bx, by); g.quadraticCurveTo(bx + s * 0.4, by - s * 0.15, bx + s, by - s * flap); g.stroke();
 	},
 
-	clouds(g, w, h, R, N, pal) {
-		const horizon = h * (0.42 + R() * 0.08);
+	clouds(g, w, h, R, N, pal, S) {
+		// above a sea of cloud: far peaks standing out of it, banks rolling towards us, the nearer the bigger and faster, lit
+		// from the sun's side, with long bands overhead
+		const horizon = h * (0.42 + R() * 0.08), u = unit(h);
 		sky(g, w, h, pal, horizon);
-		nightStars(g, w, h, R, pal, 140, horizon * 0.8, unit(h));
-		const sx = w * (0.15 + R() * 0.7), sr = h * (0.06 + R() * 0.03);
-		sun(g, sx, horizon - sr * (0.3 + R() * 1.5), sr, pal, 0.6);
+		nightStars(g, w, h, R, pal, 140, horizon * 0.8, u);
+		const sx = w * (0.15 + R() * 0.7), sr = h * (0.06 + R() * 0.03), sy = horizon - sr * (0.3 + R() * 1.5);
+		sun(g, sx, sy, sr, pal, 0.6);
+		clouds(g, w, h, S, pal, horizon * 0.9, 1 + ((R() * 2) | 0), { name: 'high' });
 		ridge(g, w, h, { base: horizon + h * 0.12, amp: h * 0.4, freq: 2.4, phase: R() * 50, sharp: true, peak: 1.8, color: mix(pal.land[2], pal.sky[1], 0.35), N });
-		const rows = 6, lit = mix(mix(pal.sky[2], WHITE, 0.45), pal.sun, 0.3);
-		for (let i = 0; i < rows; i++) {
+		const L = cloudTones(pal), rows = 5, lean = Math.max(-1, Math.min(1, (sx - w / 2) / (w * 0.4))) * 0.5;
+		const banks = S.memo('banks', (r) => Array.from({ length: rows }, (_, i) => {
 			const t = i / (rows - 1);
-			const base = horizon + (h - horizon) * (0.1 + t * 0.85), r0 = h * (0.04 + t * 0.1);
-			const dark = mix(mix(pal.sky[1], pal.land[1], 0.35 + t * 0.3), pal.sky[2], 0.3 - t * 0.2);
-			// each row drifts along, the nearer the faster
-			const span = w + r0 * 2, off = T * h * (0.004 + t * 0.012);
-			for (let x = 0; x < span; x += r0 * (0.8 + R() * 0.9)) {
-				const r = r0 * (0.6 + R() * 0.8), y = base + r * 0.4 - N.n1(x / h * 2 + i * 7) * r0 * 1.4, px = wrapX(x + off, span) - r0;
-				const gr = g.createLinearGradient(0, y - r, 0, y + r);
-				gr.addColorStop(0, css(lit));
-				gr.addColorStop(0.45, css(mix(lit, dark, 0.45)));
-				gr.addColorStop(1, css(dark));
-				g.fillStyle = gr;
-				g.beginPath(); g.arc(px, y, r, 0, TAU); g.fill();
-			}
-			g.fillStyle = css(dark);
-			g.fillRect(0, base + r0 * 0.4, w, h - base);
+			return bankSprite(r, w, h, h * (0.022 + t * 0.06), hazed({ ...L, under: null }, pal, (1 - t) * 0.55), lean, -0.9, u);
+		}));
+		for (let i = 0; i < rows; i++) {
+			const t = i / (rows - 1), y = horizon + (h - horizon) * (0.02 + Math.pow(t, 1.1) * 0.8);
+			drawBank(g, w, banks[i], T * h * (0.004 + t * 0.014), y);
+			if (i === 0) glow(g, sx, y, h * 0.5, mix(pal.sun, pal.glow, 0.4), pal.dark ? 0.12 : 0.22);
+			if (i < rows - 1) mist(g, w, y + h * 0.05, h * 0.06, pal.sky[2], 0.25 * (1 - t));
 		}
 	},
 
-	sakura(g, w, h, R, N, pal) {
+	sakura(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.62 + R() * 0.08);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 140, horizon * 0.8, unit(h));
@@ -936,13 +1285,13 @@ const DRAW = {
 		}
 	},
 
-	lighthouse(g, w, h, R, N, pal) {
+	lighthouse(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.58 + R() * 0.06), U = h * ASPECT, u = unit(h);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 180, horizon * 0.85, u);
 		const sx = w * (0.2 + R() * 0.6), sr = h * (0.04 + R() * 0.02);
 		sun(g, sx, horizon * (0.3 + R() * 0.3), sr, pal, 0.35);
-		clouds(g, w, h, R, pal, horizon, 2 + ((R() * 3) | 0));
+		clouds(g, w, h, S, pal, horizon, 2 + ((R() * 3) | 0));
 		water(g, w, h, R, pal, horizon, sx, sr * 0.6);
 		// a headland on one side
 		const left = R() < 0.5, reach = U * (0.2 + R() * 0.1), topY = horizon - h * (0.06 + R() * 0.06), seaY = horizon + h * 0.16, cph = R() * 50;
@@ -989,49 +1338,62 @@ const DRAW = {
 		glow(g, lx, ly, h * 0.05, lamp, 0.35);
 	},
 
-	windmills(g, w, h, R, N, pal) {
+	windmills(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.6 + R() * 0.08), U = h * ASPECT, u = unit(h);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 140, horizon * 0.8, u);
 		sun(g, w * (0.15 + R() * 0.7), horizon * (0.3 + R() * 0.4), h * (0.05 + R() * 0.03), pal);
-		clouds(g, w, h, R, pal, horizon, 3 + ((R() * 3) | 0));
-		ridge(g, w, h, { base: horizon + 1, amp: h * 0.035, freq: 7, phase: R() * 50, oct: 3, color: mix(pal.land[1], pal.sky[2], 0.45), N });
-		// flat fields in bands, one of them a canal holding the sky
-		const nb = 4 + ((R() * 3) | 0), canal = 1 + ((R() * (nb - 2)) | 0);
+		clouds(g, w, h, S, pal, horizon, 3 + ((R() * 3) | 0));
+		const far = mix(pal.land[1], pal.sky[2], 0.45);
+		ridge(g, w, h, { base: horizon + 1, amp: h * 0.035, freq: 7, phase: R() * 50, oct: 3, color: far, N });
+		// poplars in rows along the far dykes
+		const pph = R() * 50;
+		g.fillStyle = css(mix(far, pal.land[2], 0.25));
+		for (let x = 0; x < w; x += U * (0.006 + R() * 0.01)) {
+			const ht = h * (0.025 + R() * 0.035);
+			if (N.n1(x / h * 1.6 + pph) < 0.55) continue;
+			g.beginPath(); g.ellipse(x, horizon + h * 0.02 - ht * 0.5, ht * 0.17, ht * 0.5, 0, 0, TAU); g.fill();
+		}
+		// flat fields in bands, ditches of sky between them, one a canal; some of them tulips in rows of colour
+		const tulips = ['#d9354a', '#f2c230', '#ef7aa4', '#f3efe6', '#9b4fc4', '#ee6a2c'].map(hex), mute = pal.dark ? 0.82 : 0.2;
+		const nb = 4 + ((R() * 3) | 0), canal = 1 + ((R() * (nb - 2)) | 0), ditch = mix(pal.sky[2], pal.sky[1], 0.3), bloom = canal === nb - 1 ? nb - 2 : nb - 1;
 		for (let k = 0; k < nb; k++) {
-			const y0 = horizon + h * 0.02 + (h - horizon) * Math.pow(k / nb, 1.4), y1 = horizon + h * 0.02 + (h - horizon) * Math.pow((k + 1) / nb, 1.4) + 1;
+			const y0 = horizon + h * 0.02 + (h - horizon) * Math.pow(k / nb, 1.8), y1 = horizon + h * 0.02 + (h - horizon) * Math.pow((k + 1) / nb, 1.8) + 1;
+			const field = mix(landAt(pal, 0.35 + 0.65 * k / nb), k % 2 ? pal.sun : BLACK, 0.06), flowers = k === bloom || R() < 0.5, rows = 3 + ((R() * 4) | 0), c0 = (R() * tulips.length) | 0;
 			if (k === canal) {
 				g.fillStyle = css(mix(pal.sky[2], pal.sky[1], 0.35)); g.fillRect(0, y0, w, y1 - y0);
 				g.fillStyle = css(mix(pal.sky[2], WHITE, 0.4), 0.4 + 0.2 * Math.sin(T * 0.8)); g.fillRect(0, y0 + (y1 - y0) * 0.3, w, u);
-			} else {
-				g.fillStyle = css(mix(landAt(pal, 0.35 + 0.65 * k / nb), k % 2 ? pal.sun : BLACK, 0.06)); g.fillRect(0, y0, w, y1 - y0);
+				continue;
 			}
+			g.fillStyle = css(field); g.fillRect(0, y0, w, y1 - y0);
+			if (flowers && k > 0) {
+				const haze = (1 - k / nb) * 0.5;
+				for (let j = 0; j < rows; j++) {
+					const a = y0 + (y1 - y0) * (j + 0.2) / rows, b = y0 + (y1 - y0) * (j + 0.75) / rows;
+					const col = mix(mix(tulips[(c0 + j) % tulips.length], field, mute), pal.sky[2], haze);
+					g.fillStyle = css(col);
+					g.fillRect(0, a, w, Math.max(1, b - a));
+					if (b - a > 4 * u) {   // near, the row is heads of flowers over the leaves
+						g.fillStyle = css(mix(col, WHITE, 0.25));
+						for (let fx = (j * 3.7) % 4 * u; fx < w; fx += u * 4) g.fillRect(fx, a - u, u * 2, u * 1.5);
+						g.fillStyle = css(mix(col, field, 0.55));
+						g.fillRect(0, b - (b - a) * 0.3, w, (b - a) * 0.3);
+					}
+				}
+			}
+			g.fillStyle = css(ditch, pal.dark ? 0.25 : 0.4); g.fillRect(0, y0, w, Math.max(1, u * 0.6));
 		}
 		const mills = [];
-		for (let k = 0, n = (2 + ((R() * 3) | 0)) * w / U; k < n; k++) mills.push({ x: R() * w, depth: R(), speed: (0.25 + R() * 0.35) * (R() < 0.5 ? 1 : -1), ph: R() * TAU });
+		for (let k = 0, n = (2 + ((R() * 3) | 0)) * w / U; k < n; k++) mills.push({ x: R() * w, depth: R(), speed: (0.25 + R() * 0.35) * (R() < 0.5 ? 1 : -1), ph: R() * TAU, lamp: R() });
 		mills.sort((a, b) => a.depth - b.depth);
 		for (const m of mills) {
 			const s = h * (0.16 + m.depth * 0.3), base = horizon + h * 0.02 + (h - horizon) * m.depth * 0.35;
-			const color = mix(landAt(pal, 0.65 + m.depth * 0.35), pal.sky[2], (1 - m.depth) * 0.4);
-			g.fillStyle = css(color);
-			g.beginPath(); g.moveTo(m.x - s * 0.16, base); g.lineTo(m.x + s * 0.16, base); g.lineTo(m.x + s * 0.09, base - s * 0.6); g.lineTo(m.x - s * 0.09, base - s * 0.6); g.fill();
-			g.beginPath(); g.moveTo(m.x - s * 0.12, base - s * 0.6); g.lineTo(m.x + s * 0.12, base - s * 0.6); g.lineTo(m.x, base - s * 0.75); g.fill();
-			const hx = m.x, hy = base - s * 0.64, L = s * 0.55, sw = s * 0.09;
-			g.strokeStyle = css(color); g.lineWidth = Math.max(1, s * 0.02);
-			for (let a = 0; a < 4; a++) {
-				const an = m.ph + T * m.speed + a * TAU / 4, dx = Math.cos(an), dy = Math.sin(an), px = -dy, py = dx;
-				g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx + dx * L, hy + dy * L); g.stroke();
-				g.fillStyle = css(mix(color, pal.sky[2], 0.15), 0.9);
-				g.beginPath();
-				g.moveTo(hx + dx * L * 0.18, hy + dy * L * 0.18); g.lineTo(hx + dx * L, hy + dy * L);
-				g.lineTo(hx + dx * L + px * sw, hy + dy * L + py * sw); g.lineTo(hx + dx * L * 0.18 + px * sw, hy + dy * L * 0.18 + py * sw);
-				g.fill();
-			}
+			windmill(g, m.x, base, s, mix(landAt(pal, 0.65 + m.depth * 0.35), pal.sky[2], (1 - m.depth) * 0.4), pal, m.ph + T * m.speed, u, pal.dark && m.lamp < 0.6);
 		}
 		birds(g, w, h, R, landAt(pal, 1), horizon);
 	},
 
-	snow(g, w, h, R, N, pal) {
+	snow(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.52 + R() * 0.06), U = h * ASPECT, u = unit(h);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 160, horizon * 0.8, u);
@@ -1087,14 +1449,15 @@ const DRAW = {
 		}
 	},
 
-	rain(g, w, h, R, N, pal) {
+	rain(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.62 + R() * 0.06), U = h * ASPECT, u = unit(h);
 		sky(g, w, h, pal, horizon);
 		// now and then lightning far away lights the clouds, twice
 		const per = 14 + R() * 12, ph = R() * per, p = (T + ph) % per;
 		const flash = p < 0.12 ? 1 - p / 0.12 : p > 0.25 && p < 0.33 ? (1 - (p - 0.25) / 0.08) * 0.6 : 0;
 		if (flash > 0) { g.fillStyle = css(WHITE, 0.14 * flash); g.fillRect(0, 0, w, horizon); }
-		clouds(g, w, h, R, pal, horizon * 0.5, 7, mix(pal.sky[0], pal.land[2], 0.5));
+		clouds(g, w, h, S, pal, horizon, 7, { style: 'storm', overcast: true });
+		if (flash > 0) { g.fillStyle = css(mix(WHITE, pal.glow, 0.15), 0.1 * flash); g.fillRect(0, 0, w, horizon); }
 		if (R() < 0.5) {
 			for (let i = 0; i < 2; i++) {
 				const t = i, color = mix(landAt(pal, 0.3 + t * 0.4), pal.sky[2], 0.5 - t * 0.25);
@@ -1140,7 +1503,7 @@ const DRAW = {
 		}
 	},
 
-	volcano(g, w, h, R, N, pal) {
+	volcano(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.64 + R() * 0.06), u = unit(h);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 140, horizon * 0.7, u);
@@ -1168,12 +1531,33 @@ const DRAW = {
 			g.stroke();
 		}
 		g.fillStyle = css(lava, 0.9); g.fillRect(cx - cw * 0.5, top + h * 0.004, cw, u * 1.5);
-		// smoke rising from the crater and spreading with the wind, embers thrown up
+		// smoke billowing from the crater and spreading with the wind: lumpy puffs, lit by the lava from below while they are
+		// low, by the sky on top, thinning as they go; embers thrown up
 		const wind = (R() < 0.5 ? -1 : 1) * (0.3 + R() * 0.4), smoke = mix(mix(pal.land[1], pal.sky[1], 0.5), WHITE, 0.08);
-		for (let k = 0, n = 18; k < n; k++) {
-			const p = (T * 0.035 + k / n) % 1, wob = R() * TAU;
-			const x = cx + p * h * 1.1 * wind + Math.sin(p * 5 + wob) * h * 0.03, y = top - p * h * 0.45 * (1 - p * 0.4), r = h * (0.03 + p * 0.12);
-			glow(g, x, y, r, mix(smoke, lava, Math.pow(1 - p, 4) * 0.6), 0.45 * (1 - p) * Math.min(1, p * 6));
+		const dark = mix(smoke, BLACK, 0.3), lit = mix(smoke, pal.sky[2], 0.35), puffs = [];
+		for (let k = 0, n = 22; k < n; k++) puffs.push({ p: (T * 0.035 + k / n) % 1, wob: R() * TAU, lumps: [0, 1, 2, 3].map(() => [R() - 0.5, R() - 0.5, 0.45 + R() * 0.35]) });
+		puffs.sort((a, b) => b.p - a.p);
+		for (const { p, wob, lumps } of puffs) {
+			const x = cx + p * h * 1.1 * wind + Math.sin(p * 5 + wob) * h * 0.03, y = top - p * h * 0.45 * (1 - p * 0.4), r = h * (0.035 + p * 0.13);
+			const size = Math.ceil(r * 3), mid = size / 2, heat = Math.pow(1 - p, 3), s = scratch(size, size);
+			s.filter = `blur(${u * (0.8 + p * 2)}px)`;
+			s.fillStyle = css(mix(dark, lava, heat * 0.5));
+			s.beginPath();
+			for (const [ox, oy, rs] of lumps) { s.moveTo(mid + ox * r + r * rs, mid + oy * r * 0.6); s.arc(mid + ox * r, mid + oy * r * 0.6, r * rs, 0, TAU); }
+			s.fill();
+			s.globalCompositeOperation = 'source-atop';
+			s.fillStyle = css(mix(lit, lava, heat * 0.3), 0.85);
+			s.beginPath();
+			for (const [ox, oy, rs] of lumps) { const lx = mid + ox * r - wind * r * rs * 0.2, ly = mid + oy * r * 0.6 - r * rs * 0.3; s.moveTo(lx + r * rs * 0.7, ly); s.arc(lx, ly, r * rs * 0.7, 0, TAU); }
+			s.fill();
+			if (heat > 0.05) {
+				const gr = s.createLinearGradient(0, mid, 0, mid + r);
+				gr.addColorStop(0, css(lava, 0)); gr.addColorStop(1, css(lava, heat * 0.8));
+				s.fillStyle = gr; s.fillRect(0, 0, size, size);
+			}
+			g.globalAlpha = 0.9 * Math.pow(1 - p, 1.2) * Math.min(1, p * 8);
+			g.drawImage(s.canvas, 0, 0, size, size, x - mid, y - mid, size, size);
+			g.globalAlpha = 1;
 		}
 		for (let k = 0; k < 24; k++) {
 			const sp = 0.4 + R() * 0.5, ph = R(), dx = (R() - 0.5) * h * 0.18, hgt = h * (0.08 + R() * 0.12), p = (T * sp + ph) % 1;
@@ -1183,13 +1567,13 @@ const DRAW = {
 		ridge(g, w, h, { base: h * 0.95, amp: h * 0.1, freq: 2.5, phase: R() * 50, oct: 3, color: pal.land[3], N });
 	},
 
-	islands(g, w, h, R, N, pal) {
+	islands(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.52 + R() * 0.06), U = h * ASPECT, u = unit(h);
 		sky(g, w, h, pal, horizon);
 		nightStars(g, w, h, R, pal, 140, horizon * 0.8, u);
 		const sx = w * (0.2 + R() * 0.6), sr = h * (0.05 + R() * 0.03);
 		sun(g, sx, horizon * (0.35 + R() * 0.45), sr, pal, 0.55);
-		clouds(g, w, h, R, pal, horizon, 2 + ((R() * 3) | 0));
+		clouds(g, w, h, S, pal, horizon, 2 + ((R() * 3) | 0));
 		water(g, w, h, R, pal, horizon, sx, sr);
 		const isles = [];
 		for (let k = 0, n = (1 + ((R() * 3) | 0)) * w / U; k < n; k++) isles.push({ x: R() * w, d: R(), wd: R(), ht: R(), palms: 1 + ((R() * 3) | 0), seeds: [R(), R(), R(), R(), R(), R()] });
@@ -1219,7 +1603,7 @@ const DRAW = {
 		birds(g, w, h, R, dark, horizon);
 	},
 
-	fireflies(g, w, h, R, N, pal) {
+	fireflies(g, w, h, R, N, pal, S) {
 		const horizon = h * (0.55 + R() * 0.08), U = h * ASPECT, u = unit(h);
 		sky(g, w, h, pal, horizon);
 		stars(g, w, h, R, 200, horizon * 0.85, u);
@@ -1301,11 +1685,13 @@ const grainOf = (w, h) => stored(`grain|${w}x${h}`, () => {
 
 /**
  * Draws one frame of a banner, at time t (seconds), into a canvas of the size it has; with `post`, dithered (or grained)
- * on the CPU too.
+ * on the CPU too. The moon is in today's phase unless another is given.
  */
-function drawFrame(canvas, b, style, t, post = true) {
+function drawFrame(canvas, b, style, t, post = true, phase = moonPhase()) {
 	T = t;
 	const w = canvas.width, h = canvas.height, g = canvas.getContext('2d', { willReadFrequently: post });
+	SUN = { x: w / 2, y: -h };
+	PHASE = phase;
 	g.setTransform(1, 0, 0, 1, 0, 0);
 	g.globalAlpha = 1;
 	g.globalCompositeOperation = 'source-over';

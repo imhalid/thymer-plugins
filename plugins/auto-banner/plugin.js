@@ -3,15 +3,12 @@
  *
  * A page without a banner of its own gets a picture drawn at the top, in the banner's place, from its title: a canvas the
  * plugin draws each time the page is shown. Nothing is generated into the workspace: no image is uploaded, the page is not
- * changed, and turning the plugin off leaves every page as it was. The title is the seed, so the same title always gives
- * the same picture, and its words choose what is drawn: a title about the sea gets a sea, one about code or servers a
- * glowing grid, one about the night an aurora, and so on (Turkish and English words, suffixes allowed). A title with no
- * such word falls back on its collection's name, then on the seed alone.
+ * changed, and turning the plugin off leaves every page as it was. The title is the seed: what is drawn and in which
+ * colours is left to chance, but the same title always gives the same picture.
  *
  * The scenes: layered mountains, rolling hills, the sea with a sun on the water, dunes, a forest in fog, a skyline, a
  * synthwave grid, a contour map, an aurora over mountains, and a planet in space; each in one of twelve palettes (dusk,
- * dawn, day, meadow, desert, night, ice, ember, teal, synth, autumn, lavender), some of which words pick too ("gece",
- * "kış", "sunset", ...). They are drawn in a fine ordered dither (Bayer 8x8, a dot to a CSS pixel, ten shades a channel) or smooth with a
+ * dawn, day, meadow, desert, night, ice, ember, teal, synth, autumn, lavender). They are drawn in a fine ordered dither (Bayer 8x8, a dot to a CSS pixel, ten shades a channel) or smooth with a
  * little grain. Sizes and frequencies go by the strip's height, so a wide panel shows more of the land, not a stretched one.
  *
  * A page with a banner (its own or its collection's) shows that, as before. The strip takes a banner's height while it
@@ -19,7 +16,7 @@
  * drawn before are kept for the session, so going back to a page shows its picture at once.
  *
  * Commands:
- *   - Auto Banner: another picture for this page (the same words, another seed; kept on this device)
+ *   - Auto Banner: another picture for this page (another seed; kept on this device)
  *   - Auto Banner: back to this page's own picture
  *   - Auto Banner: switch between dither and smooth
  *   - Auto Banner: turn on or off (on this device)
@@ -96,61 +93,18 @@ for (const p of Object.values(PALETTES)) { p.sky = p.sky.map(hex); p.land = p.la
 /** A colour along the land colours, t from 0 (far) to 1 (near). */
 const landAt = (pal, t) => { const x = Math.max(0, Math.min(1, t)) * 3, i = Math.min(2, Math.floor(x)); return mix(pal.land[i], pal.land[i + 1], x - i); };
 
-// ---------------------------------------------------------------------------------------------------------- the words
+// --------------------------------------------------------------------------------------------------------- choosing
 
-// Each scene with the words that ask for it (folded: no Turkish letters, lower case). A word of four letters or more also
-// matches the start of a longer one ("dag" matches "daglari"); shorter ones match only themselves.
-const SCENE_WORDS = {
-	sea: 'deniz sea ocean okyanus beach plaj sahil kiyi tatil vacation holiday ada island boat tekne gemi ship sail yelken liman port surf dalga wave marina',
-	mountains: 'dag mountain hike hiking trek kamp camp camping zirve peak summit climb tirmanis alp alps kayak ski everest himalaya kapadokya',
-	forest: 'orman forest agac tree garden bahce plant bitki nature doga park yuruyus walk wood woods yaprak leaf mantar',
-	dunes: 'col desert sahra sahara kum sand misir egypt safari kervan',
-	hills: 'gunluk journal daily diary sabah morning hafta week weekly yaz summer bahar spring mutlu happy aile family koy village ciftlik farm piknik',
-	city: 'city sehir istanbul ankara izmir london paris berlin tokyo york ofis office meeting toplanti proje project startup business finans finance para money sirket company is work kariyer career',
-	grid: 'c cpp programlama programming yazilim software algoritma algorithm bellek memory pointer derleyici compiler code kod ssh server sunucu api dev terminal linux docker git github deploy infra infrastructure network vm oracle cloud ai yapay model llm agent ajan database veritabani sql rust js javascript typescript python plugin eklenti bug shader gpu cpu oyun game hack script config nginx kubernetes mcp claude mistral',
-	aurora: 'gece night ruya dream uyku sleep ay moon yildiz star aurora kutup polar kuzey north sessiz silence meditasyon meditation huzur',
-	space: 'uzay space planet gezegen galaksi galaxy roket rocket nasa astronomi astronomy evren universe kozmos cosmos mars jupiter saturn',
-	topo: 'not note notes docs doc ders lesson kurs course study calisma research arastirma analiz analysis plan rapor report matematik math fizik physics kitap book okuma reading makale article ogren learn rehber guide harita map ozet summary tez thesis',
-};
-const PALETTE_WORDS = {
-	night: 'gece night midnight geceyarisi',
-	dawn: 'sabah morning safak dawn sunrise',
-	dusk: 'aksam evening sunset gunbatimi',
-	ice: 'kis winter kar snow buz ice ocak subat aralik',
-	autumn: 'sonbahar autumn fall eylul ekim kasim',
-	ember: 'ates fire yangin volkan volcano lava cehennem',
-	meadow: 'bahar spring nisan mayis',
-	desert: 'sicak hot temmuz agustos',
-};
-const parseWords = (table) => Object.entries(table).map(([key, s]) => [key, s.split(/\s+/)]);
-const SCENES_BY_WORD = parseWords(SCENE_WORDS);
-const PALETTES_BY_WORD = parseWords(PALETTE_WORDS);
+const fold = (s) => s.toLocaleLowerCase('tr').replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-const fold = (s) => s.toLocaleLowerCase('tr').replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').normalize('NFD').replace(/[̀-ͯ]/g, '');
-const tokens = (s) => fold(s).split(/[^a-z0-9]+/).filter(Boolean);
-const hits = (word, toks) => toks.some((t) => t === word || (word.length >= 4 && t.startsWith(word)));
-
-/** The key of the table whose words come first in the text, or null. */
-function firstHit(table, text) {
-	const toks = tokens(text);
-	let best = null, at = Infinity;
-	for (const [key, words] of table) {
-		for (const w of words) {
-			const i = toks.findIndex((t) => t === w || (w.length >= 4 && t.startsWith(w)));
-			if (i >= 0 && i < at) { at = i; best = key; }
-		}
-	}
-	return best;
-}
-
-// The scenes, how often each comes when no word asks, and the palettes it is drawn in.
+// The scenes, how often each comes, and the palettes it is drawn in.
 const SCENES = {
-	mountains: { weight: 3, palettes: ['dusk', 'dawn', 'day', 'ice', 'autumn', 'lavender', 'teal'] },
-	hills: { weight: 2, palettes: ['dawn', 'day', 'meadow', 'autumn', 'lavender', 'dusk'] },
-	sea: { weight: 2, palettes: ['day', 'dusk', 'dawn', 'teal', 'lavender'] },
-	forest: { weight: 2, palettes: ['meadow', 'autumn', 'teal', 'dawn', 'ice', 'day'] },
+	mountains: { weight: 2, palettes: ['dusk', 'dawn', 'day', 'ice', 'autumn', 'lavender', 'teal'] },
+	hills: { weight: 1, palettes: ['dawn', 'day', 'meadow', 'autumn', 'lavender', 'dusk'] },
+	sea: { weight: 1.5, palettes: ['day', 'dusk', 'dawn', 'teal', 'lavender'] },
+	forest: { weight: 1, palettes: ['meadow', 'autumn', 'teal', 'dawn', 'ice', 'day'] },
 	dunes: { weight: 1, palettes: ['desert', 'dusk', 'ember', 'dawn'] },
-	topo: { weight: 2, palettes: Object.keys(PALETTES) },
+	topo: { weight: 1, palettes: Object.keys(PALETTES) },
 	city: { weight: 1, palettes: ['dusk', 'night', 'synth', 'dawn', 'lavender', 'ember'] },
 	grid: { weight: 1, palettes: ['synth', 'night', 'ember', 'dusk', 'teal'] },
 	aurora: { weight: 1, palettes: ['night'] },
@@ -163,14 +117,11 @@ const pickWeighted = (rand, entries) => {
 	return entries[entries.length - 1][0];
 };
 
-/** What a title (and its collection's name) asks for. */
-function choose(title, collectionName, rand) {
-	const scene = firstHit(SCENES_BY_WORD, title) || firstHit(SCENES_BY_WORD, collectionName || '') ||
-		pickWeighted(rand, Object.entries(SCENES).map(([k, s]) => [k, s.weight]));
-	const allowed = SCENES[scene].palettes;
-	const asked = firstHit(PALETTES_BY_WORD, title);
-	const palette = asked && (allowed.includes(asked) || scene !== 'aurora') ? asked : allowed[(rand() * allowed.length) | 0];
-	return { scene, palette };
+/** A scene and a palette, by the seed alone. */
+function choose(rand) {
+	const scene = pickWeighted(rand, Object.entries(SCENES).map(([k, s]) => [k, s.weight]));
+	const palettes = SCENES[scene].palettes;
+	return { scene, palette: palettes[(rand() * palettes.length) | 0] };
 }
 
 // ---------------------------------------------------------------------------------------------------------- the parts
@@ -521,7 +472,7 @@ const DRAW = {
 
 	space(g, w, h, R, N, pal) {
 		const img = g.createImageData(w, h), d = img.data;
-		const a = pal.glow, b = pal.sky[2], ox = R() * 100, oy = R() * 100, sc = 2 + R() * 2;
+		const a = pal.glow, b = pal.sky[2], ox = R() * 100, oy = R() * 100, sc = 0.9 + R() * 0.7;
 		for (let y = 0; y < h; y++) {
 			const bg = mix(pal.sky[0], pal.sky[1], (y / h) * 0.6);
 			for (let x = 0; x < w; x++) {
@@ -604,10 +555,10 @@ const canvasOf = (w, h) => { const c = document.createElement('canvas'); c.width
  * Draws the picture for a title into a canvas of the given size (in canvas pixels) and returns what was drawn.
  * `variant` gives another picture for the same words.
  */
-function paintBanner(canvas, title, { collectionName = '', style = 'dither', variant = 0, levels = LEVELS } = {}) {
+function paintBanner(canvas, title, { style = 'dither', variant = 0, levels = LEVELS } = {}) {
 	const seed = fnv(fold(title.trim()) + (variant ? '#' + variant : ''));
 	const R = mulberry(seed), N = makeNoise(mulberry(seed ^ 0x9e3779b9));
-	const { scene, palette } = choose(title, collectionName, R);
+	const { scene, palette } = choose(R);
 	const w = canvas.width, h = canvas.height, g = canvas.getContext('2d', { willReadFrequently: true });
 	DRAW[scene](g, w, h, R, N, PALETTES[palette]);
 	if (style === 'smooth') grain(g, w, h, R, 10);
@@ -716,14 +667,14 @@ class Plugin extends AppPlugin {
 		const dpr = Math.min(2, window.devicePixelRatio || 1);
 		const cw = style === 'smooth' ? Math.round(box.width * dpr) : Math.ceil(box.width / DOT);
 		const ch = style === 'smooth' ? Math.round(box.height * dpr) : Math.ceil(box.height / DOT);
-		const key = [title, collection?.getName() || '', style, variant, cw, ch].join('|');
+		const key = [title, style, variant, cw, ch].join('|');
 		if (wrap.dataset.key === key) return heading;
 
 		let canvas = this.cache.get(key);
 		if (canvas) { this.cache.delete(key); this.cache.set(key, canvas); }
 		else {
 			canvas = canvasOf(cw, ch);
-			try { paintBanner(canvas, title, { collectionName: collection?.getName() || '', style, variant }); } catch (e) { console.warn('[Auto Banner]', e); return heading; }
+			try { paintBanner(canvas, title, { style, variant }); } catch (e) { console.warn('[Auto Banner]', e); return heading; }
 			this.cache.set(key, canvas);
 			if (this.cache.size > CACHE_MAX) this.cache.delete(this.cache.keys().next().value);
 		}

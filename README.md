@@ -10,7 +10,7 @@ Personal plugins for [Thymer](https://thymer.com).
 | [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
 | [`home`](plugins/home) | A dashboard opened from a Home button beside Tasks: a full-width WebGL sky (a nebula, a neural field or a star atlas, in one of six biomes) in which every day you changed something is a star, brighter the more changed, days in a row joined by lines that pass light along; then the last 30 days, today's journal and recently edited pages |
 | [`bookmarks`](plugins/bookmarks) | A collection for saved sites with a view of cards under their category: each with the site's preview image as its cover, its favicon, domain and description, category chips to filter by, and a field to paste a new link into |
-| [`auto-banner`](plugins/auto-banner) | A page without a banner gets a picture drawn in the banner's place from its title, on a canvas (nothing is uploaded, the page is not changed): the title is the seed and its words pick the scene (sea, mountains, forest, dunes, a skyline, a synthwave grid for code, an aurora for the night, a planet, a contour map) and the palette, in a coarse dither or smooth |
+| [`auto-banner`](plugins/auto-banner) | A page without a banner gets a picture drawn in the banner's place from its title, on a canvas (nothing is uploaded, the page is not changed): the title is the seed and its words pick the scene (sea, mountains, forest, dunes, a skyline, a synthwave grid for code, an aurora for the night, a planet, a contour map) and the palette, in a fine dither or smooth |
 
 ## Install a plugin
 

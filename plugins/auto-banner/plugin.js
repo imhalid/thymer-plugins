@@ -11,7 +11,7 @@
  * The scenes: layered mountains, rolling hills, the sea with a sun on the water, dunes, a forest in fog, a skyline, a
  * synthwave grid, a contour map, an aurora over mountains, and a planet in space; each in one of twelve palettes (dusk,
  * dawn, day, meadow, desert, night, ice, ember, teal, synth, autumn, lavender), some of which words pick too ("gece",
- * "kış", "sunset", ...). They are drawn in a coarse ordered dither (Bayer 8x8, two screen pixels to a dot) or smooth with a
+ * "kış", "sunset", ...). They are drawn in a fine ordered dither (Bayer 8x8, a dot to a CSS pixel, ten shades a channel) or smooth with a
  * little grain. Sizes and frequencies go by the strip's height, so a wide panel shows more of the land, not a stretched one.
  *
  * A page with a banner (its own or its collection's) shows that, as before. The strip takes a banner's height while it
@@ -32,7 +32,8 @@ const STYLE_KEY = 'autobanner:style';
 const VARIANT_KEY = 'autobanner:variants';   // { record guid: variant } for pages given another picture
 const OFF_KEY = 'autobanner:off';
 const ASPECT = 3;          // the scenes' frequencies are set for a strip this many heights wide
-const DOT = 2;             // CSS pixels to a dither dot
+const DOT = 1;             // CSS pixels to a dither dot
+const LEVELS = 10;         // shades per colour channel in the dither
 const SETTLE_MS = 700;     // a title has to stay the same this long before the picture follows it
 const CACHE_MAX = 40;
 
@@ -590,14 +591,14 @@ const canvasOf = (w, h) => { const c = document.createElement('canvas'); c.width
  * Draws the picture for a title into a canvas of the given size (in canvas pixels) and returns what was drawn.
  * `variant` gives another picture for the same words.
  */
-function paintBanner(canvas, title, { collectionName = '', style = 'dither', variant = 0 } = {}) {
+function paintBanner(canvas, title, { collectionName = '', style = 'dither', variant = 0, levels = LEVELS } = {}) {
 	const seed = fnv(fold(title.trim()) + (variant ? '#' + variant : ''));
 	const R = mulberry(seed), N = makeNoise(mulberry(seed ^ 0x9e3779b9));
 	const { scene, palette } = choose(title, collectionName, R);
 	const w = canvas.width, h = canvas.height, g = canvas.getContext('2d', { willReadFrequently: true });
 	DRAW[scene](g, w, h, R, N, PALETTES[palette]);
 	if (style === 'smooth') grain(g, w, h, R, 10);
-	else dither(g, w, h, 6);
+	else dither(g, w, h, levels);
 	return { scene, palette };
 }
 

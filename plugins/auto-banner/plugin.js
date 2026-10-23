@@ -107,7 +107,7 @@ const SCENE_WORDS = {
 	dunes: 'col desert sahra sahara kum sand misir egypt safari kervan',
 	hills: 'gunluk journal daily diary sabah morning hafta week weekly yaz summer bahar spring mutlu happy aile family koy village ciftlik farm piknik',
 	city: 'city sehir istanbul ankara izmir london paris berlin tokyo york ofis office meeting toplanti proje project startup business finans finance para money sirket company is work kariyer career',
-	grid: 'code kod ssh server sunucu api dev terminal linux docker git github deploy infra infrastructure network vm oracle cloud ai yapay model llm agent ajan database veritabani sql rust js javascript typescript python plugin eklenti bug shader gpu cpu oyun game hack script config nginx kubernetes mcp claude mistral',
+	grid: 'c cpp programlama programming yazilim software algoritma algorithm bellek memory pointer derleyici compiler code kod ssh server sunucu api dev terminal linux docker git github deploy infra infrastructure network vm oracle cloud ai yapay model llm agent ajan database veritabani sql rust js javascript typescript python plugin eklenti bug shader gpu cpu oyun game hack script config nginx kubernetes mcp claude mistral',
 	aurora: 'gece night ruya dream uyku sleep ay moon yildiz star aurora kutup polar kuzey north sessiz silence meditasyon meditation huzur',
 	space: 'uzay space planet gezegen galaksi galaxy roket rocket nasa astronomi astronomy evren universe kozmos cosmos mars jupiter saturn',
 	topo: 'not note notes docs doc ders lesson kurs course study calisma research arastirma analiz analysis plan rapor report matematik math fizik physics kitap book okuma reading makale article ogren learn rehber guide harita map ozet summary tez thesis',
@@ -453,21 +453,34 @@ const DRAW = {
 	},
 
 	topo(g, w, h, R, N, pal) {
-		const img = g.createImageData(w, h), d = img.data;
-		const ramp = [pal.land[3], pal.land[2], pal.land[1], pal.land[0], pal.sky[1], pal.sky[2]];
-		const bands = 8 + ((R() * 6) | 0), sc = 2.2 + R() * 1.6, ox = R() * 100, oy = R() * 100, line = mix(pal.sky[2], WHITE, 0.4);
+		// a height field of a few large, calm forms, lit from the top left, with thin contour lines (every fifth one stronger)
+		const sc = 0.8 + R() * 0.5, ox = R() * 100, oy = R() * 100, levels = 12 + ((R() * 8) | 0);
+		const F = new Float32Array(w * h);
 		for (let y = 0; y < h; y++) {
 			for (let x = 0; x < w; x++) {
 				const u = x / h * sc + ox, v = y / h * sc + oy;
-				const wx = N.fbm2(u * 0.6, v * 0.6, 2) * 1.6;
-				let f = N.fbm2(u + wx, v - wx, 4);
-				f = Math.max(0, Math.min(0.999, (f - 0.25) * 2));
-				const b = f * bands, band = Math.floor(b), fr = b - band;
-				const tt = band / (bands - 1) * (ramp.length - 1), k = Math.min(ramp.length - 2, Math.floor(tt));
-				let c = mix(ramp[k], ramp[k + 1], tt - k);
-				if (fr < 0.07) c = mix(c, line, 0.5);
-				else if (fr > 0.93) c = mix(c, BLACK, 0.15);
-				const i = (y * w + x) * 4;
+				const wu = N.fbm2(u * 0.5 + 9, v * 0.5, 2) - 0.5, wv = N.fbm2(u * 0.5, v * 0.5 + 9, 2) - 0.5;
+				F[y * w + x] = N.fbm2(u + wu * 1.2, v + wv * 1.2, 3);
+			}
+		}
+		const low = mix(pal.land[3], pal.sky[0], 0.3), high = mix(pal.land[1], pal.sky[1], 0.4);
+		const line = mix(pal.sky[2], WHITE, 0.25), lw = Math.max(1, h / 210) * 0.8;
+		const img = g.createImageData(w, h), d = img.data;
+		for (let y = 0; y < h; y++) {
+			for (let x = 0; x < w; x++) {
+				const k = y * w + x, f = F[k];
+				const fx = (F[y * w + Math.min(w - 1, x + 1)] - F[y * w + Math.max(0, x - 1)]) * 0.5;
+				const fy = (F[Math.min(h - 1, y + 1) * w + x] - F[Math.max(0, y - 1) * w + x]) * 0.5;
+				const e = Math.max(0, Math.min(1, (f - 0.3) * 2.2));
+				let c = mix(low, high, e);
+				const shade = Math.max(-1, Math.min(1, (-fx - fy) * h * 0.9));   // light from the top left
+				c = mix(c, shade > 0 ? WHITE : BLACK, Math.abs(shade) * 0.12);
+				const t = f * levels, fr = t - Math.floor(t), dist = Math.min(fr, 1 - fr);
+				const px = dist / Math.max(1e-6, Math.hypot(fx, fy) * levels);   // distance to the line, in pixels
+				const major = Math.round(t) % 5 === 0;
+				const cover = Math.max(0, Math.min(1, (major ? lw * 1.6 : lw) - px + 0.5));
+				if (cover > 0) c = mix(c, line, cover * (major ? 0.7 : 0.35));
+				const i = k * 4;
 				d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
 			}
 		}

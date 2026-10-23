@@ -1,0 +1,10 @@
+{
+  "ver": 1,
+  "name": "Auto Banner",
+  "icon": "ti-photo",
+  "description": "Pages without a banner get a picture drawn at the top from their title",
+  "custom": {
+    "exclude": [],
+    "style": "dither"
+  }
+}

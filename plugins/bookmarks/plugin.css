@@ -1,0 +1,76 @@
+/* Bookmarks - loaded by Thymer from the collection's CSS tab. The colours come from the theme (--text*, --enum-*), so the
+   view follows light and dark. --bm-fg/-bg/-border are a category's enum colour, set on chips, groups and cards from the code. */
+
+.bm { --bm-line: color-mix(in srgb, var(--text, #888) 14%, transparent); --bm-card: color-mix(in srgb, var(--text, #888) 5%, transparent);
+	box-sizing: border-box; max-width: 1280px; margin: 0 auto; padding: 4px 28px 56px; container: bm / inline-size; }
+
+/* the bar: the category chips on the left, the field to paste a link into on the right */
+.bm-bar { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
+.bm-add { flex: 0 0 340px; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 4px 0 12px; border-radius: 10px;
+	border: 1px solid var(--bm-line); background: var(--bm-card); color: var(--text-muted); transition: border-color .12s; }
+.bm-add:focus-within { border-color: color-mix(in srgb, var(--text, #888) 40%, transparent); }
+.bm-add input { all: unset; flex: 1; min-width: 0; color: var(--text); font-size: 13px; }
+.bm-add input::placeholder { color: var(--text-muted); opacity: .8; }
+.bm-add button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 600; color: var(--text);
+	background: color-mix(in srgb, var(--text, #888) 12%, transparent); }
+.bm-add button:hover { background: color-mix(in srgb, var(--text, #888) 20%, transparent); }
+.bm-add button:disabled { opacity: .6; cursor: default; }
+
+/* the category chips */
+.bm-chips { flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 6px; padding-top: 3px; }
+.bm-chip { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px; font-size: 12.5px; font-weight: 550;
+	color: var(--bm-fg, var(--text)); background: var(--bm-bg, var(--bm-card)); box-shadow: inset 0 0 0 1px var(--bm-border, var(--bm-line)); transition: transform .1s, box-shadow .12s; }
+.bm-chip span { font-size: 11px; opacity: .6; font-variant-numeric: tabular-nums; }
+.bm-chip .ti { font-size: 14px; }
+.bm-chip:hover { transform: translateY(-1px); }
+.bm-chip.on { box-shadow: inset 0 0 0 2px var(--bm-fg, var(--text)); }
+.bm-chips:has(.bm-chip.on:not([data-cat=""])) .bm-chip:not(.on) { opacity: .55; }
+
+/* a category: its heading, then the cards */
+.bm-group { margin-bottom: 34px; }
+.bm-group h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 13px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--bm-fg); }
+.bm-group h3 .ti { font-size: 16px; }
+.bm-group h3 span { font-size: 11.5px; font-weight: 500; letter-spacing: 0; color: var(--text-muted); }
+.bm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+@container bm (max-width: 760px) { .bm-bar { flex-direction: column-reverse; align-items: stretch; } .bm-add { flex-basis: auto; } }
+@container bm (max-width: 560px) { .bm-grid { grid-template-columns: 1fr 1fr; gap: 10px; } }
+
+/* a card: the cover, then the favicon and title, the domain and the description. --bm-tone is the card's colour (the cover's,
+   set from the code once it has loaded, or the category's) */
+.bm-card { --bm-tone: var(--bm-fg); position: relative; display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; text-decoration: none; color: inherit; cursor: pointer;
+	background: linear-gradient(to bottom, color-mix(in srgb, var(--bm-tone) 13%, transparent), color-mix(in srgb, var(--bm-tone) 4%, transparent) 70%), var(--bm-card);
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--bm-tone) 18%, var(--bm-line)); transition: box-shadow .15s ease; }
+.bm-card:hover { box-shadow: 0 0 0 1px color-mix(in srgb, var(--bm-tone) 60%, transparent); }
+.bm-card:focus-visible { outline: 2px solid var(--bm-tone); outline-offset: 2px; }
+
+.bm-cover { position: relative; aspect-ratio: 16 / 9; overflow: hidden; }
+/* the cover fades into the card at its foot */
+.bm-img, .bm-dither { position: absolute; inset: 0; width: 100%; height: 100%; -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent); }
+.bm-img { object-fit: cover; object-position: top center; opacity: 0; transition: opacity .3s; }
+.bm-cover.has-img .bm-img { opacity: 1; }
+.bm-cover.seen .bm-img { transition: none; }   /* a cover seen before does not fade in again */
+/* the drawn cover of a site without one, in the category's colour */
+.bm-dither { color: var(--bm-fg); image-rendering: pixelated; }
+
+/* the button that opens the record, shown on hover */
+.bm-page { all: unset; position: absolute; z-index: 1; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; cursor: pointer;
+	color: #fff; background: rgba(10, 10, 14, .55); backdrop-filter: blur(6px); opacity: 0; transform: translateY(-3px); transition: opacity .12s, transform .12s; }
+.bm-page .ti { font-size: 15px; }
+.bm-card:hover .bm-page, .bm-page:focus-visible { opacity: 1; transform: none; }
+.bm-page:hover { background: rgba(10, 10, 14, .85); }
+
+.bm-text { position: relative; padding: 6px 14px 14px; display: flex; flex-direction: column; min-width: 0; }
+.bm-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* the favicon beside the title (the title's first letter in the card's colour when the site has none at /favicon.ico) */
+.bm-fav { flex: none; width: 16px; height: 16px; display: grid; place-items: center; }
+.bm-fav img { width: 16px; height: 16px; object-fit: contain; border-radius: 3px; grid-area: 1 / 1; }
+.bm-fav b { display: none; grid-area: 1 / 1; width: 16px; height: 16px; border-radius: 4px; place-items: center; font: 700 10px/1 system-ui, sans-serif; text-transform: uppercase;
+	color: var(--bm-tone); background: color-mix(in srgb, var(--bm-tone) 20%, transparent); }
+.bm-fav.none img { display: none; }
+.bm-fav.none b { display: grid; }
+.bm-title { font-size: 14px; font-weight: 650; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bm-host { margin: 2px 0 0 24px; font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* always two lines high, so the cards in a row line up */
+.bm-desc { margin-top: 8px; min-height: calc(2 * 1.45em); font-size: 12.5px; line-height: 1.45; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+.bm-empty { padding: 60px 0; text-align: center; color: var(--text-muted); }

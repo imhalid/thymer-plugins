@@ -36,27 +36,17 @@
 @container bm (max-width: 560px) { .bm-grid { grid-template-columns: 1fr 1fr; gap: 10px; } }
 
 /* a card: the cover, then the favicon and title, the domain and the description. --bm-tone is the card's colour (the cover's,
-   set from the code once it has loaded, or the category's); --rx/--ry turn it towards the pointer, --mx/--my place the sheen,
-   --px/--py drift the cover (all set from the code while the pointer is over it) */
+   set from the code once it has loaded, or the category's) */
 .bm-card { --bm-tone: var(--bm-fg); position: relative; display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; text-decoration: none; color: inherit; cursor: pointer;
 	background: linear-gradient(to bottom, color-mix(in srgb, var(--bm-tone) 13%, transparent), color-mix(in srgb, var(--bm-tone) 4%, transparent) 70%), var(--bm-card);
-	box-shadow: 0 0 0 1px color-mix(in srgb, var(--bm-tone) 18%, var(--bm-line));
-	transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--lift, 0px));
-	transition: transform .5s cubic-bezier(.2, .8, .2, 1), box-shadow .25s ease; will-change: transform; }
-.bm-card.tilt { transition: transform .1s linear, box-shadow .25s ease; }
-.bm-card:hover { --lift: -4px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--bm-tone) 60%, transparent), 0 22px 44px -20px color-mix(in srgb, var(--bm-tone) 75%, transparent), 0 0 30px -12px color-mix(in srgb, var(--bm-tone) 50%, transparent); }
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--bm-tone) 18%, var(--bm-line)); transition: box-shadow .15s ease; }
+.bm-card:hover { box-shadow: 0 0 0 1px color-mix(in srgb, var(--bm-tone) 60%, transparent); }
 .bm-card:focus-visible { outline: 2px solid var(--bm-tone); outline-offset: 2px; }
-/* the sheen: a soft light where the pointer is */
-.bm-card::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .25s;
-	background: radial-gradient(circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, .2), rgba(255, 255, 255, .05) 30%, transparent 60%); mix-blend-mode: overlay; }
-.bm-card:hover::after { opacity: 1; }
 
 .bm-cover { position: relative; aspect-ratio: 16 / 9; overflow: hidden; }
 /* the cover fades into the card at its foot */
 .bm-img, .bm-dither { position: absolute; inset: 0; width: 100%; height: 100%; -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent); }
-.bm-img { object-fit: cover; object-position: top center; opacity: 0; transform: translate(var(--px, 0px), var(--py, 0px)) scale(var(--zoom, 1)); transition: opacity .3s, transform .5s cubic-bezier(.2, .8, .2, 1); }
-.bm-card.tilt .bm-img { transition: opacity .3s, transform .1s linear; }
-.bm-card:hover .bm-img { --zoom: 1.06; }
+.bm-img { object-fit: cover; object-position: top center; opacity: 0; transition: opacity .3s; }
 .bm-cover.has-img .bm-img { opacity: 1; }
 /* the drawn cover of a site without one, in the category's colour */
 .bm-dither { color: var(--bm-fg); image-rendering: pixelated; }
@@ -81,7 +71,5 @@
 .bm-host { margin: 2px 0 0 24px; font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* always two lines high, so the cards in a row line up */
 .bm-desc { margin-top: 8px; min-height: calc(2 * 1.45em); font-size: 12.5px; line-height: 1.45; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-@media (prefers-reduced-motion: reduce) { .bm-card, .bm-img { transform: none !important; transition: none !important; } }
 
 .bm-empty { padding: 60px 0; text-align: center; color: var(--text-muted); }

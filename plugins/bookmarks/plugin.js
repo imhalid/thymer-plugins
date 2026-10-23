@@ -5,10 +5,9 @@
  * their category. Each card shows the record's banner as its cover, fading into the card; without one, a cover drawn for
  * the site: soft shapes placed by its domain, ordered-dithered in the category's colour. Under the cover: the favicon and
  * the title on one line, the domain (left out when the title already says it) and two lines of description. Each card takes
- * a tone from its cover (the cover's most vivid colour, or the category's): the card is tinted with it and glows with it
- * under the pointer, leans towards the pointer with a sheen that follows it, and its cover drifts a little the other way
- * (none of this with reduced motion). A click opens the site; the page button in the cover's corner (or a Cmd/Ctrl-click)
- * opens the record in the other panel.
+ * a tone from its cover (the cover's most vivid colour, or the category's): the card is tinted with it, and its edge takes
+ * it under the pointer. A click opens the site; the page button in the cover's corner (or a Cmd/Ctrl-click) opens the
+ * record in the other panel.
  *
  * Above the cards: one chip per category with its count (a click shows only that category) and a field to paste a link
  * into; Thymer's own search bar above the view filters the cards. A pasted link becomes a record: the page is read for its
@@ -38,7 +37,6 @@ const colorVars = (color) => {
 	const name = ENUM[Number(color)] || 'zinc';
 	return `--bm-fg: var(--enum-${name}-fg); --bm-bg: var(--enum-${name}-bg); --bm-border: var(--enum-${name}-border);`;
 };
-const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** The title already names the site: "druk" for druk.sh, "binthere.gaury.dev" for itself. */
 const titleSaysHost = (name, host) => {
@@ -211,32 +209,6 @@ class Plugin extends CollectionPlugin {
 				img.src = src;
 				el.querySelector('.bm-cover').prepend(img);
 			});
-
-			// lean towards the pointer: --rx/--ry turn the card, --mx/--my place the sheen, --px/--py drift the cover
-			if (!reducedMotion()) {
-				let frame = 0, last = null;
-				el.addEventListener('pointermove', (e) => {
-					last = e;
-					frame ||= requestAnimationFrame(() => {
-						frame = 0;
-						const b = el.getBoundingClientRect();
-						const x = Math.min(1, Math.max(0, (last.clientX - b.left) / b.width)), y = Math.min(1, Math.max(0, (last.clientY - b.top) / b.height));
-						el.classList.add('tilt');
-						el.style.setProperty('--rx', `${((0.5 - y) * 7).toFixed(2)}deg`);
-						el.style.setProperty('--ry', `${((x - 0.5) * 9).toFixed(2)}deg`);
-						el.style.setProperty('--mx', `${(x * 100).toFixed(1)}%`);
-						el.style.setProperty('--my', `${(y * 100).toFixed(1)}%`);
-						el.style.setProperty('--px', `${((0.5 - x) * 10).toFixed(1)}px`);
-						el.style.setProperty('--py', `${((0.5 - y) * 6).toFixed(1)}px`);
-					});
-				});
-				el.addEventListener('pointerleave', () => {
-					cancelAnimationFrame(frame);
-					frame = 0;
-					el.classList.remove('tilt');
-					for (const v of ['--rx', '--ry', '--px', '--py']) el.style.removeProperty(v);
-				});
-			}
 			return el;
 		};
 

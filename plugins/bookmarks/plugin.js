@@ -2,9 +2,13 @@
  * Bookmarks
  *
  * The code of the Bookmarks collection: a custom view, also called Bookmarks, that lays the saved sites out as cards under
- * their category. Each card shows the record's banner as its cover (or, without one, a tile in the category's colour with
- * its icon), the site's favicon, its title, its domain and the description. A click opens the site; the page button in the
- * cover's corner (or a Cmd/Ctrl-click) opens the record in the other panel.
+ * their category. Each card shows the record's banner as its cover, fading into the card; without one, a cover drawn for
+ * the site: soft shapes placed by its domain, ordered-dithered in the category's colour. Under the cover: the favicon and
+ * the title on one line, the domain (left out when the title already says it) and two lines of description. Each card takes
+ * a tone from its cover (the cover's most vivid colour, or the category's): the card is tinted with it and glows with it
+ * under the pointer, leans towards the pointer with a sheen that follows it, and its cover drifts a little the other way
+ * (none of this with reduced motion). A click opens the site; the page button in the cover's corner (or a Cmd/Ctrl-click)
+ * opens the record in the other panel.
  *
  * Above the cards: one chip per category with its count (a click shows only that category) and a field to paste a link
  * into; Thymer's own search bar above the view filters the cards. A pasted link becomes a record: the page is read for its
@@ -34,11 +38,98 @@ const colorVars = (color) => {
 	const name = ENUM[Number(color)] || 'zinc';
 	return `--bm-fg: var(--enum-${name}-fg); --bm-bg: var(--enum-${name}-bg); --bm-border: var(--enum-${name}-border);`;
 };
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** The title already names the site: "druk" for druk.sh, "binthere.gaury.dev" for itself. */
+const titleSaysHost = (name, host) => {
+	const n = name.toLowerCase().replace(/^www\./, '').replace(/\s+/g, '');
+	return !host || n === host || n === host.split('.')[0];
+};
+
+/** Any CSS colour (rgb, oklch, a theme variable resolved by the browser) as [r, g, b]. */
+const rgbOf = (css) => {
+	const g = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+	g.fillStyle = css;
+	g.fillRect(0, 0, 1, 1);
+	return [...g.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+};
+
+/**
+ * A cover's tone: the average of its pixels, each weighted by how vivid it is (saturated, neither dark nor pale), turned
+ * into a clear mid-light colour. Null for a cover with almost no colour (a black or white page), which keeps the category's.
+ */
+const toneOf = (img) => {
+	try {
+		const N = 24, c = document.createElement('canvas');
+		c.width = c.height = N;
+		const g = c.getContext('2d', { willReadFrequently: true });
+		g.drawImage(img, 0, 0, N, N);
+		const d = g.getImageData(0, 0, N, N).data;
+		let r = 0, gr = 0, b = 0, w = 0, sat = 0;
+		for (let i = 0; i < d.length; i += 4) {
+			const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+			const s = (mx - mn) / 255, l = (mx + mn) / 510;
+			const k = s * s * Math.max(0, 1 - Math.abs(l - 0.5) * 1.6) + 1e-4;
+			r += d[i] * k; gr += d[i + 1] * k; b += d[i + 2] * k; w += k; sat += s;
+		}
+		if (sat / (N * N) < 0.07) return null;
+		r /= w; gr /= w; b /= w;
+		const mx = Math.max(r, gr, b), mn = Math.min(r, gr, b), dl = mx - mn || 1;
+		const h = mx === r ? ((gr - b) / dl + 6) % 6 : mx === gr ? (b - r) / dl + 2 : (r - gr) / dl + 4;
+		return `hsl(${Math.round(h * 60)} ${Math.round(Math.max(55, (dl / 255) * 100))}% 62%)`;
+	} catch {
+		return null;   // an image from another origin taints the canvas
+	}
+};
+
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const seedOf = (s) => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
+const rng = (seed) => () => {   // mulberry32
+	seed = (seed + 0x6D2B79F5) | 0;
+	let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+	t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+	return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+
+/**
+ * The cover of a site that has none: a few soft blobs and a faint wave, placed by the site's domain (so each site keeps its
+ * own), ordered-dithered (Bayer 4x4) into two strengths of the category's colour over the card. Drawn at 96x54 and shown
+ * pixelated.
+ */
+const paintDither = (canvas, key) => {
+	const W = 96, H = 54;
+	canvas.width = W;
+	canvas.height = H;
+	const [cr, cg, cb] = rgbOf(getComputedStyle(canvas).color);
+	const rand = rng(seedOf(key));
+	const blobs = Array.from({ length: 3 + Math.floor(rand() * 3) }, () => ({ x: rand() * W, y: rand() * H, r: (0.2 + rand() * 0.4) * W, w: 0.45 + rand() * 0.6 }));
+	const angle = rand() * Math.PI, freq = 0.1 + rand() * 0.15, wave = 0.1 + rand() * 0.2;
+	const field = new Float32Array(W * H);
+	let lo = Infinity, hi = -Infinity;
+	for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+		let v = wave * Math.sin((x * Math.cos(angle) + y * Math.sin(angle)) * freq);
+		for (const b of blobs) v += b.w * Math.exp(-((x - b.x) ** 2 + (y - b.y) ** 2) / (b.r * b.r));
+		field[y * W + x] = v;
+		lo = Math.min(lo, v); hi = Math.max(hi, v);
+	}
+	// spread over the whole range, so every cover has empty ground, a dithered middle and solid hearts
+	const g = canvas.getContext('2d');
+	const img = g.createImageData(W, H), d = img.data;
+	for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+		const v = ((field[y * W + x] - lo) / (hi - lo || 1)) ** 1.3;
+		const level = Math.floor(v * 2.6 + (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) / 16 - 0.3);
+		if (level <= 0) continue;
+		const i = (y * W + x) * 4;
+		d[i] = cr; d[i + 1] = cg; d[i + 2] = cb; d[i + 3] = level === 1 ? 70 : 215;
+	}
+	g.putImageData(img, 0, 0);
+};
 
 class Plugin extends CollectionPlugin {
 
 	onLoad() {
 		this.covers = new Map();   // blob guid -> Promise of an object URL
+		this.tones = new Map();    // cover URL -> its tone (or null)
 		this.views.register(VIEW, (ctx) => this.createView(ctx));
 		this.ui.addCommandPaletteCommand({ label: 'Bookmarks: add from clipboard', icon: 'ti-clipboard-plus', onSelected: () => this.addFromClipboard() });
 	}
@@ -79,28 +170,73 @@ class Plugin extends CollectionPlugin {
 					`<i class="ti ${esc(c.icon)}"></i>${esc(c.label)} <span>${count(c.id)}</span></button>`).join('');
 		};
 
+		const dither = (el, r) => {
+			const canvas = document.createElement('canvas');
+			canvas.className = 'bm-dither';
+			el.querySelector('.bm-cover').prepend(canvas);
+			if (el.isConnected) paintDither(canvas, r.host || r.name);   // otherwise painted once its section is in the page
+		};
+
 		const card = (r, cat) => {
 			const el = document.createElement('a');
 			el.className = 'bm-card';
 			el.href = r.url || '#';
 			el.dataset.guid = r.guid;
 			el.style.cssText = colorVars(cat.color);
-			el.innerHTML = `<div class="bm-cover"><div class="bm-tile"><i class="ti ${esc(cat.icon)}"></i><span>${esc(r.host)}</span></div>` +
-				`<button class="bm-page" title="Open page"><i class="ti ti-file-text"></i></button>` +
-				(r.host ? `<span class="bm-fav"><img alt="" src="https://${esc(r.host)}/favicon.ico"><b>${esc(r.name[0] || '')}</b></span>` : '') + `</div>` +
-				`<div class="bm-text"><div class="bm-title">${esc(r.name)}</div><div class="bm-host">${esc(r.host)}</div>` +
-				(r.description ? `<div class="bm-desc">${esc(r.description)}</div>` : '') + `</div>`;
+			const letter = esc((r.name.match(/[\p{L}\p{N}]/u) || [''])[0]);
+			el.innerHTML = `<div class="bm-cover"><button class="bm-page" title="Open page"><i class="ti ti-file-text"></i></button></div>` +
+				`<div class="bm-text"><div class="bm-head"><span class="bm-fav${r.host ? '' : ' none'}">` +
+				(r.host ? `<img alt="" src="https://${esc(r.host)}/favicon.ico">` : '') + `<b>${letter}</b></span>` +
+				`<span class="bm-title">${esc(r.name)}</span></div>` +
+				(titleSaysHost(r.name, r.host) ? '' : `<div class="bm-host">${esc(r.host)}</div>`) +
+				`<div class="bm-desc">${esc(r.description)}</div></div>`;
 			const fav = el.querySelector('.bm-fav img');
 			if (fav) fav.onerror = () => fav.parentElement.classList.add('none');
-			this.coverUrl(r.record).then((src) => {
-				if (!src || ctx.isDestroyed()) return;
+
+			const fv = r.record.getBanner();
+			if (!(fv && (fv.guid || fv.imgUrl))) dither(el, r);
+			else this.coverUrl(r.record).then((src) => {
+				if (ctx.isDestroyed()) return;
+				if (!src) { dither(el, r); return; }
 				const img = new Image();
 				img.className = 'bm-img';
 				img.alt = '';
-				img.onload = () => el.querySelector('.bm-cover').classList.add('has-img');
+				img.onload = () => {
+					if (!this.tones.has(src)) this.tones.set(src, toneOf(img));
+					const tone = this.tones.get(src);
+					if (tone) el.style.setProperty('--bm-tone', tone);
+					el.querySelector('.bm-cover').classList.add('has-img');
+				};
+				img.onerror = () => { img.remove(); dither(el, r); };
 				img.src = src;
 				el.querySelector('.bm-cover').prepend(img);
 			});
+
+			// lean towards the pointer: --rx/--ry turn the card, --mx/--my place the sheen, --px/--py drift the cover
+			if (!reducedMotion()) {
+				let frame = 0, last = null;
+				el.addEventListener('pointermove', (e) => {
+					last = e;
+					frame ||= requestAnimationFrame(() => {
+						frame = 0;
+						const b = el.getBoundingClientRect();
+						const x = Math.min(1, Math.max(0, (last.clientX - b.left) / b.width)), y = Math.min(1, Math.max(0, (last.clientY - b.top) / b.height));
+						el.classList.add('tilt');
+						el.style.setProperty('--rx', `${((0.5 - y) * 7).toFixed(2)}deg`);
+						el.style.setProperty('--ry', `${((x - 0.5) * 9).toFixed(2)}deg`);
+						el.style.setProperty('--mx', `${(x * 100).toFixed(1)}%`);
+						el.style.setProperty('--my', `${(y * 100).toFixed(1)}%`);
+						el.style.setProperty('--px', `${((0.5 - x) * 10).toFixed(1)}px`);
+						el.style.setProperty('--py', `${((0.5 - y) * 6).toFixed(1)}px`);
+					});
+				});
+				el.addEventListener('pointerleave', () => {
+					cancelAnimationFrame(frame);
+					frame = 0;
+					el.classList.remove('tilt');
+					for (const v of ['--rx', '--ry', '--px', '--py']) el.style.removeProperty(v);
+				});
+			}
 			return el;
 		};
 
@@ -123,6 +259,10 @@ class Plugin extends CollectionPlugin {
 				const grid = section.querySelector('.bm-grid');
 				for (const r of inCat.sort((a, b) => a.name.localeCompare(b.name))) grid.append(card(r, cat));
 				groups.append(section);
+				for (const canvas of section.querySelectorAll('.bm-dither')) {
+					const r = state.records.find((x) => x.guid === canvas.closest('.bm-card').dataset.guid);
+					paintDither(canvas, r.host || r.name);
+				}
 			}
 		};
 

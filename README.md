@@ -9,6 +9,7 @@ Personal plugins for [Thymer](https://thymer.com).
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 | [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
 | [`home`](plugins/home) | A dashboard opened from a Home button beside Tasks: a full-width WebGL sky (a nebula, a neural field or a star atlas, in one of six biomes) in which every day you changed something is a star, brighter the more changed, days in a row joined by lines that pass light along; then the last 30 days, today's journal and recently edited pages |
+| [`bookmarks`](plugins/bookmarks) | A collection for saved sites with a view of cards under their category: each with the site's preview image as its cover, its favicon, domain and description, category chips to filter by, and a field to paste a new link into |
 
 ## Install a plugin
 
@@ -173,3 +174,11 @@ and its biome, the colours any shape is drawn in: Nebula, Ember, Aurora, Ice, Go
 What changed when is read from the workspace when Home opens (again after two minutes): a page counts on the day it was made, a line on the day it was written and the day it was last changed. Lines written while Home is open brighten today's star. Off on phones and tablets.
 
 To install: paste `plugin.js` into a new global plugin's code tab and `plugin.css` into its CSS tab.
+
+## Bookmarks
+
+The code of a **collection** (not a global plugin) for saved sites, with fields URL (url), Description (text) and Category (choice, one per bookmark). Its Bookmarks view lays them out as cards, one section per category in the order the Category field lists them: the record's banner is the card's cover (without one, a tile in the category's colour with its icon), with the site's favicon at its foot (its initial when the site has none at `/favicon.ico`), then the title, the domain and the description. A click opens the site; the page button in the cover's corner, or a Cmd/Ctrl-click, opens the record in the other panel. A chip per category, with its count, shows only that category; Thymer's own search bar above the view filters the cards.
+
+A link pasted into the field beside the chips becomes a bookmark (in the chosen category, if one is chosen); `Bookmarks: add from clipboard` does the same with the link on the clipboard. The page is read for its title, description and preview image, which become the record's title, Description and banner, but most sites do not let a page in Thymer read them (CORS), and then the bookmark is saved with its domain as the title and no cover. A link already saved is not added twice.
+
+To install: create a collection, open **Edit as Code**, paste `plugin.json` into the Configuration tab (it holds the fields, the custom view and the Gallery, Table and List views), `plugin.js` into the code tab and `plugin.css` into the CSS tab.

@@ -1,0 +1,23 @@
+/* Markdown Fix: the lines that are drawn over are hidden, never removed */
+.listitem.mf-src > .line-div { display: none; }
+.block-container-div.mf-src > .block-content,
+.block-container-div.mf-src > .block-nstype-button { display: none; }
+
+.mf-widget { position: relative; margin: 0.5em 0; }
+.mf-widget.mf-off .mf-scroll, .mf-widget.mf-off .mf-svg { display: none; }
+
+.mf-scroll { overflow-x: auto; }
+.mf-table table { border-collapse: collapse; width: 100%; font-size: 0.92em; line-height: 1.45; }
+.mf-table th, .mf-table td { border: 1px solid rgba(128, 128, 128, 0.35); padding: 0.4em 0.7em; text-align: left; vertical-align: top; }
+.mf-table th { background: rgba(128, 128, 128, 0.14); font-weight: 700; }
+.mf-table tbody tr:nth-child(even) td { background: rgba(128, 128, 128, 0.06); }
+
+.mf-diagram { padding: 0.8em 0.4em; }
+.mf-diagram .mf-svg { overflow-x: auto; text-align: center; }
+.mf-diagram .mf-svg svg { display: inline-block; }
+.mf-error { color: #e5484d; font-size: 0.85em; }
+
+.mf-toggle { position: absolute; top: 4px; right: 4px; padding: 0 6px; font: 11px/18px ui-monospace, monospace; color: inherit; opacity: 0; background: rgba(128, 128, 128, 0.2); border: 0; border-radius: 4px; cursor: pointer; transition: opacity 0.15s; }
+.mf-widget:hover > .mf-toggle, .mf-widget.mf-off > .mf-toggle { opacity: 0.7; }
+.mf-widget > .mf-toggle:hover { opacity: 1; }
+.mf-widget.mf-off { min-height: 22px; }

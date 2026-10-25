@@ -1,0 +1,6 @@
+{
+  "ver": 1,
+  "name": "Markdown Fix",
+  "icon": "ti-table",
+  "description": "Draws pipe tables and mermaid diagrams over the Markdown that Thymer's import leaves as plain text"
+}

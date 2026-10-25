@@ -7,7 +7,7 @@
  * the title on one line, the domain (left out when the title already says it) and two lines of description. Each card takes
  * a tone from its cover (the cover's most vivid colour, or the category's): the card is tinted with it, and its edge takes
  * it under the pointer. A click opens the site; the page button in the cover's corner (or a Cmd/Ctrl-click) opens the
- * record in the other panel.
+ * record in the other panel, and the trash button beside it asks, in a small dialog, before moving the bookmark to Thymer's trash.
  *
  * Above the cards: one chip per category with its count (a click shows only that category) and the Add bookmark button;
  * Thymer's own search bar above the view filters the cards. The button (or `Bookmarks: add bookmark`) opens a dialog: the
@@ -188,7 +188,8 @@ class Plugin extends CollectionPlugin {
 			el.dataset.guid = r.guid;
 			el.style.cssText = colorVars(cat.color);
 			const letter = esc((r.name.match(/[\p{L}\p{N}]/u) || [''])[0]);
-			el.innerHTML = `<div class="bm-cover"><button class="bm-page" title="Open page"><i class="ti ti-file-text"></i></button></div>` +
+			el.innerHTML = `<div class="bm-cover"><button class="bm-del" title="Delete bookmark"><i class="ti ti-trash"></i></button>` +
+				`<button class="bm-page" title="Open page"><i class="ti ti-file-text"></i></button></div>` +
 				`<div class="bm-text"><div class="bm-head"><span class="bm-fav${r.host ? '' : ' none'}">` +
 				(r.host ? `<img alt="" src="https://${esc(r.host)}/favicon.ico">` : '') + `<b>${letter}</b></span>` +
 				`<span class="bm-title">${esc(r.name)}</span></div>` +
@@ -265,6 +266,18 @@ class Plugin extends CollectionPlugin {
 			renderGroups();
 		};
 
+		// asks first, then the card goes at once (Thymer's own list follows with the next refresh)
+		const remove = (guid) => {
+			const r = state.records.find((x) => x.guid === guid);
+			if (!r) return;
+			this.confirmDelete(r, () => {
+				state.records = state.records.filter((x) => x.guid !== guid);
+				this.lastRecords = this.lastRecords.filter((x) => x.guid !== guid);
+				if (state.category && !state.records.some((x) => x.category === state.category)) state.category = this.category = '';   // its chip is gone
+				renderGroups();
+			});
+		};
+
 		const openCard = (el, e) => {
 			const r = state.records.find((x) => x.guid === el.dataset.guid);
 			if (!r) return;
@@ -294,6 +307,7 @@ class Plugin extends CollectionPlugin {
 					if (!el) return;
 					e.preventDefault();
 					if (e.target.closest('.bm-page')) ctx.openRecordInOtherPanel(el.dataset.guid);
+					else if (e.target.closest('.bm-del')) remove(el.dataset.guid);
 					else openCard(el, e);
 				});
 				// draw at once, not a frame later in the first onRefresh: what the view holds, or else what it showed last time
@@ -504,6 +518,60 @@ class Plugin extends CollectionPlugin {
 			input.select();
 			syncUrl();
 		}).catch(() => { /* no permission, or the window is not focused */ });
+	}
+
+	/** The dialog that asks before a bookmark goes to the trash; `done` is called once it has. Cancel is where the focus starts. */
+	confirmDelete(r, done) {
+		if (this.dialog) return;
+		const esc = (t) => this.ui.htmlEscape(t || '');
+		const opener = document.activeElement;
+		const overlay = document.createElement('div');
+		overlay.className = 'bm-overlay';
+		overlay.innerHTML = `<div class="bm-dialog bm-confirm" role="alertdialog" aria-modal="true" aria-labelledby="bm-del-title">` +
+			`<span class="bm-confirm-ic"><i class="ti ti-trash"></i></span>` +
+			`<h2 id="bm-del-title">Delete this bookmark?</h2>` +
+			`<p class="bm-dlg-sub">\u201c${esc(r.name)}\u201d will be moved to Thymer\u2019s trash.</p>` +
+			`<div class="bm-dlg-foot"><button type="button" class="bm-dlg-cancel">Cancel</button>` +
+			`<button type="button" class="bm-dlg-go bm-danger"><i class="ti ti-trash"></i>Delete</button></div></div>`;
+		const cancel = overlay.querySelector('.bm-dlg-cancel'), go = overlay.querySelector('.bm-dlg-go');
+
+		const close = (now) => {
+			if (this.dialog?.overlay !== overlay) return;
+			this.dialog = null;
+			document.removeEventListener('keydown', onKey, true);
+			if (now) overlay.remove();
+			else { overlay.classList.add('out'); setTimeout(() => overlay.remove(), 140); }
+			if (opener?.isConnected && opener.focus) opener.focus();
+		};
+		const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+
+		go.addEventListener('click', () => {
+			try { r.record.trash(); } catch (e) {
+				console.error('Bookmarks: could not delete', e);
+				this.ui.addToaster({ title: 'Could not delete the bookmark', dismissible: true, autoDestroyTime: 4000 });
+				close();
+				return;
+			}
+			done?.();
+			this.ui.addToaster({ title: 'Bookmark deleted', message: r.name, dismissible: true, autoDestroyTime: 2500 });
+			close();
+		});
+		cancel.addEventListener('click', () => close());
+		overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+		for (const type of ['keydown', 'keyup', 'keypress']) overlay.addEventListener(type, (e) => e.stopPropagation());
+		overlay.addEventListener('keydown', (e) => {
+			if (e.key !== 'Tab') return;
+			e.preventDefault();
+			(document.activeElement === cancel ? go : cancel).focus();
+		});
+
+		const css = getComputedStyle(document.body);
+		const surface = css.getPropertyValue('--panel-bg-color').trim() || (css.backgroundColor !== 'rgba(0, 0, 0, 0)' ? css.backgroundColor : '');
+		if (surface) overlay.style.setProperty('--bm-surface', surface);
+		document.addEventListener('keydown', onKey, true);
+		document.body.appendChild(overlay);
+		this.dialog = { overlay, focus: () => cancel.focus(), close };
+		cancel.focus();
 	}
 
 	async waitForRecord(guid) {

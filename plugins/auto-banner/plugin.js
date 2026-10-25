@@ -10,6 +10,10 @@
  * rows, dunes, buttes and saguaros, a sea of clouds with peaks, a forest in fog, a skyline, a synthwave grid, a contour map,
  * an aurora over mountains, a nebula full of stars, cherry branches in blossom, lines flowing in a field, a lighthouse on a
  * headland, windmills in the polders, a snowed village, rain, a smoking volcano, palm islands and fireflies in a meadow.
+ * Three more are drawn in flat tones with crisp edges: a fire lookout among ranges of mountains and firs cut out of paper,
+ * each range paler the farther it is; tall grass under towering clouds, as a still from an animated film; and a grove as
+ * pixel art, firs and bushes in clumps of leaves. They came later and take their share of the pages by a draw of their own,
+ * so every other page keeps the scene it had.
  *
  * The clouds are heaps of round puffs and long thin bands, each puff lit on the side the light comes from with a dark seam
  * where it meets the next, a flat shaded underside and a bright rim: white and lit from above by day, warm underneath from a
@@ -21,7 +25,8 @@
  * the water and the lake's reflection wavers, waves roll in, sand blows off the dunes' crests, fog drifts through the
  * forest, windows in the city go on and off, the grid runs towards you, the sun moves over the contour map, the aurora
  * folds, stars twinkle and a shooting star passes, petals fall, sparks run along the flow lines, the lighthouse's beam
- * sweeps, the sails turn, snow and rain fall, the volcano smokes, palms sway, fireflies wander and blink. The frame rate is
+ * sweeps, the sails turn, snow and rain fall, the volcano smokes, palms sway, fireflies wander and blink, the lookout's
+ * lamp flickers at night, gusts run across the grass and show its light side, the grove's trees sway. The frame rate is
  * low and stops while the strip is out of sight or the app is in the background; with "reduce motion" the picture is
  * still.
  *
@@ -113,6 +118,8 @@ const PALETTES = {
 	autumn: { sky: ['#6689b0', '#deb08a', '#f8ddb0'], sun: '#fff1d0', land: ['#bc8058', '#935a3a', '#633c2b', '#351f19'], glow: '#ffcf8a', clouds: 'glow' },
 	lavender: { sky: ['#3a3772', '#8e7dc0', '#ecc9dd'], sun: '#fff0f4', land: ['#a68fc2', '#7a67a3', '#524780', '#2c2752'], glow: '#ffd6ec', clouds: 'glow' },
 	storm: { sky: ['#1c2530', '#3d4b5a', '#7d8b98'], sun: '#dfe6ee', land: ['#5d6b78', '#46535f', '#2f3a44', '#1a2128'], glow: '#ffd98a', clouds: 'storm' },
+	azure: { sky: ['#0b4cb0', '#3a8be0', '#d6ebff'], sun: '#ffffff', land: ['#a6cff6', '#5a9ae2', '#2766c4', '#0c3a8c'], glow: '#ffffff', late: true },
+	spring: { sky: ['#7aa3bb', '#8fb4c4', '#d2e2d6'], sun: '#fffbe2', land: ['#b8cf72', '#8cb056', '#55874a', '#2c573b'], glow: '#f4f1c8', late: true },
 };
 for (const p of Object.values(PALETTES)) { p.sky = p.sky.map(hex); p.land = p.land.map(hex); p.sun = hex(p.sun); p.glow = hex(p.glow); }
 
@@ -122,7 +129,7 @@ const landAt = (pal, t) => { const x = Math.max(0, Math.min(1, t)) * 3, i = Math
 // The palettes that suit each part of the day.
 const PERIODS = {
 	dawn: ['dawn', 'lavender', 'ice', 'teal', 'storm'],
-	day: ['day', 'meadow', 'teal', 'desert', 'ice', 'autumn', 'storm'],
+	day: ['day', 'meadow', 'teal', 'desert', 'ice', 'autumn', 'storm', 'azure', 'spring'],
 	dusk: ['dusk', 'autumn', 'ember', 'lavender', 'desert', 'synth'],
 	night: ['night', 'moonlit', 'synth', 'ember', 'storm'],
 };
@@ -135,8 +142,10 @@ const periodOf = (d = new Date()) => {
 
 const fold = (s) => s.toLocaleLowerCase('tr').replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-const ALL = Object.keys(PALETTES);
-// The scenes, how often each comes, the palettes it is drawn in, and how many frames a second its motion needs.
+// the palettes there were before the late ones, for the scenes drawn in any palette
+const ALL = Object.keys(PALETTES).filter((k) => !PALETTES[k].late);
+// The scenes, how often each comes, the palettes it is drawn in, and how many frames a second its motion needs. The `added`
+// ones came later: they take their share of the pages without moving the others from the scene they had.
 const SCENES = {
 	mountains: { weight: 1.3, palettes: ['dusk', 'dawn', 'day', 'ice', 'autumn', 'lavender', 'teal', 'night', 'moonlit'] },
 	hills: { weight: 1, palettes: ['dawn', 'day', 'meadow', 'autumn', 'lavender', 'dusk', 'night', 'moonlit'] },
@@ -161,6 +170,9 @@ const SCENES = {
 	volcano: { weight: 1, palettes: ['ember', 'dusk', 'night', 'synth', 'storm'], fps: 12 },
 	islands: { weight: 1, palettes: ['day', 'teal', 'dusk', 'dawn', 'meadow', 'lavender', 'moonlit'] },
 	fireflies: { weight: 1, palettes: ['night', 'moonlit', 'dusk', 'lavender'], fps: 14 },
+	lookout: { weight: 1.3, added: true, palettes: ['day', 'azure', 'dawn', 'dusk', 'autumn', 'ice', 'lavender', 'teal', 'ember', 'night', 'moonlit', 'storm'] },
+	field: { weight: 1.3, added: true, palettes: ['azure', 'day', 'meadow', 'spring', 'dawn', 'dusk', 'autumn', 'lavender', 'night', 'moonlit'], fps: 15 },
+	grove: { weight: 1.3, added: true, palettes: ['spring', 'meadow', 'autumn', 'day', 'dawn', 'dusk', 'lavender', 'night', 'moonlit'], fps: 10 },
 };
 
 const pickWeighted = (rand, entries) => {
@@ -170,8 +182,12 @@ const pickWeighted = (rand, entries) => {
 };
 
 /** A scene by the seed, and one of its palettes that suits the part of the day (any of them when period is null). */
-function choose(rand, period) {
-	const scene = pickWeighted(rand, Object.entries(SCENES).map(([k, s]) => [k, s.weight]));
+function choose(rand, period, seed) {
+	const all = Object.entries(SCENES), first = all.filter(([, s]) => !s.added), added = all.filter(([, s]) => s.added);
+	let scene = pickWeighted(rand, first.map(([k, s]) => [k, s.weight]));
+	// the scenes added later take their share by a draw of their own, so the stream above (and every other page) is as it was
+	const late = mulberry(seed ^ 0x2545f491), share = added.reduce((sm, [, s]) => sm + s.weight, 0) / all.reduce((sm, [, s]) => sm + s.weight, 0);
+	if (added.length && late() < share) scene = pickWeighted(late, added.map(([k, s]) => [k, s.weight]));
 	const own = SCENES[scene].palettes, fit = period ? own.filter((p) => PERIODS[period].includes(p)) : own;
 	const list = fit.length ? fit : own;
 	return { scene, palette: list[(rand() * list.length) | 0] };
@@ -181,7 +197,7 @@ function choose(rand, period) {
 function makeBanner(title, { variant = 0, period = null, scene: only = null } = {}) {
 	const seed = fnv(fold(title.trim()) + (variant ? '#' + variant : ''));
 	const R = mulberry(seed);
-	let { scene, palette } = choose(R, period);
+	let { scene, palette } = choose(R, period, seed);
 	if (only && SCENES[only]) {
 		scene = only;
 		const own = SCENES[only].palettes, fit = period ? own.filter((p) => PERIODS[period].includes(p)) : own, list = fit.length ? fit : own;
@@ -356,15 +372,28 @@ function shadePuffs(c, W, H, puffs, L, lx, ly, u, below = null, top = 0, base = 
 	c.fillStyle = css(L.shadow);
 	c.fill();
 	c.globalCompositeOperation = 'source-atop';
-	c.filter = `blur(${u * 1.4}px)`;
+	if (!L.crisp) c.filter = `blur(${u * 1.4}px)`;
 	puffPath(c, puffs, lx * 0.16, ly * 0.16, 0.92);
 	c.fillStyle = css(L.mid);
 	c.fill();
-	c.filter = `blur(${u * 1.1}px)`;
+	if (!L.crisp) c.filter = `blur(${u * 1.1}px)`;
 	puffPath(c, puffs, lx * 0.45, ly * 0.45, 0.66);
 	c.fillStyle = css(L.lit);
 	c.fill();
 	c.filter = 'none';
+	if (L.crisp) {   // flat as dabs of paint: a highlight on the lit tops, and pockets of shade in them
+		puffPath(c, puffs, lx * 0.62, ly * 0.62, 0.36);
+		c.fillStyle = css(L.hi);
+		c.fill();
+		c.beginPath();
+		puffs.forEach((p, i) => {
+			if (hash1(i * 7.13 + p.r) > L.pockets) return;
+			const pr = p.r * (0.16 + hash1(i * 9.31) * 0.2), px = p.x + (hash1(i * 3.17) - 0.5) * p.r * 1.1, py = p.y + (hash1(i * 5.71) - 0.35) * p.r * 0.8;
+			c.moveTo(px + pr, py); c.arc(px, py, pr, 0, TAU);
+		});
+		c.fillStyle = css(L.mid);
+		c.fill();
+	}
 	if (L.under) {
 		const gr = c.createLinearGradient(0, top + (base - top) * 0.45, 0, base);
 		gr.addColorStop(0, css(L.under, 0)); gr.addColorStop(1, css(L.under, 0.5));
@@ -404,6 +433,35 @@ function heapPuffs(r, W, least) {
 		puffs.push({ x: p.x + Math.cos(a) * p.r * 0.75, y: p.y + Math.sin(a) * p.r * 0.75, r: Math.max(least, p.r * (0.28 + r() * 0.3)) });
 	}
 	for (let x = W * 0.05; x < W * 0.95; x += W * 0.045) puffs.push({ x, y: -W * 0.018, r: Math.max(least, W * (0.022 + r() * 0.014)), sy: 0.7 });
+	return puffs;
+}
+
+/**
+ * A tower: tiers of lobes, each tier narrower than the one under it and leaning a little, every lobe sprouting smaller ones
+ * on its upper side and those smaller ones again, like a cauliflower; a flat base.
+ */
+function towerPuffs(r, W, least) {
+	const puffs = [], tiers = 3 + ((r() * 3) | 0);
+	const sprout = (x, y, rad, depth) => {
+		puffs.push({ x, y, r: rad });
+		if (!depth || rad < least * 2.2) return;
+		for (let i = 0, n = 2 + ((r() * 3) | 0); i < n; i++) {
+			const a = -Math.PI * (0.08 + r() * 0.84), d = rad * (0.75 + r() * 0.2);
+			sprout(x + Math.cos(a) * d, y + Math.sin(a) * d, rad * (0.38 + r() * 0.24), depth - 1);
+		}
+	};
+	let cx = W * 0.5, wd = W, y = 0;
+	for (let j = 0; j < tiers; j++) {
+		const rad = Math.max(least * 2, wd * 0.1);
+		y -= rad * (j ? 1.8 : 0.7);
+		for (let x = cx - wd / 2 + rad; x <= cx + wd / 2 - rad * 0.5; x += rad * (0.65 + r() * 0.45)) {
+			sprout(x, y - r() * rad * 0.5, rad * (0.8 + r() * 0.4), j === tiers - 1 ? 3 : 2);
+			if (j < tiers - 1 && r() < 0.6) puffs.push({ x: x + (r() - 0.5) * rad, y: y + rad * (0.4 + r() * 0.5), r: rad * (0.7 + r() * 0.3) });   // fill under
+		}
+		cx += (r() - 0.5) * wd * 0.35;
+		wd *= 0.58 + r() * 0.22;
+	}
+	for (let x = W * 0.04; x < W * 0.96; x += W * 0.035) puffs.push({ x, y: -W * 0.015, r: Math.max(least, W * 0.024), sy: 0.7 });
 	return puffs;
 }
 
@@ -482,8 +540,9 @@ function cloudSprite(puffs, L, lx, ly, u) {
  * the moon is on (they are drawn lit from the left and from the right, and cross-fade as they pass it) and sinking into
  * their shadow colour away from it. Their shapes are drawn once per picture. `overcast`: a low ceiling of cloud instead.
  */
-function clouds(g, w, h, S, pal, horizon, n, { style = pal.clouds, overcast = false, name = 'clouds' } = {}) {
-	const U = h * ASPECT, u = unit(h), L = cloudTones(pal, style);
+function clouds(g, w, h, S, pal, horizon, n, { style = pal.clouds, overcast = false, crisp = false, low = false, size = 1, name = 'clouds' } = {}) {
+	const U = h * ASPECT, u = unit(h), L0 = cloudTones(pal, style);
+	const L = crisp ? { ...L0, crisp: true, mid: mix(L0.mid, L0.shadow, 0.3), hi: mix(L0.lit, pal.dark ? pal.sun : WHITE, pal.dark ? 0.25 : 0.45), pockets: 0, rimA: L0.rimA * (pal.dark ? 1 : 0.4), under: L0.under && mix(L0.under, L0.shadow, 0.5) } : L0;
 	if (overcast) {   // banks upside down, their lumps hanging, lit from below; the lower ones farther and paler
 		const decks = S.memo(name, (r) => [0, 1, 2].map((i) => bankSprite(r, w, h * 0.75, h * (0.04 + i * 0.018), hazed(L, pal, 0.35 - i * 0.17), 0, -1, u)));
 		decks.forEach((d, i) => drawBank(g, w, d, T * h * (0.004 + i * 0.006), horizon * (0.55 - i * 0.17), true));
@@ -492,10 +551,12 @@ function clouds(g, w, h, S, pal, horizon, n, { style = pal.clouds, overcast = fa
 	const set = S.memo(name, (r) => {
 		const list = [], dir = r() < 0.5 ? 1 : -1;
 		for (let i = 0, k = Math.max(1, Math.round(n * 1.4 * w / U)); i < k; i++) {
-			const z = r(), band = r() < L.bands * (1.2 - z * 0.6);
-			const W = U * (band ? 0.22 + r() * 0.25 : 0.12 + r() * 0.16) * (0.5 + z * 0.7), puffs = band ? bandPuffs(r, W, u * 2.4) : heapPuffs(r, W, u * 2);
+			const z = r(), band = !low && r() < L.bands * (1.2 - z * 0.6);
+			const W = U * (low ? 0.22 + r() * 0.3 : band ? 0.22 + r() * 0.25 : 0.12 + r() * 0.16) * (0.5 + z * 0.7) * size;
+			const puffs = low ? towerPuffs(r, W, u * 2) : band ? bandPuffs(r, W, u * 2.4) : heapPuffs(r, W, u * 2);
 			list.push({
-				z, at: r(), sp: h * (0.003 + z * 0.012) * dir, y: horizon * (band ? 0.22 + (1 - z) * 0.55 : 0.2 + (1 - z) * 0.42),
+				z, at: r(), sp: h * (0.003 + z * 0.012) * dir * (low ? 0.5 : 1),
+				y: low ? horizon * (1.01 + r() * 0.05) : horizon * (band ? 0.22 + (1 - z) * 0.55 : 0.2 + (1 - z) * 0.42),
 				left: cloudSprite(puffs, L, -L.lean, L.ly, u), right: cloudSprite(puffs, L, L.lean, L.ly, u),
 			});
 		}
@@ -503,7 +564,7 @@ function clouds(g, w, h, S, pal, horizon, n, { style = pal.clouds, overcast = fa
 	});
 	for (const cl of set) {
 		const { c, by } = cl.left, cw = c.width, ch = c.height, span = w + cw;
-		const x = wrapX(cl.at * span + T * cl.sp, span) - cw, y = Math.max(cl.y, by * 0.85) - by, cx = x + cw / 2;
+		const x = wrapX(cl.at * span + T * cl.sp, span) - cw, y = (low ? cl.y + cw * 0.05 : Math.max(cl.y, by * 0.85)) - by, cx = x + cw / 2;
 		const t = Math.max(0, Math.min(1, 0.5 + (SUN.x - cx) / (w * 0.5))), right = t * t * (3 - 2 * t);
 		const far = Math.min(1, Math.hypot((SUN.x - cx) / (w * 0.45), (SUN.y - cl.y) / (h * 1.2)));
 		const s = scratch(cw, ch);
@@ -517,15 +578,15 @@ function clouds(g, w, h, S, pal, horizon, n, { style = pal.clouds, overcast = fa
 			s.fillRect(0, 0, cw, ch);
 			s.globalCompositeOperation = 'source-over';
 		}
-		g.globalAlpha = 0.6 + 0.4 * cl.z;
+		g.globalAlpha = low ? 0.8 + 0.2 * cl.z : 0.6 + 0.4 * cl.z;
 		g.drawImage(s.canvas, 0, 0, cw, ch, x, y, cw, ch);
 		g.globalAlpha = 1;
 	}
 }
 
-/** Now and then a few birds cross the sky. */
-function birds(g, w, h, rand, color, yMax) {
-	const period = 45 + rand() * 50, phase = rand() * period, y0 = yMax * (0.25 + rand() * 0.45), n = 3 + ((rand() * 4) | 0), dir = rand() < 0.5 ? 1 : -1;
+/** Now and then a few birds (or `many`) cross the sky. */
+function birds(g, w, h, rand, color, yMax, many = 0) {
+	const period = 45 + rand() * 50, phase = rand() * period, y0 = yMax * (0.25 + rand() * 0.45), few = 3 + ((rand() * 4) | 0), dir = rand() < 0.5 ? 1 : -1, n = many || few;
 	const flock = [];
 	for (let i = 0; i < n; i++) flock.push([rand(), rand(), rand()]);
 	const p = ((T + phase) % period) / (period * 0.45);
@@ -692,6 +753,113 @@ function windmill(g, x, base, s, color, pal, turn, u, lamp) {
 	}
 	g.fillStyle = css(deep);
 	g.beginPath(); g.arc(hx, hy, Math.max(1, s * 0.022), 0, TAU); g.fill();
+}
+
+/**
+ * A fir cut out of paper, added to the current path: a tall narrow spire of drooping tiers, a little ragged by `seed`, on a
+ * short trunk, its foot at (x, y). Clockwise like the rest, so that a row of them fills as one.
+ */
+function firPath(g, x, y, ht, seed, wide = 0.34) {
+	const tiers = 7, wd = ht * wide, tip = y - ht, trunk = Math.max(0.5, ht * 0.025), droop = ht * 0.035, back = ht * 0.008;
+	const half = (k, side) => wd * 0.5 * Math.pow(k / tiers, 0.9) * (0.8 + 0.4 * hash1(seed + k * 1.7 + side * 9.1));
+	const at = (k) => tip + ht * 0.86 * (k / tiers);
+	g.moveTo(x, tip);
+	for (let k = 1; k <= tiers; k++) {
+		const hw = half(k, 1);
+		g.lineTo(x + hw, at(k) + droop);
+		if (k < tiers) g.lineTo(x + hw * 0.38, at(k) - back);
+	}
+	g.lineTo(x + trunk, at(tiers)); g.lineTo(x + trunk, y); g.lineTo(x - trunk, y); g.lineTo(x - trunk, at(tiers));
+	for (let k = tiers; k >= 1; k--) {
+		const hw = half(k, -1);
+		g.lineTo(x - hw, at(k) + droop);
+		if (k > 1) g.lineTo(x - half(k - 1, -1) * 0.38, at(k - 1) - back);
+	}
+	g.closePath();
+}
+
+/**
+ * A fire lookout th tall at (x, base), as a silhouette: splayed legs braced in X's, a cabin with a row of windows (filled
+ * with `glass`) on a railed catwalk, a pyramid roof and an aerial. Returns its windows and where its wires leave it.
+ */
+function lookoutTower(g, x, base, th, color, glass, u) {
+	const lw = Math.max(1, th * 0.012), bw = th * 0.2, tw = th * 0.11, top = base - th * 0.72, cw = th * 0.26, ch = th * 0.15;
+	const legX = (side, q) => x + side * (bw + (tw - bw) * q), legY = (q) => base + (top - base) * q;
+	g.strokeStyle = css(color); g.fillStyle = css(color); g.lineCap = 'butt';
+	g.lineWidth = lw * 1.8;
+	g.beginPath();
+	for (const sd of [-1, 1]) { g.moveTo(legX(sd, 0), base); g.lineTo(legX(sd, 1), top); }
+	g.stroke();
+	g.lineWidth = lw;
+	g.beginPath();
+	const qs = [0, 0.3, 0.55, 0.78, 1];
+	for (let i = 0; i < qs.length - 1; i++) {
+		const a = qs[i], b = qs[i + 1];
+		g.moveTo(legX(-1, a), legY(a)); g.lineTo(legX(1, b), legY(b));
+		g.moveTo(legX(1, a), legY(a)); g.lineTo(legX(-1, b), legY(b));
+		g.moveTo(legX(-1, b), legY(b)); g.lineTo(legX(1, b), legY(b));
+	}
+	g.stroke();
+	// the catwalk, its railing and posts
+	const deck = cw * 0.68, rail = top - ch * 0.38, post = Math.max(1, lw * 0.8);
+	g.fillRect(x - deck, top - lw, deck * 2, lw * 2.2);
+	g.fillRect(x - deck, rail, deck * 2, post);
+	for (let k = 0; k <= 8; k++) g.fillRect(x - deck + deck * 2 * k / 8 - post / 2, rail, post, ch * 0.38);
+	// the cabin, its windows, the roof and the aerial
+	const cx = x - cw / 2, cy = top - ch, nw = 4, gap = cw * 0.06, ww = (cw - gap * (nw + 1)) / nw, wy = cy + ch * 0.16, wh = ch * 0.38;
+	g.fillRect(cx, cy, cw, ch);
+	const wins = [];
+	g.fillStyle = css(glass);
+	for (let k = 0; k < nw; k++) { const wx = cx + gap + k * (ww + gap); wins.push([wx, wy, ww, wh]); g.fillRect(wx, wy, ww, wh); }
+	g.fillStyle = css(color);
+	g.beginPath(); g.moveTo(x - cw * 0.66, cy + lw); g.lineTo(x + cw * 0.66, cy + lw); g.lineTo(x + cw * 0.12, cy - ch * 0.45); g.lineTo(x - cw * 0.12, cy - ch * 0.45); g.closePath(); g.fill();
+	g.fillRect(x - lw / 2, cy - ch * 1.05, lw, ch * 0.62);
+	g.fillRect(x - lw * 2, cy - ch * 0.95, lw * 4, post);
+	return { wins, wires: [[cx, cy + ch * 0.55], [cx + cw, cy + ch * 0.55]] };
+}
+
+/**
+ * A tree as pixel art, drawn once into a sprite: a fir is a spire of clumps of needles on a short trunk, a bush a dome of
+ * leaf clumps; the clumps are lit as cloud puffs are, crisp (flat tones, a highlight, pockets of shade), from the side lx.
+ * Draw it with its foot at (ax, by).
+ */
+function foliage(r, kind, ht, L, lx, u) {
+	const puffs = [], cl = Math.max(u * 1.5, ht * (kind === 'fir' ? 0.045 : 0.065));
+	if (kind === 'fir') {
+		const wd = ht * 0.56, levels = Math.max(3, Math.ceil(ht * 0.95 / (cl * 0.7)));
+		for (let k = 0; k < levels; k++) {
+			const q = k / (levels - 1), y = -ht * 0.1 - ht * 0.9 * q, half = wd * 0.5 * Math.pow(1 - q, 0.85) + cl * 0.4;
+			for (let x = -half; x <= half + 0.01; x += cl * (0.7 + r() * 0.4)) puffs.push({ x: x + (r() - 0.5) * cl * 0.6, y: y + (r() - 0.5) * cl * 0.7, r: cl * (0.7 + r() * 0.5) });
+		}
+	} else {
+		const rx = ht * 0.6, ry = ht * 0.5;
+		for (let k = 0, n = Math.ceil((rx * ry) / (cl * cl) * 2.4); k < n; k++) {
+			const a = r() * TAU, d = Math.sqrt(r());
+			puffs.push({ x: Math.cos(a) * d * rx, y: -ry * 0.92 + Math.sin(a) * d * ry, r: cl * (0.7 + r() * 0.6) });
+		}
+	}
+	let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
+	for (const p of puffs) { x0 = Math.min(x0, p.x - p.r); x1 = Math.max(x1, p.x + p.r); y0 = Math.min(y0, p.y - p.r); }
+	const pad = Math.ceil(u * 3), ax = Math.ceil(-x0) + pad, by = Math.ceil(-y0) + pad, W = ax + Math.ceil(x1) + pad, H = by + pad;
+	const c = canvasOf(W, H), cg = c.getContext('2d'), seed = r() * 100;
+	cg.beginPath();
+	if (kind === 'fir') firPath(cg, ax, by, ht, seed, 0.5); else cg.rect(0, 0, W, by);   // a fir's spire of tiers; nothing below the ground
+	cg.clip();
+	shadePuffs(cg, W, H, puffs.map((p) => ({ ...p, x: p.x + ax, y: p.y + by })), L, lx, -0.75, u);
+	if (kind === 'fir') {
+		cg.globalCompositeOperation = 'destination-over';
+		cg.fillStyle = css(mix(L.shadow, BLACK, 0.3));
+		cg.fillRect(ax - cl * 0.35, by - ht * 0.2, cl * 0.7, ht * 0.2);
+	}
+	return { c, ax, by };
+}
+
+/** Fills under a line y = f(x) down to the bottom. */
+function fillUnder(g, w, h, f, step = 2) {
+	g.beginPath(); g.moveTo(0, h);
+	for (let x = 0; x <= w + step; x += step) g.lineTo(x, f(x));
+	g.lineTo(w, h); g.closePath();
+	g.fill();
 }
 
 /** A soft round glow. */
@@ -1636,6 +1804,218 @@ const DRAW = {
 			g.beginPath(); g.moveTo(x, by); g.quadraticCurveTo(x + lean * 0.3, by - len * 0.6, x + lean + sway, by - len); g.stroke();
 		}
 		drawBugs(true);
+	},
+	lookout(g, w, h, R, N, pal, S) {
+		// a fire lookout on a ridge among ranges of mountains and firs, flat as cut paper, each range paler and hazier the
+		// farther it is; its wires run down from pole to pole; birds now and then cross; at night its windows are lit
+		const U = h * ASPECT, u = unit(h), horizon = h * (0.5 + R() * 0.06);
+		sky(g, w, h, pal, horizon);
+		nightStars(g, w, h, R, pal, 160, horizon * 0.8, u);
+		const sx = w * (0.15 + R() * 0.7), sy = horizon * (0.25 + R() * 0.4), sr = h * (0.05 + R() * 0.03), shown = R() < 0.65;
+		if (shown || pal.moon) sun(g, sx, sy, sr, pal, 0.4);
+		const layers = 7, at = 3 + ((R() * 2) | 0), dir = R() < 0.5 ? 1 : -1, tx = w * (0.22 + R() * 0.56);
+		const haze = mix(pal.sky[2], pal.sky[1], 0.2), dark = mix(landAt(pal, 1), BLACK, 0.2);
+		const land = S.memo('ranges', (r) => {
+			const c = canvasOf(w, h), cg = c.getContext('2d');
+			let tower = null;
+			for (let i = 0; i < layers; i++) {
+				const t = i / (layers - 1), color = mix(landAt(pal, 0.1 + t * 0.9), haze, Math.pow(1 - t, 1.4) * 0.8);
+				const base = h * (0.4 + t * 0.5), amp = h * (0.3 - t * 0.15), freq = 1.4 + t * 2.4, ph = r() * 50;
+				// far: sharp peaks; middle: rock in steps and cliffs; near: rounded and wooded
+				const f = (x) => {
+					const v0 = x / U * freq + ph;
+					if (i < 2) return base - amp * 1.6 * Math.pow(N.ridge1(v0, 4), 1.5);
+					if (i < 5) {   // rock: knolls and buttresses, stepped into ledges and cliffs
+						const q = N.fbm1(v0 * 1.8, 4) * 0.55 + Math.pow(N.ridge1(v0 * 1.1 + 3, 3), 2) * 0.55, s0 = q * 5, fr = s0 - Math.floor(s0), step = Math.max(0, Math.min(1, (fr - 0.55) / 0.45));
+						return base - amp * 1.9 * (q * 0.5 + 0.5 * (Math.floor(s0) + step * step * (3 - 2 * step)) / 5);
+					}
+					return base - amp * 1.6 * N.fbm1(v0, 3);
+				};
+				cg.fillStyle = css(color);
+				cg.beginPath(); cg.moveTo(0, h);
+				for (let x = 0; x <= w + 2; x += 2) cg.lineTo(x, f(x));
+				cg.lineTo(w, h); cg.closePath();
+				// firs along the ridge, in the range's own colour: in clumps far away, a wall near by
+				if (i > 0) {
+					const th = h * (0.018 + t * 0.12), cut = 0.62 - t * 0.6;
+					for (let x = -th; x < w + th; x += th * (0.22 + r() * 0.3) / (0.35 + t * 0.65)) {
+						const ht = th * (0.6 + r() * 0.8), y = f(x) + ht * (0.12 + r() * 0.5 * t), sd = r() * 100;
+						if (N.n1(x / U * 6 + ph) >= cut) firPath(cg, x, y, ht, sd);
+					}
+					if (i >= layers - 2) for (let x = r() * th; x < w; x += th * (0.4 + r() * 0.8)) firPath(cg, x, f(x) + th * (0.4 + r() * 0.5), th * (0.7 + r() * 0.6), r() * 100);
+				}
+				cg.fill();
+				if (i < layers - 1) mist(cg, w, base + h * 0.02, h * 0.12, haze, 0.35 * (1 - t));
+				if (i === at) {
+					const th = h * (0.34 + (at - 3) * 0.06);
+					tower = lookoutTower(cg, tx, f(tx) + th * 0.04, th, dark, mix(pal.sky[2], WHITE, 0.25), u);
+					// the wires run down to three poles, each farther, lower and smaller
+					let [px, py] = tower.wires[dir > 0 ? 1 : 0];
+					cg.strokeStyle = css(dark); cg.fillStyle = css(dark);
+					for (let k = 1; k <= 3; k++) {
+						const qx = tx + dir * U * 0.05 * k * (1 + k * 0.25), pole = th * (0.42 - k * 0.07), qb = f(qx) + th * 0.06 * k, qy = qb - pole;
+						cg.lineWidth = Math.max(1, u); cg.beginPath(); cg.moveTo(qx, qb); cg.lineTo(qx, qy); cg.stroke();
+						cg.fillRect(qx - pole * 0.09, qy + pole * 0.05, pole * 0.18, Math.max(1, u * 0.8));
+						cg.lineWidth = Math.max(1, u * 0.55);
+						cg.beginPath(); cg.moveTo(px, py); cg.quadraticCurveTo((px + qx) / 2, Math.max(py, qy) + Math.abs(qx - px) * 0.14, qx, qy + pole * 0.05); cg.stroke();
+						[px, py] = [qx, qy + pole * 0.05];
+					}
+				}
+			}
+			return { c, tower };
+		});
+		g.drawImage(land.c, 0, 0);
+		if (pal.dark && land.tower) {   // the lamp in the cabin, flickering a little
+			const warm = hex('#ffcf7a'), fl = 0.85 + 0.15 * Math.sin(T * 2.3) * Math.sin(T * 5.1);
+			for (const [x, y, ww, wh] of land.tower.wins) { glow(g, x + ww / 2, y + wh / 2, wh * 3, warm, 0.18 * fl); g.fillStyle = css(warm, 0.9 * fl); g.fillRect(x, y, ww, wh); }
+		}
+		wisps(g, w, h, R, horizon + h * 0.12, haze, 2, 0.25);
+		birds(g, w, h, R, dark, horizon * 0.95, 12);
+	},
+
+	field(g, w, h, R, N, pal, S) {
+		// tall grass to the horizon under towering clouds, flat-shaded like a still from an animated film: gusts run across
+		// the grass and bend it, the plumes nod, light flickers on the near grass, birds now and then cross
+		const U = h * ASPECT, u = unit(h), horizon = h * (0.5 + R() * 0.08);
+		sky(g, w, h, pal, horizon);
+		nightStars(g, w, h, R, pal, 140, horizon * 0.8, u);
+		const sx = w * (0.55 + R() * 0.4), sy = R() < 0.5 ? -h * 0.15 : horizon * (0.12 + R() * 0.3);   // high up, often out of sight
+		sun(g, sx, sy, h * 0.07, pal, 0.5);
+		clouds(g, w, h, S, pal, horizon, 2 + ((R() * 2) | 0), { crisp: true, low: true, size: 1.1, name: 'wall' });
+		clouds(g, w, h, S, pal, horizon * 0.85, 1 + ((R() * 2) | 0), { crisp: true, name: 'high' });
+		birds(g, w, h, R, mix(WHITE, pal.sky[2], 0.3), horizon * 0.8, 9);
+		const far = mix(pal.sky[2], WHITE, pal.dark ? 0.04 : 0.3), deep = pal.land[3];
+		const gr = g.createLinearGradient(0, horizon, 0, h);
+		gr.addColorStop(0, css(far)); gr.addColorStop(0.15, css(mix(far, pal.land[0], 0.6))); gr.addColorStop(0.5, css(pal.land[1])); gr.addColorStop(1, css(deep));
+		g.fillStyle = gr;
+		g.fillRect(0, horizon - 1, w, h - horizon + 1);
+		// the blades, made once: where, how deep, how long, how they lean, which tone, whether they carry a plume
+		const B = S.memo('blades', (r) => {
+			const n = Math.round(2800 * w / U), a = new Float32Array(n * 6);
+			for (let i = 0; i < n; i++) {
+				const d = Math.pow(r(), 1.4);
+				a.set([r() * (w + 40) - 20, d, h * (0.01 + 0.3 * d * d) * (0.5 + r()), (r() - 0.5) * 0.5, r() < 0.3 ? 1 : 0, d > 0.3 && r() < 0.05 ? 1 : 0], i * 6);
+			}
+			return a;
+		});
+		// the wind: a slow swell running across, gusts riding on it, a flutter
+		const gust = (x) => 0.22 + 0.32 * Math.sin(x / (U * 0.42) * TAU - T * 1.1) * (0.6 + 0.4 * Math.sin(x / (U * 0.13) - T * 0.7)) + 0.06 * Math.sin(T * 3.1 + x * 0.05);
+		const tone = (d, light) => light ? mix(mix(far, pal.land[1], d * 0.8), WHITE, pal.dark ? 0.05 : 0.18) : mix(mix(far, pal.land[1], 0.4 + d * 0.3), deep, Math.pow(d, 0.8));
+		const bands = 6, plumes = [], paths = Array.from({ length: bands * 2 }, () => new Path2D());
+		for (let i = 0; i < B.length; i += 6) {
+			const x = B[i], d = B[i + 1], len = B[i + 2], y = horizon + (h - horizon) * Math.pow(d, 1.5) + 1, gu = gust(x);
+			const bend = len * Math.max(-0.9, Math.min(0.9, B[i + 3] * 0.6 + gu * (0.5 + d)));
+			const tx = x + bend, ty = y - len * (1 - 0.35 * (bend / len) ** 2), cx = x + bend * 0.15, cy = y - len * 0.6;
+			// a blade bent far over by a gust shows its light side: bright waves run across the field with the wind
+			const light = B[i + 4] || gu > 0.42 + hash1(i) * 0.25 ? 1 : 0, path = paths[Math.min(bands - 1, (d * bands) | 0) * 2 + light];
+			path.moveTo(x, y); path.quadraticCurveTo(cx, cy, tx, ty);
+			if (B[i + 5]) plumes.push([tx, ty, cx, cy, len, d]);
+		}
+		const blades = (lo, hi) => {
+			g.lineCap = 'round';
+			for (let k = lo; k < hi; k++) for (const light of [0, 1]) {
+				g.strokeStyle = css(tone((k + 0.5) / bands, light));
+				g.lineWidth = u * (0.5 + (k / bands) * 2.2);
+				g.stroke(paths[k * 2 + light]);
+			}
+		};
+		blades(0, 4);
+		// light falling through onto the near grass, in dabs that flicker
+		const fleck = mix(far, WHITE, pal.dark ? 0.1 : 0.4);
+		for (let i = 0, k = 45 * w / U; i < k; i++) {
+			const x = R() * w, y = horizon + (h - horizon) * (0.45 + R() * 0.55), s = h * (0.006 + R() * 0.02), ph = R() * TAU, a = 0.25 + 0.3 * R();
+			const fx = x + Math.sin(T * 1.1 + ph) * s * 0.3;
+			g.fillStyle = css(fleck, a * (0.6 + 0.4 * Math.sin(T * 1.5 + ph)));
+			g.beginPath();
+			g.moveTo(fx + s, y); g.ellipse(fx, y, s, s * 0.7, 0, 0, TAU);
+			g.moveTo(fx + s * 1.4, y - s * 0.3); g.ellipse(fx + s * 0.8, y - s * 0.3, s * 0.6, s * 0.5, 0, 0, TAU);
+			g.fill();
+		}
+		blades(4, bands);
+		// plumes: feathered heads on the last stretch of a few stems
+		for (const [tx, ty, cx, cy, len, d] of plumes) {
+			const L = len * 0.3, wd = Math.max(u * 1.2, len * 0.05);
+			g.save(); g.translate(tx, ty); g.rotate(Math.atan2(ty - cy, tx - cx));
+			g.fillStyle = css(tone(d, 0));
+			g.beginPath(); g.ellipse(-L * 0.5, 0, L * 0.5, wd, 0, 0, TAU); g.fill();
+			g.strokeStyle = css(tone(d, 1)); g.lineWidth = Math.max(1, u * 0.6);
+			g.beginPath();
+			for (let k = 1; k < 6; k++) { const px = -L * k / 6; g.moveTo(px, -wd * 0.7); g.lineTo(px - L * 0.08, wd * 0.7); }
+			g.stroke();
+			g.restore();
+		}
+		// long dark leaves right in front, bending the most
+		g.fillStyle = css(mix(deep, BLACK, 0.15));
+		for (let i = 0, k = 7 * w / U; i < k; i++) {
+			const x = R() * w, len = h * (0.25 + R() * 0.45), wd = u * (2 + R() * 3), lean = (R() - 0.3) * 0.6, ph = R() * TAU;
+			const bend = len * Math.max(-0.9, Math.min(0.9, lean + gust(x) * 0.6 + 0.04 * Math.sin(T * 2 + ph)));
+			const tx = x + bend, ty = h - len * (1 - 0.35 * (bend / len) ** 2), cx = x + bend * 0.1, cy = h - len * 0.6;
+			g.beginPath(); g.moveTo(x - wd, h + 2); g.quadraticCurveTo(cx - wd * 0.5, cy, tx, ty); g.quadraticCurveTo(cx + wd * 0.5, cy, x + wd, h + 2); g.closePath(); g.fill();
+		}
+	},
+
+	grove(g, w, h, R, N, pal, S) {
+		// a clearing as pixel art: firs and round bushes in clumps of leaves lit on the sun's side, meadows in flat bands with
+		// a lit crest, a tower of cloud behind; the trees sway a little, the clouds drift, birds now and then cross
+		const U = h * ASPECT, u = unit(h), horizon = h * (0.56 + R() * 0.06);
+		sky(g, w, h, pal, horizon);
+		nightStars(g, w, h, R, pal, 140, horizon * 0.8, u);
+		const sx = w * (0.1 + R() * 0.8);
+		sun(g, sx, horizon * (0.15 + R() * 0.35), h * (0.05 + R() * 0.02), pal, 0.4);
+		clouds(g, w, h, S, pal, horizon + h * 0.06, 1 + ((R() * 2) | 0), { crisp: true, low: true, size: 1.2, name: 'wall' });
+		birds(g, w, h, R, landAt(pal, 1), horizon * 0.8);
+		const haze = pal.sky[2];
+		// the leaves' tones on the ground i (0 far .. 2 near), bushes a shade darker, the far ones gone into the haze
+		const tones = (i, bush) => {
+			const t = i / 2 + (bush ? 0.2 : 0), hz = (1 - i / 2) * 0.35, H = (c) => mix(c, mix(haze, pal.sky[1], 0.4), hz);
+			return {
+				shadow: H(mix(landAt(pal, 0.85 + t * 0.15), BLACK, 0.15 + t * 0.15)), mid: H(landAt(pal, 0.6 + t * 0.3)), lit: H(mix(landAt(pal, 0.3 + t * 0.35), pal.sun, 0.06)),
+				hi: H(mix(landAt(pal, 0.1 + t * 0.3), pal.sun, 0.2)), rim: WHITE, rimA: 0, under: null, crisp: true, pockets: 0.25,
+			};
+		};
+		const world = S.memo('grove', (r) => {
+			const grounds = [];
+			for (let i = 0; i < 3; i++) {
+				const t = i / 2, base = horizon + h * (0.02 + t * 0.24), amp = h * (0.05 + 0.04 * (1 - t)), ph = r() * 50, freq = 1.2 + t;
+				const f = (x) => base - amp * 1.6 * N.fbm1(x / U * freq + ph, 2);
+				const c = canvasOf(w, h), cg = c.getContext('2d');
+				const lit = mix(mix(landAt(pal, 0.05 + t * 0.4), pal.sun, 0.12), haze, (1 - t) * 0.35), body = mix(landAt(pal, 0.25 + t * 0.55), haze, (1 - t) * 0.3);
+				cg.fillStyle = css(lit); fillUnder(cg, w, h, f);
+				cg.fillStyle = css(body); fillUnder(cg, w, h, (x) => f(x) + h * (0.02 + 0.025 * N.n1(x / U * 4 + ph)));
+				// the trees standing on it, and their shadows on it
+				const trees = [], count = (i === 0 ? 16 : i === 1 ? 6 : 4) * w / U;
+				for (let k = 0; k < count; k++) {
+					const x = r() * w, bush = i === 2 ? r() < 0.7 : r() < 0.2;
+					const ht = h * (i === 0 ? 0.1 + r() * 0.1 : i === 1 ? 0.26 + r() * 0.2 : 0.3 + r() * 0.25) * (bush ? 0.65 : 1);
+					const y = f(x) + h * (0.012 + r() * (i === 2 ? 0.2 : 0.04));
+					trees.push({ x, y, ht, bush, ph: r() * TAU, sp: foliage(r, bush ? 'bush' : 'fir', ht, tones(i, bush), x < sx ? 0.6 : -0.6, u) });
+				}
+				trees.sort((a, b) => a.y - b.y);
+				cg.globalCompositeOperation = 'source-atop';
+				for (let k = 0, m = 10 * w / U * (0.5 + t); k < m; k++) {   // long patches of shade and of light across it
+					const x = r() * w, y = f(x) + h * (0.04 + r() * 0.3), rx = h * (0.08 + r() * 0.2) * (0.5 + t), shade = r() < 0.65;
+					cg.fillStyle = css(shade ? mix(body, BLACK, 0.1) : mix(body, lit, 0.35));
+					cg.beginPath();
+					for (let j = 0; j < 4; j++) { const ex = x + (j - 1.5) * rx * 0.5, ey = y + (r() - 0.5) * rx * 0.06, er = rx * (0.4 + r() * 0.3); cg.moveTo(ex + er, ey); cg.ellipse(ex, ey, er, er * 0.12, 0, 0, TAU); }
+					cg.fill();
+				}
+				cg.fillStyle = css(mix(body, BLACK, 0.25));
+				for (const tr of trees) { cg.beginPath(); cg.ellipse(tr.x + (tr.x < sx ? -1 : 1) * tr.ht * 0.15, tr.y, tr.ht * (tr.bush ? 0.6 : 0.35), tr.ht * 0.06, 0, 0, TAU); cg.fill(); }
+				grounds.push({ c, trees });
+			}
+			return grounds;
+		});
+		for (const { c, trees } of world) {
+			g.drawImage(c, 0, 0);
+			for (const tr of trees) {
+				const k = 0.025 * Math.sin(T * 0.8 + tr.ph) * (tr.bush ? 0.4 : 1);   // a sway: the top leans, the foot stays
+				g.save();
+				g.translate(tr.x, tr.y);
+				g.transform(1, 0, k, 1, 0, 0);
+				g.drawImage(tr.sp.c, -tr.sp.ax, -tr.sp.by);
+				g.restore();
+			}
+		}
 	},
 };
 

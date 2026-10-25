@@ -9,12 +9,13 @@
  * it under the pointer. A click opens the site; the page button in the cover's corner (or a Cmd/Ctrl-click) opens the
  * record in the other panel.
  *
- * Above the cards: one chip per category with its count (a click shows only that category) and a field to paste a link
- * into; Thymer's own search bar above the view filters the cards. A pasted link becomes a record: the page is read for its
- * title, description and preview image (og:image), which
- * become the record's title, Description and banner; a site that does not let itself be read (CORS) is saved with its
- * domain as the title. The chosen category chip, if any, is the new record's Category. `Bookmarks: add from clipboard`
- * does the same with the link on the clipboard.
+ * Above the cards: one chip per category with its count (a click shows only that category) and the Add bookmark button;
+ * Thymer's own search bar above the view filters the cards. The button (or `Bookmarks: add bookmark`) opens a dialog: the
+ * link (a link on the clipboard is filled in) and what it is, one tile per category, Other among them; nothing is saved
+ * until both are given, so a bookmark never lands in Other by accident. The chosen category chip, if any, is the tile
+ * chosen beforehand. The link becomes a record: the page is read for its title, description and preview image
+ * (og:image), which become the record's title, Description and banner; a site that does not let itself be read (CORS) is
+ * saved with its domain as the title. A link already saved is not added twice.
  *
  * The fields are found by label: URL (url), Description (text), Category (choice). The view must exist in the collection's
  * configuration with "type": "custom" and the label in VIEW.
@@ -132,10 +133,12 @@ class Plugin extends CollectionPlugin {
 		this.category = '';        // the chosen chip, kept while switching to another view and back
 		this.lastRecords = [];     // what the view showed last, drawn at once when it opens again
 		this.views.register(VIEW, (ctx) => this.createView(ctx));
-		this.ui.addCommandPaletteCommand({ label: 'Bookmarks: add from clipboard', icon: 'ti-clipboard-plus', onSelected: () => this.addFromClipboard() });
+		this.dialog = null;        // the open Add bookmark dialog
+		this.ui.addCommandPaletteCommand({ label: 'Bookmarks: add bookmark', icon: 'ti-bookmark-plus', onSelected: () => this.openAddDialog(this.category) });
 	}
 
 	onUnload() {
+		this.dialog?.close(true);
 		for (const p of this.covers.values()) p.then((u) => u && URL.revokeObjectURL(u));
 	}
 
@@ -149,7 +152,7 @@ class Plugin extends CollectionPlugin {
 	createView(ctx) {
 		const esc = (s) => this.ui.htmlEscape(s || '');
 		const state = { category: this.category, records: [] };
-		let root, chips, groups, addInput, addButton;
+		let root, chips, groups;
 
 		const matches = (r) => !state.category || r.category === state.category;
 
@@ -269,34 +272,17 @@ class Plugin extends CollectionPlugin {
 			else window.open(r.url, '_blank', 'noopener');
 		};
 
-		const add = async () => {
-			const url = normalizeUrl(addInput.value);
-			if (!url) { this.ui.bounce(addInput); return; }
-			addButton.disabled = true;
-			addButton.textContent = 'Adding…';
-			try {
-				const cat = this.categories().find((c) => c.id && c.id === state.category);
-				await this.addBookmark(url, cat?.label);
-				addInput.value = '';
-			} finally {
-				addButton.disabled = false;
-				addButton.textContent = 'Add';
-			}
-		};
-
 		return {
 			onLoad: () => {
 				ctx.makeWideLayout();
 				root = ctx.getElement();
 				root.classList.add('bm');
 				root.innerHTML = `<div class="bm-bar"><div class="bm-chips"></div>` +
-					`<form class="bm-add"><i class="ti ti-link"></i><input placeholder="Paste a link to save it" spellcheck="false"><button type="submit">Add</button></form>` +
+					`<button class="bm-add" type="button"><i class="ti ti-plus"></i>Add bookmark</button>` +
 					`</div><div class="bm-groups"></div>`;
 				chips = root.querySelector('.bm-chips');
 				groups = root.querySelector('.bm-groups');
-				addInput = root.querySelector('.bm-add input');
-				addButton = root.querySelector('.bm-add button');
-				root.querySelector('.bm-add').addEventListener('submit', (e) => { e.preventDefault(); add(); });
+				root.querySelector('.bm-add').addEventListener('click', () => this.openAddDialog(state.category));
 				chips.addEventListener('click', (e) => {
 					const chip = e.target.closest('.bm-chip');
 					if (!chip) return;
@@ -339,17 +325,14 @@ class Plugin extends CollectionPlugin {
 		return this.covers.get(fv.guid);
 	}
 
-	async addFromClipboard() {
-		let text = '';
-		try { text = await navigator.clipboard.readText(); } catch { /* no permission */ }
-		const url = normalizeUrl(text);
-		if (!url) { this.ui.addToaster({ title: 'No link on the clipboard', dismissible: true, autoDestroyTime: 3000 }); return; }
-		await this.addBookmark(url);
+	/** The record that already holds this link, if any. */
+	async findSaved(url) {
+		return (await this.collection.getAllRecords()).find((r) => normalizeUrl(r.text(FIELD.url)) === url) || null;
 	}
 
 	/** Save a link as a record, filled from the page when the page lets itself be read. */
 	async addBookmark(url, categoryLabel) {
-		const existing = (await this.collection.getAllRecords()).find((r) => normalizeUrl(r.text(FIELD.url)) === url);
+		const existing = await this.findSaved(url);
 		if (existing) {
 			this.ui.addToaster({ title: 'Already saved', message: existing.getName(), dismissible: true, autoDestroyTime: 3000 });
 			return existing;
@@ -360,10 +343,167 @@ class Plugin extends CollectionPlugin {
 		if (!record) { this.ui.addToaster({ title: 'Could not save the link', dismissible: true, autoDestroyTime: 4000 }); return null; }
 		record.prop(FIELD.url)?.set(url);
 		if (meta.description) record.prop(FIELD.description)?.set(meta.description);
-		if (categoryLabel) record.prop(FIELD.category)?.setChoice(categoryLabel);
+		const filed = !categoryLabel || record.prop(FIELD.category)?.setChoice(categoryLabel);   // false: no choice has that label
 		if (meta.image) await this.setCover(record, meta.image);
-		this.ui.addToaster({ title: 'Bookmark saved', message: record.getName(), dismissible: true, autoDestroyTime: 2500 });
+		this.ui.addToaster(filed
+			? { title: 'Bookmark saved', message: record.getName(), dismissible: true, autoDestroyTime: 2500 }
+			: { title: 'Bookmark saved without a category', message: `No category is called “${categoryLabel}”`, dismissible: true, autoDestroyTime: 5000 });
 		return record;
+	}
+
+	/**
+	 * The dialog that adds a bookmark: the link, then what it is. `category` (an id) is the tile chosen beforehand; with
+	 * none, nothing is chosen until the user does (Other is a tile too), so Add asks for it instead of filing under Other.
+	 */
+	openAddDialog(category = '') {
+		if (this.dialog) { this.dialog.focus(); return; }
+		const esc = (s) => this.ui.htmlEscape(s || '');
+		const cats = this.categories();
+		let chosen = cats.some((c) => c.id && c.id === category) ? category : null;   // null: not chosen yet, '' is Other
+		let busy = false, shownHost = '';
+		const opener = document.activeElement;
+
+		const overlay = document.createElement('div');
+		overlay.className = 'bm-overlay';
+		overlay.innerHTML = `<form class="bm-dialog" role="dialog" aria-modal="true" aria-labelledby="bm-dlg-title" novalidate>` +
+			`<button type="button" class="bm-dlg-x" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>` +
+			`<h2 id="bm-dlg-title">Add bookmark</h2>` +
+			`<p class="bm-dlg-sub">Paste a link and say what it is. Its title, description and cover are read from the page.</p>` +
+			`<div class="bm-dlg-label">Link</div>` +
+			`<div class="bm-dlg-url"><span class="bm-dlg-lead"><i class="ti ti-link"></i><img alt=""></span>` +
+			`<input type="text" inputmode="url" placeholder="Paste a link, like example.com" spellcheck="false" autocomplete="off" aria-label="Link"></div>` +
+			`<div class="bm-dlg-label">What is it?</div>` +
+			`<div class="bm-dlg-tiles" role="radiogroup" aria-label="Category">` +
+			cats.map((c) => `<button type="button" class="bm-tile" role="radio" aria-checked="false" data-cat="${esc(c.id)}" style="${colorVars(c.color)}">` +
+				`<span class="bm-tile-ic"><i class="ti ${esc(c.icon)}"></i></span><span class="bm-tile-name">${esc(c.label)}</span><i class="ti ti-check bm-tile-tick"></i></button>`).join('') +
+			`</div>` +
+			`<div class="bm-dlg-note" role="status" aria-live="polite"></div>` +
+			`<div class="bm-dlg-foot"><span class="bm-dlg-keys"><kbd>Esc</kbd> close <kbd>\u2318\u21b5</kbd> add</span>` +
+			`<button type="button" class="bm-dlg-cancel">Cancel</button>` +
+			`<button type="submit" class="bm-dlg-go"><span class="bm-spin"></span><span class="bm-dlg-go-text">Add bookmark</span></button></div></form>`;
+
+		const $ = (sel) => overlay.querySelector(sel);
+		const form = $('.bm-dialog'), input = $('.bm-dlg-url input'), urlBox = $('.bm-dlg-url'), lead = $('.bm-dlg-lead'), fav = $('.bm-dlg-lead img');
+		const tilesEl = $('.bm-dlg-tiles'), note = $('.bm-dlg-note'), go = $('.bm-dlg-go'), goText = $('.bm-dlg-go-text');
+		const tiles = [...overlay.querySelectorAll('.bm-tile')];
+
+		const setNote = (text, kind) => { note.textContent = text || ''; note.className = 'bm-dlg-note' + (text ? ' on ' + (kind || '') : ''); };
+
+		// the tiles, the colour glowing from the top and what the button says all follow the chosen category
+		const paint = () => {
+			for (const t of tiles) {
+				const on = chosen !== null && t.dataset.cat === chosen;
+				t.classList.toggle('on', on);
+				t.setAttribute('aria-checked', String(on));
+				t.tabIndex = on || (chosen === null && t === tiles[0]) ? 0 : -1;
+			}
+			const cat = chosen === null ? null : cats.find((c) => c.id === chosen);
+			form.style.cssText = cat ? colorVars(cat.color) : '';
+			form.classList.toggle('tinted', !!cat);
+			goText.textContent = busy ? 'Saving\u2026' : cat ? `Add to ${cat.label}` : 'Add bookmark';
+		};
+
+		// the favicon of the site stands where the link icon is, once the field holds a link
+		const syncUrl = () => {
+			const host = hostOf(normalizeUrl(input.value) || '');
+			if (host === shownHost) return;
+			shownHost = host;
+			lead.classList.remove('fav');
+			fav.removeAttribute('src');
+			if (!host) return;
+			fav.onload = () => { if (shownHost === host) lead.classList.add('fav'); };
+			fav.onerror = () => {};
+			fav.src = `https://${host}/favicon.ico`;
+		};
+
+		const choose = (t, fromKeys) => {
+			chosen = t.dataset.cat;
+			paint();
+			setNote('');
+			if (fromKeys) { t.focus(); return; }
+			(normalizeUrl(input.value) ? go : input).focus();   // a click or Enter on a tile is done with the tiles
+		};
+
+		const setBusy = (on) => {
+			busy = on;
+			form.classList.toggle('busy', on);
+			for (const el of form.querySelectorAll('input, .bm-tile, .bm-dlg-cancel, .bm-dlg-x')) el.disabled = on;
+			go.disabled = on;
+			paint();
+		};
+
+		const close = (now) => {
+			if (this.dialog?.overlay !== overlay) return;
+			this.dialog = null;
+			document.removeEventListener('keydown', onKey, true);
+			if (now) overlay.remove();
+			else { overlay.classList.add('out'); setTimeout(() => overlay.remove(), 140); }
+			if (opener?.isConnected && opener.focus) opener.focus();
+		};
+
+		const submit = async () => {
+			if (busy) return;
+			const url = normalizeUrl(input.value);
+			if (!url) { setNote('Paste a link to a site, like example.com.', 'warn'); this.ui.bounce(urlBox); input.focus(); return; }
+			if (chosen === null) { setNote('Choose what it is.', 'warn'); this.ui.bounce(tilesEl); tiles[0].focus(); return; }
+			setBusy(true);
+			try {
+				const saved = await this.findSaved(url);
+				if (saved) { setNote(`Already saved as \u201c${saved.getName()}\u201d.`, 'warn'); setBusy(false); input.focus(); return; }
+				const cat = cats.find((c) => c.id === chosen);
+				const record = await this.addBookmark(url, cat?.id ? cat.label : '');
+				if (record) { close(); return; }
+			} catch (e) { console.error('Bookmarks: could not add', e); }
+			setBusy(false);
+			setNote('The link could not be saved. Try again.', 'warn');
+		};
+
+		const onKey = (e) => {
+			if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+		};
+
+		overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+		// the dialog's keys are its own: Thymer's shortcuts and the editor do not see them (Escape is taken in the capture phase)
+		for (const type of ['keydown', 'keyup', 'keypress']) overlay.addEventListener(type, (e) => e.stopPropagation());
+		overlay.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); return; }
+			if (e.key !== 'Tab') return;
+			const order = [$('.bm-dlg-x'), input, tiles.find((t) => t.tabIndex === 0), $('.bm-dlg-cancel'), go].filter((el) => el && !el.disabled);
+			const at = order.indexOf(document.activeElement);
+			const next = order[(at + (e.shiftKey ? -1 : 1) + order.length) % order.length];
+			if (next) { e.preventDefault(); next.focus(); }
+		});
+		form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
+		$('.bm-dlg-x').addEventListener('click', () => close());
+		$('.bm-dlg-cancel').addEventListener('click', () => close());
+		input.addEventListener('input', () => { syncUrl(); setNote(''); });
+		tilesEl.addEventListener('click', (e) => { const t = e.target.closest('.bm-tile'); if (t) choose(t, false); });
+		tilesEl.addEventListener('keydown', (e) => {
+			const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+			const at = tiles.indexOf(document.activeElement);
+			if (!step || at < 0) return;
+			e.preventDefault();
+			choose(tiles[(at + step + tiles.length) % tiles.length], true);
+		});
+
+		// the surface is the panel's colour (what the page is drawn on), else the page's own
+		const css = getComputedStyle(document.body);
+		const surface = css.getPropertyValue('--panel-bg-color').trim() || (css.backgroundColor !== 'rgba(0, 0, 0, 0)' ? css.backgroundColor : '');
+		if (surface) overlay.style.setProperty('--bm-surface', surface);
+		paint();
+		document.addEventListener('keydown', onKey, true);
+		document.body.appendChild(overlay);
+		this.dialog = { overlay, focus: () => input.focus(), close };
+		input.focus();
+
+		// a link on the clipboard is what is usually being saved: filled in, selected, so typing replaces it
+		navigator.clipboard.readText().then((text) => {
+			const url = normalizeUrl(text);
+			if (!url || input.value || this.dialog?.overlay !== overlay) return;
+			input.value = text.trim();
+			input.select();
+			syncUrl();
+		}).catch(() => { /* no permission, or the window is not focused */ });
 	}
 
 	async waitForRecord(guid) {

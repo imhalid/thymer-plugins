@@ -1,0 +1,22 @@
+{
+  "name": "Meadow",
+  "description": "Dark Sans in forest and leaf green over a summer valley",
+  "accent": "#8cba45",
+  "ground": "#12211a",
+  "text": "#efe9d6",
+  "sidebar": "#0d1811",
+  "wallpaper": { "file": "wallpaper.jpg", "position": "80% 50%", "size": "max(130vw, 208vh) auto" },
+  "veil": {
+    "direction": "to top right",
+    "stops": [[0.97, "0%"], [0.95, "30%"], [0.86, "58%"], [0.8, "82%"], [0.75, "100%"]]
+  },
+  "selected": "soft",
+  "title": "upright",
+  "icons": { "h2": "leaf", "h3": "daisy" },
+  "portrait": "portrait.jpg",
+  "syntax": {
+    "meta": "#8ccbe8", "keyword": "#c9dd6e", "type": "#b9dc74", "title": "#f3eedd",
+    "string": "#f2a865", "number": "#f2c14e", "comment": "#8f9a85"
+  },
+  "code_alpha": 0.76
+}

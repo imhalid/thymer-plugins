@@ -1,0 +1,21 @@
+{
+  "name": "Sakura",
+  "description": "Dark Sans in plum and blossom pink over a cherry-blossom wallpaper",
+  "accent": "#e86f97",
+  "ground": "#1d111b",
+  "text": "#f3e4ec",
+  "sidebar": "#1b1119",
+  "wallpaper": { "file": "wallpaper.jpg", "position": "100% 30%", "size": "max(141vw, 170vh) auto" },
+  "veil": {
+    "direction": "to top right",
+    "stops": [[0.98, "0%"], [0.95, "38%"], [0.78, "68%"], [0.58, "100%"]]
+  },
+  "selected": "solid",
+  "title": "italic",
+  "icons": { "h3": "blossom" },
+  "syntax": {
+    "meta": "#ff8fb3", "keyword": "#ff8fb3", "type": "#9fdcc4", "title": "#c3e8a6",
+    "string": "#ffb3c9", "number": "#ffc98f", "comment": "#9a8191"
+  },
+  "code_alpha": 0.65
+}

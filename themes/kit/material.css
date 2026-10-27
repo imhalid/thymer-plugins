@@ -1,0 +1,197 @@
+/* --- Material: what a wallpaper theme draws beyond its colours ---
+   THEME stands for the theme's id; the --wt-* variables come from its
+   theme.json (see kit/build.py). Sections between @if and @end are kept only
+   when the theme asks for them. */
+
+/* The wallpaper is the ground, framed by the theme. The sidebar and the bars
+   are all but solid; the page is a veil, solid where the writing is and
+   letting the picture through towards one side. */
+html[data-theme="THEME"] {
+  background: var(--wt-ground) var(--wt-wallpaper) var(--wt-wallpaper-position) / var(--wt-wallpaper-size) no-repeat;
+}
+html[data-theme="THEME"] :is(body, .app-chrome-panels, .panels-grid-sidebar, .panels-grid) {
+  background: transparent;
+}
+html[data-theme="THEME"] :is(.title-bar, .statusbar--status-bar, .panel-h-sizer) {
+  background: var(--wt-chrome);
+}
+html[data-theme="THEME"] .panels-grid > .panel {
+  background: var(--wt-veil);
+}
+html[data-theme="THEME"] .sidebar {
+  position: relative;
+  background: var(--wt-side);
+  border-right: 1px solid var(--wt-hairline);
+}
+html[data-theme="THEME"] .statusbar--status-bar {
+  border-top: 1px solid var(--wt-hairline);
+}
+
+/* @if hide_banners */
+/* No banners: the wallpaper is the page's picture. Banners and Auto
+   Banner's scenes are hidden and the heading keeps the height Thymer gives a
+   page without one (its own rules, and Auto Banner's, are more specific). */
+html[data-theme="THEME"] .panel-heading .banner-container {
+  display: none;
+}
+html:not([data-mobile-type=phone])[data-theme="THEME"] .panel-heading {
+  --panel-banner-height: 145px !important;
+}
+html:not([data-mobile-type=phone])[data-theme="THEME"] .panel-heading.has-crumb-path {
+  --panel-banner-height: 170px !important;
+}
+/* @end */
+
+/* @if portrait */
+/* Achievements' character stands whole on the theme's own picture: no fade
+   at its feet, the picture vignetted towards the card's edges so the
+   character stands out. */
+html[data-theme="THEME"] .ach-card .ach-por {
+  background:
+    radial-gradient(ellipse 65% 75% at 50% 45%, var(--wt-vignette-in) 25%, var(--wt-vignette-out) 100%),
+    var(--wt-portrait) 50% 45% / cover no-repeat;
+  box-shadow: inset 0 0 0 1px var(--wt-hairline);
+}
+html[data-theme="THEME"] .ach-card .ach-por canvas {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+/* @end */
+
+/* The page open in the sidebar is a pill in the accent. */
+html[data-theme="THEME"] {
+  --sidebar-focused-shadow: none;
+  --sidebar-active-focused-shadow: none;
+}
+html[data-theme="THEME"] .sidebar .sidebar-item {
+  border-radius: 7px;
+}
+html[data-theme="THEME"] .sidebar .sidebar-item.is-focused .sidebar-item-icon {
+  color: var(--wt-focused-icon);
+}
+
+/* The sidebar's toggle is a bare chevron, centred in its box, just inside
+   the page's left edge: Thymer's place for it, astride the sidebar's edge,
+   puts half of it on the sidebar's scrollbar once its disc is gone. */
+html:not([data-device=mobile])[data-theme="THEME"] .sidebar--toggler {
+  right: -34px;
+  z-index: 60;
+  justify-content: center;
+}
+html[data-theme="THEME"] .sidebar--toggler:hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--wt-accent-soft);
+}
+
+/* The title is heavy, upright or italic as the theme says. */
+html[data-theme="THEME"] .id--panel-title .id--h1 {
+  font-style: var(--wt-title-style);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* @if h2_icon */
+html[data-theme="THEME"] .line-div.heading-h2 {
+  position: relative;
+}
+html[data-theme="THEME"] .line-div.heading-h2::before {
+  content: "";
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  background: var(--wt-h2-icon) center / contain no-repeat;
+  pointer-events: none;
+}
+/* @end */
+
+/* @if h3_icon */
+html[data-theme="THEME"] .line-div.heading-h3 {
+  position: relative;
+}
+html[data-theme="THEME"] .line-div.heading-h3::before {
+  content: "";
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  background: var(--wt-h3-icon) center / contain no-repeat;
+  pointer-events: none;
+}
+/* @end */
+
+/* Inline code is a chip tinted with the accent. */
+html[data-theme="THEME"] .lineitem-code {
+  background: var(--wt-chip-bg);
+  border-color: var(--wt-chip-border);
+  color: var(--wt-chip-fg);
+}
+
+/* Code blocks: a darker pane with a soft hairline, and the theme's syntax
+   colours. */
+html[data-theme="THEME"] .block-codelang {
+  border-radius: 12px;
+}
+html[data-theme="THEME"] :is(.hljs-meta, .hljs-selector-tag) {
+  color: var(--wt-syn-meta);
+}
+html[data-theme="THEME"] :is(.hljs-keyword, .hljs-literal) {
+  color: var(--wt-syn-keyword);
+}
+html[data-theme="THEME"] :is(.hljs-type, .hljs-built_in, .hljs-name, .hljs-tag, .hljs-variable, .hljs-template-variable, .hljs-attribute) {
+  color: var(--wt-syn-type);
+}
+html[data-theme="THEME"] :is(.hljs-title, .hljs-section, .hljs-class .hljs-title) {
+  color: var(--wt-syn-title);
+}
+html[data-theme="THEME"] :is(.hljs-string, .hljs-symbol, .hljs-regexp, .hljs-link) {
+  color: var(--wt-syn-string);
+}
+html[data-theme="THEME"] .hljs-number {
+  color: var(--wt-syn-number);
+}
+html[data-theme="THEME"] :is(.hljs-comment, .hljs-quote, .hljs-deletion) {
+  color: var(--wt-syn-comment);
+  font-style: italic;
+}
+
+/* Scrollbars: a slim pill in the accent's light. */
+html[data-theme="THEME"] :is(.vscrollbar-thumb, .hscrollbar-thumb) {
+  -webkit-mask-image: none;
+  mask-image: none;
+  box-sizing: border-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--wt-thumb);
+}
+html[data-theme="THEME"] :is(.vscrollbar-thumb:hover, .vscrollbar.dragging .vscrollbar-thumb, .hscrollbar-thumb:hover, .hscrollbar.dragging .hscrollbar-thumb) {
+  background-color: var(--wt-thumb-active);
+}
+html[data-theme="THEME"] .vscrollbar.has-thumb:hover {
+  background-color: transparent;
+}
+
+/* Everything that floats is frosted. */
+html[data-theme="THEME"] :is(.cmdpal--dialog, .cmdpal--inline, .inline-view-editor-popover, .modal-dialog.modal-popout, .toaster, .page-details-popover, .tooltip-element) {
+  -webkit-backdrop-filter: saturate(140%) blur(20px);
+  backdrop-filter: saturate(140%) blur(20px);
+  box-shadow: var(--wt-shadow-pop);
+}
+html[data-theme="THEME"] .modal-background {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+html[data-theme="THEME"] .autocomplete--option-selected {
+  border-radius: 7px;
+}
+
+/* Numbers line up in tables and do not jump while they change. */
+html[data-theme="THEME"] :is(.table-view, .statusbar) {
+  font-variant-numeric: tabular-nums;
+}

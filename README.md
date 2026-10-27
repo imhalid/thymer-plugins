@@ -28,7 +28,15 @@ A Thymer theme is a `html[data-theme="<id>"]` rule in the custom CSS (Settings â
 
 `premium.css` is built: `python3 themes/premium/build.py` copies every rule of Thymer's Dark Sans and Light Sans themes (read from the desktop app's cache) into the new ids, turns their greys into Pano's and their teal into its blue, and puts `tokens.json` (Pano's tokens as Thymer variables) and `material.css` (raised controls, glass, edged panels) on top.
 
-Sakura and Meadow are installed the same way (`sakura.css` or `meadow.css`, `python3 themes/<name>/push.py`, then the theme in the theme picker) and built with `python3 themes/<name>/build.py`, which uses Premium's builder on Dark Sans with the theme's own greys and accent (plum and pink, forest and leaf green), then adds `tokens.json`, the wallpaper (`wallpaper.jpg`, embedded as a data URI) and `material.css`.
+Sakura and Meadow are wallpaper themes, made by `themes/kit`: each is a folder with a picture and a `theme.json` (accent, optional ground and text colours, framing, veil, selected style, heading icons, syntax colours, and a portrait for Achievements' character). `python3 themes/kit/build.py [name ...]` derives every colour scale from those colours in OKLCH, copies Dark Sans into the theme's id with Premium's builder, adds the shared `kit/material.css` and the theme's own `extra.css` (Sakura's branches and petals), and writes `<name>.css`; `python3 themes/kit/push.py <name>` installs it like Premium's push.py.
+
+A new one takes a picture and an accent:
+
+```bash
+python3 themes/kit/new.py Dunes ~/Pictures/dunes.jpg --accent '#e0a060'
+```
+
+then build and push it, and tune its `theme.json` (the framing of the picture first) while looking at it.
 
 ## Install a plugin
 

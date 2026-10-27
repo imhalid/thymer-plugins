@@ -8,10 +8,21 @@ Personal plugins for [Thymer](https://thymer.com).
 | [`achievements`](plugins/achievements) | 68 writing achievements, from easy to legendary (words, speed, streaks, tasks, night owl, ...) that pay crowns, with a small 3D knight drawn in plain WebGL in the top-left corner: its head follows the pointer, nods while you type, and it salutes with a banner when something unlocks |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
 | [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
+| [`calendar-plus`](plugins/calendar-plus) | Thymer's date picker with its days as tiles that fill the grid, the days on which something changed in the workspace tinted in the accent colour (deeper the more changed), and a Today button that brings the calendar to this month and picks today |
 | [`home`](plugins/home) | A dashboard opened from a Home button beside Tasks: a full-width WebGL sky (a nebula, a neural field or a star atlas, in one of six biomes) in which every day you changed something is a star, brighter the more changed, days in a row joined by lines that pass light along; then the last 30 days, today's journal and recently edited pages |
 | [`bookmarks`](plugins/bookmarks) | A collection for saved sites with a view of cards under their category: each with the site's preview image as its cover, its favicon, domain and description, category chips to filter by, and an Add bookmark button whose dialog takes the link and what it is |
 | [`auto-banner`](plugins/auto-banner) | A page without a banner gets a picture drawn in the banner's place on a canvas (nothing is uploaded, the page is not changed): the title is the seed for one of 26 scenes (mountains, a lake, waves, a lighthouse, windmills, snow, rain, a volcano, islands, fireflies, an aurora, a nebula, cherry blossom, a fire lookout, a grass field, a pixel-art grove, ...), each moving a little in a way that belongs to it, in a palette that follows the time of day, in a fine dither or smooth, with clouds of lit puffs and the moon in tonight's phase |
 | [`markdown-fix`](plugins/markdown-fix) | Draws what Thymer's Markdown import leaves as plain text: pipe tables become tables (bold, code and alignment kept) and ```` ```mermaid ```` blocks become diagrams, each with a button to show the source again; the notes themselves are not edited |
+
+## Themes
+
+| Theme | What it is |
+| --- | --- |
+| [`premium`](themes/premium) | Premium and Premium Light, made from the Premium Design (Pano) design system: Apple-like greys on a near-black (or #f5f5f7) ground, one blue accent kept for focus, selection and links, panels as cards with a 1px edge that fades from the top, raised pill buttons, frosted popovers and tooltips, the system font |
+
+A Thymer theme is a `html[data-theme="<id>"]` rule in the custom CSS (Settings → Custom CSS); Thymer lists it in its theme picker under the id without its first word. To install Premium, paste `themes/premium/premium.css` at the end of the custom CSS, or with Thymer open run `python3 themes/premium/push.py`, which backs up the custom CSS and replaces only the theme's block in it; then choose Premium or Premium Light in the theme picker.
+
+`premium.css` is built: `python3 themes/premium/build.py` copies every rule of Thymer's Dark Sans and Light Sans themes (read from the desktop app's cache) into the new ids, turns their greys into Pano's and their teal into its blue, and puts `tokens.json` (Pano's tokens as Thymer variables) and `material.css` (raised controls, glass, edged panels) on top.
 
 ## Install a plugin
 
@@ -19,6 +30,10 @@ Personal plugins for [Thymer](https://thymer.com).
 2. Open **Edit Code** and paste the contents of the plugin's `plugin.js` into the code tab.
 3. Paste the plugin's `plugin.css` into the **CSS** tab.
 4. Paste the plugin's `plugin.json` into the **Configuration** tab and save.
+
+## Calendar Plus
+
+Adds to Thymer's date picker wherever it opens (the journal's date popup, dates in properties and in the editor). The days are tiles that fill the grid instead of small numbers far apart; a day on which something changed in the workspace is tinted in the theme's accent colour, in four steps by how much changed, and pointing at it says how many changes. Today has an accent ring, the picked day the accent gradient. A Today button in the header (in place of Thymer's dot) brings the calendar to this month and picks today; picking is Thymer's own click on the day, so what it does stays Thymer's. What changed when is counted like Home counts it (a page on the day it was made, a line on the day it was written and the day it was last changed), read a few seconds after Thymer starts and again when a calendar opens after two minutes. The colours come from the theme's variables, so it fits any theme.
 
 ## Achievements
 

@@ -1,0 +1,165 @@
+/* Calendar Plus: the date picker's days as tiles, tinted where something changed, and a Today button.
+   Colours come from the theme's own variables, so it fits any theme. */
+
+.datepicker-calendar.cp-on {
+	--cp-gap: 3px;
+	--cp-day: 32px;
+	--cp-radius: 9px;
+	--cp-accent: var(--color-primary-500);
+	--cp-tile: color-mix(in srgb, var(--text-default) 4%, transparent);
+	--cp-tile-hover: color-mix(in srgb, var(--text-default) 10%, transparent);
+}
+/* In the journal's popup the calendar has a fixed height (Thymer's own takes 179px of 200), so the tiles share what is left
+   by the number of weeks shown. */
+.datepicker-compact .datepicker-calendar.cp-on {
+	--cp-day: 24px;
+}
+.datepicker-compact .datepicker-calendar.cp-on .datepicker-days[data-cp-rows="6"] {
+	--cp-gap: 2px;
+	--cp-day: 20px;
+}
+.datepicker-compact .datepicker-calendar.cp-on .datepicker-days[data-cp-rows="4"] {
+	--cp-day: 29px;
+}
+.datepicker-calendar.cp-on .datepicker-days .day.cp-hidden {
+	display: none;
+}
+
+/* The journal's popup (Thymer makes it 400px wide) is as wide as the calendar, and the calendar fills it. The calendar's
+   row in the popup's list (.autocomplete-date-widget) is placed absolutely with only its left edge set, so it shrank to
+   the calendar; it is given both edges. */
+html:not([data-device=mobile]) .cmdpal--inline:has(.datepicker-calendar.cp-on) {
+	width: 280px !important;
+}
+.autocomplete-date-widget:has(.datepicker-calendar.cp-on) {
+	left: 0 !important;
+	right: 0 !important;
+	padding: 0 10px;
+}
+.datepicker-compact:has(> .id--start .datepicker-calendar.cp-on) {
+	padding-left: 0;
+	padding-right: 0;
+}
+
+/* The header: Today is a small raised pill; Thymer's dot is replaced by it. */
+.datepicker-calendar.cp-on .go-to-today {
+	display: none !important;
+}
+.datepicker-calendar.cp-on .datepicker-header {
+	gap: 8px;
+}
+.datepicker-calendar.cp-on .datepicker-header .current-month {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.datepicker-calendar.cp-on .datepicker-header > span:last-child {
+	align-items: center;
+	gap: 2px !important;
+}
+.datepicker-calendar.cp-on .datepicker-header :is(.prev-month, .next-month) {
+	padding-left: 4px;
+	padding-right: 4px;
+}
+.cp-today {
+	padding: 1px 8px;
+	border: 1px solid color-mix(in srgb, var(--text-default) 12%, transparent);
+	border-radius: 999px;
+	background: linear-gradient(180deg, color-mix(in srgb, var(--text-default) 9%, transparent), color-mix(in srgb, var(--text-default) 4%, transparent));
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+	color: var(--text-default);
+	font: inherit;
+	font-size: var(--text-size-smaller);
+	font-weight: 600;
+	line-height: 16px;
+	cursor: pointer;
+	transition: filter .2s cubic-bezier(.2, .8, .2, 1), transform .15s cubic-bezier(.2, .8, .2, 1);
+}
+.cp-today:hover {
+	filter: brightness(1.15);
+}
+.cp-today:active {
+	transform: scale(.97);
+}
+
+/* The days: a grid of tiles that fill their cells, a small gap between them. */
+.datepicker-calendar.cp-on .datepicker-weekdays,
+.datepicker-calendar.cp-on .datepicker-days {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	gap: var(--cp-gap);
+}
+.datepicker-calendar.cp-on .datepicker-days {
+	height: auto;
+}
+.datepicker-calendar.cp-on .datepicker-weekdays .weekday {
+	font-size: var(--text-size-xsmall);
+	font-weight: 500;
+	opacity: 1;
+	color: var(--text-muted);
+}
+.datepicker-calendar.cp-on .datepicker-days .day {
+	width: auto;
+	height: var(--cp-day);
+}
+.datepicker-calendar.cp-on .datepicker-days .day .day-inner {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	border: 0;
+	border-radius: var(--cp-radius);
+	background: var(--cp-tile);
+	font-variant-numeric: tabular-nums;
+	transition: background-color .2s ease, box-shadow .2s ease, transform .15s ease;
+}
+.datepicker-calendar.cp-on .datepicker-days .day:is(.prev-month, .next-month) .day-inner {
+	background: transparent;
+	opacity: .55;
+}
+.datepicker-calendar.cp-on .datepicker-days .day:not(.disabled):hover .day-inner {
+	border: 0;
+	border-radius: var(--cp-radius);
+	background-color: var(--cp-tile-hover);
+}
+.datepicker-calendar.cp-on .datepicker-days .day:not(.disabled):active .day-inner {
+	transform: scale(.95);
+}
+
+/* Days on which something changed: the accent, deeper the more changed. */
+.datepicker-calendar.cp-on .datepicker-days .day[data-cp-level="1"] .day-inner { background: color-mix(in srgb, var(--cp-accent) 14%, transparent); }
+.datepicker-calendar.cp-on .datepicker-days .day[data-cp-level="2"] .day-inner { background: color-mix(in srgb, var(--cp-accent) 26%, transparent); }
+.datepicker-calendar.cp-on .datepicker-days .day[data-cp-level="3"] .day-inner { background: color-mix(in srgb, var(--cp-accent) 40%, transparent); }
+.datepicker-calendar.cp-on .datepicker-days .day[data-cp-level="4"] .day-inner { background: color-mix(in srgb, var(--cp-accent) 56%, transparent); }
+.datepicker-calendar.cp-on .datepicker-days .day[data-cp-level]:not(.disabled):hover .day-inner {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cp-accent) 70%, transparent);
+}
+
+/* Today: an accent ring and accent figures. Picked: the accent gradient, white figures. */
+.datepicker-calendar.cp-on .datepicker-days .day.today .day-inner {
+	box-shadow: inset 0 0 0 1.5px var(--cp-accent);
+	color: var(--cp-accent);
+	font-weight: 700;
+}
+.datepicker-calendar.cp-on .datepicker-days .day.selected .day-inner,
+.datepicker-calendar.cp-on .datepicker-days .day.selected:not(.disabled):hover .day-inner {
+	background: linear-gradient(180deg, color-mix(in srgb, var(--cp-accent) 100%, white 8%), color-mix(in srgb, var(--cp-accent) 100%, black 12%));
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .2);
+	color: #fff;
+	font-weight: 700;
+	opacity: 1;
+}
+.datepicker-calendar.cp-on .datepicker-days .day.inrange {
+	background: transparent;
+}
+.datepicker-calendar.cp-on .datepicker-days .day.inrange:not(.selected) .day-inner {
+	background: color-mix(in srgb, var(--cp-accent) 18%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.cp-today,
+	.datepicker-calendar.cp-on .datepicker-days .day .day-inner {
+		transition: none;
+	}
+}

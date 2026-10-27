@@ -1,0 +1,147 @@
+/* --- Material: what Pano draws beyond its colours, for both themes --- */
+
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) {
+  --pm-ease: cubic-bezier(.2, .8, .2, 1);
+  --panel-sizer-width: 8px;
+}
+
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) body {
+  letter-spacing: -0.01em;
+}
+
+/* Panels are edged cards on the page ground: a 1px ring that fades from the
+   top down (the light comes from above), no shadow. */
+html:not([data-device=mobile]):is([data-theme="thymer-premium"], [data-theme="thymer-premium-light"]) .panels-grid-sidebar {
+  background: var(--pm-bg);
+}
+html:not([data-device=mobile]):is([data-theme="thymer-premium"], [data-theme="thymer-premium-light"]) .panels-grid:not(.panel-switcher) > .panel {
+  margin: 8px 8px 8px 0;
+  height: calc(100% - 16px) !important; /* Thymer gives panels height: 100%, the margins come off it */
+  border-radius: 18px;
+  background: var(--pm-card);
+}
+html:not([data-device=mobile]):is([data-theme="thymer-premium"], [data-theme="thymer-premium-light"]) .panels-grid:not(.panel-switcher) > .panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, var(--pm-edge-10) 10%, var(--pm-edge-25) 25%, var(--pm-edge-75) 75%, var(--pm-edge-90) 90%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+html:not([data-device=mobile]):is([data-theme="thymer-premium"], [data-theme="thymer-premium-light"]) .panel-h-sizer {
+  border-left-color: var(--pm-bg);
+}
+
+/* The page open in the sidebar: a stronger fill than hover, edged like
+   Pano's sunken separator (a half-pixel dark line above, a lit line under
+   it), white (black) text in a heavier weight and a blue icon. */
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) {
+  --sidebar-focused-shadow: 0 -0.5px 0 var(--pm-sep-dark), 0 1px 0 var(--pm-sep-light);
+  --sidebar-active-focused-shadow: var(--sidebar-focused-shadow);
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .sidebar .sidebar-item.is-focused {
+  font-weight: 600;
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .sidebar .sidebar-item.is-focused .sidebar-item-icon {
+  color: var(--pm-accent);
+}
+
+/* Scrollbars: a slim plain pill instead of Thymer's hatched thumb. */
+html[data-theme="thymer-premium"] {
+  --pm-thumb: #ffffff26;
+  --pm-thumb-active: #ffffff4d;
+}
+html[data-theme="thymer-premium-light"] {
+  --pm-thumb: #00000026;
+  --pm-thumb-active: #0000004d;
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.vscrollbar-thumb, .hscrollbar-thumb) {
+  -webkit-mask-image: none;
+  mask-image: none;
+  box-sizing: border-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--pm-thumb);
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.vscrollbar-thumb:hover, .vscrollbar.dragging .vscrollbar-thumb, .hscrollbar-thumb:hover, .hscrollbar.dragging .hscrollbar-thumb) {
+  background-color: var(--pm-thumb-active);
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .vscrollbar.has-thumb:hover {
+  background-color: transparent;
+}
+
+/* Raised: buttons are a pill with a top-lit gradient, a hairline and a
+   contact shadow. Primary is not a blue fill; it is the same control,
+   in a heavier weight. */
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.button, .button-normal, .button-primary):not(.button-minimal):not(.button-none):not(.button-link) {
+  background: linear-gradient(180deg, var(--pm-control-top), var(--pm-control-bottom));
+  border-color: var(--pm-control-border);
+  box-shadow: var(--pm-control-shadow);
+  color: var(--pm-text);
+  transition: filter .2s var(--pm-ease), transform .15s var(--pm-ease), box-shadow .2s var(--pm-ease);
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .button-primary:not(.button-minimal) {
+  font-weight: 600;
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.button, .button-normal, .button-primary):not(.button-minimal):not(.button-none):not(.button-link):hover {
+  background: linear-gradient(180deg, var(--pm-control-top), var(--pm-control-bottom));
+  filter: brightness(var(--pm-control-hover));
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.button, .button-normal, .button-primary):not(.button-minimal):not(.button-none):not(.button-link):active {
+  transform: scale(.97);
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.button, .button-normal, .button-primary):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--pm-bg), 0 0 0 5px var(--focus-outline-color);
+}
+
+/* Inset: inputs are a flat fill; focused, they take the surface, the blue
+   edge and the soft ring. */
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(input.form-input, textarea.form-input) {
+  border-radius: 12px;
+  transition: background-color .2s var(--pm-ease), border-color .2s var(--pm-ease), box-shadow .2s var(--pm-ease);
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(input.form-input, textarea.form-input):focus {
+  background: var(--pm-surface);
+  border-color: var(--pm-accent-500);
+  box-shadow: var(--pm-ring);
+}
+
+/* Glass: everything that floats is frosted. */
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.cmdpal--dialog, .cmdpal--inline, .inline-view-editor-popover, .modal-dialog.modal-popout, .toaster, .page-details-popover) {
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
+  box-shadow: var(--pm-shadow-pop);
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .tooltip-element {
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-radius: 12px;
+  box-shadow: var(--pm-shadow);
+}
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .modal-background {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* Selected options in lists are the blue gradient, with white text. */
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .autocomplete--option-selected {
+  border-radius: 8px;
+}
+
+/* Numbers line up in tables and do not jump while they change. */
+:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.table-view, .statusbar) {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.button, .button-normal, .button-primary, input.form-input, textarea.form-input) {
+    transition: none;
+  }
+}

@@ -10,6 +10,16 @@ Personal plugins for [Thymer](https://thymer.com).
 | [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
 | [`home`](plugins/home) | A dashboard opened from a Home button beside Tasks: a full-width WebGL sky (a nebula, a neural field or a star atlas, in one of six biomes) in which every day you changed something is a star, brighter the more changed, days in a row joined by lines that pass light along; then the last 30 days, today's journal and recently edited pages |
 
+## Themes
+
+| Theme | What it is |
+| --- | --- |
+| [`premium`](themes/premium) | Premium and Premium Light, made from the Premium Design (Pano) design system: Apple-like greys on a near-black (or #f5f5f7) ground, one blue accent kept for focus, selection and links, panels as cards with a 1px edge that fades from the top, raised pill buttons, frosted popovers and tooltips, the system font |
+
+A Thymer theme is a `html[data-theme="<id>"]` rule in the custom CSS (Settings → Custom CSS); Thymer lists it in its theme picker under the id without its first word. To install Premium, paste `themes/premium/premium.css` at the end of the custom CSS, or with Thymer open run `python3 themes/premium/push.py`, which backs up the custom CSS and replaces only the theme's block in it; then choose Premium or Premium Light in the theme picker.
+
+`premium.css` is built: `python3 themes/premium/build.py` copies every rule of Thymer's Dark Sans and Light Sans themes (read from the desktop app's cache) into the new ids, turns their greys into Pano's and their teal into its blue, and puts `tokens.json` (Pano's tokens as Thymer variables) and `material.css` (raised controls, glass, edged panels) on top.
+
 ## Install a plugin
 
 1. In Thymer, create a new **global plugin** (Plugins → New → Global plugin).

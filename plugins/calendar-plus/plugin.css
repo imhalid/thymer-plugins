@@ -25,16 +25,20 @@
 	display: none;
 }
 
-/* The journal's popup (Thymer makes it 400px wide) is as wide as the calendar, and the calendar fills it. */
+/* The journal's popup (Thymer makes it 400px wide) is as wide as the calendar, and the calendar fills it. The calendar's
+   row in the popup's list (.autocomplete-date-widget) is placed absolutely with only its left edge set, so it shrank to
+   the calendar; it is given both edges. */
 html:not([data-device=mobile]) .cmdpal--inline:has(.datepicker-calendar.cp-on) {
 	width: 280px !important;
 }
-.autocomplete--option > div:has(> .id--datepicker .datepicker-calendar.cp-on) {
-	flex: 1 1 auto;
-	min-width: 0;
+.autocomplete-date-widget:has(.datepicker-calendar.cp-on) {
+	left: 0 !important;
+	right: 0 !important;
+	padding: 0 10px;
 }
 .datepicker-compact:has(> .id--start .datepicker-calendar.cp-on) {
-	padding-right: 10px;
+	padding-left: 0;
+	padding-right: 0;
 }
 
 /* The header: Today is a small raised pill; Thymer's dot is replaced by it. */

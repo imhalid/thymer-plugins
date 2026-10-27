@@ -1,0 +1,182 @@
+/* --- Material: what Meadow draws beyond its colours --- */
+
+html[data-theme="thymer-meadow"] {
+  /* A leaf and a daisy, for the headings' margins. */
+  --md-leaf-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 19C4 11 9 4 20 4C20 14 14 20 5 19Z' fill='%238cba45' stroke='%23c9e58f' stroke-width='1'/%3E%3Cpath d='M5 19C9 14 12 11 16 8' fill='none' stroke='%23e3f2b4' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  --md-daisy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-16 -16 32 32'%3E%3Cg fill='%23fbf6e6' stroke='%23d8cfae' stroke-width='.5'%3E%3Cellipse id='p' cx='0' cy='-8.5' rx='3' ry='6'/%3E%3Cuse href='%23p' transform='rotate(45)'/%3E%3Cuse href='%23p' transform='rotate(90)'/%3E%3Cuse href='%23p' transform='rotate(135)'/%3E%3Cuse href='%23p' transform='rotate(180)'/%3E%3Cuse href='%23p' transform='rotate(225)'/%3E%3Cuse href='%23p' transform='rotate(270)'/%3E%3Cuse href='%23p' transform='rotate(315)'/%3E%3C/g%3E%3Ccircle r='4.4' fill='%23f2c14e' stroke='%23d99a2b' stroke-width='.8'/%3E%3C/svg%3E");
+}
+
+/* The valley is the ground, a little larger than the window and shifted
+   right, so the lake lies behind the page's right half with the village at
+   its edge, the peaks above, and the porch's posts out of the frame. The sidebar and the
+   bars are a deep forest green the picture barely shows through; the page
+   is a veil that is nearly solid at the bottom left, where the writing is,
+   and opens on the landscape towards the top right. */
+html[data-theme="thymer-meadow"] {
+  background: #12211a var(--md-wallpaper) 80% 50% / max(130vw, 208vh) auto no-repeat;
+}
+html[data-theme="thymer-meadow"] :is(body, .app-chrome-panels, .panels-grid-sidebar, .panels-grid) {
+  background: transparent;
+}
+html[data-theme="thymer-meadow"] :is(.title-bar, .statusbar--status-bar, .panel-h-sizer) {
+  background: var(--md-chrome);
+}
+html[data-theme="thymer-meadow"] .panels-grid > .panel {
+  background: var(--md-veil);
+}
+html[data-theme="thymer-meadow"] .sidebar {
+  background: var(--md-side);
+  border-right: 1px solid var(--md-hairline);
+}
+html[data-theme="thymer-meadow"] .statusbar--status-bar {
+  border-top: 1px solid var(--md-hairline);
+}
+
+/* No banners: the valley is the page's picture. Banners and Auto Banner's
+   scenes are hidden and the heading keeps the height Thymer gives a page
+   without one (its own rules, and Auto Banner's, are more specific). */
+html[data-theme="thymer-meadow"] .panel-heading .banner-container {
+  display: none;
+}
+html:not([data-mobile-type=phone])[data-theme="thymer-meadow"] .panel-heading {
+  --panel-banner-height: 145px !important;
+}
+html:not([data-mobile-type=phone])[data-theme="thymer-meadow"] .panel-heading.has-crumb-path {
+  --panel-banner-height: 170px !important;
+}
+
+/* Achievements' character stands whole on a sunny porch in the valley:
+   no fade at its feet, the picture a touch darker and vignetted towards
+   the card's edges so the character stands out. */
+html[data-theme="thymer-meadow"] .ach-card .ach-por {
+  background:
+    radial-gradient(ellipse 65% 75% at 50% 45%, #0d181147 25%, #0d1811e0 100%),
+    var(--md-portrait) 50% 45% / cover no-repeat;
+  box-shadow: inset 0 0 0 1px var(--md-hairline);
+}
+html[data-theme="thymer-meadow"] .ach-card .ach-por canvas {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* The page open in the sidebar is a soft leaf-green pill. */
+html[data-theme="thymer-meadow"] {
+  --sidebar-focused-shadow: none;
+  --sidebar-active-focused-shadow: none;
+}
+html[data-theme="thymer-meadow"] .sidebar .sidebar-item {
+  border-radius: 7px;
+}
+html[data-theme="thymer-meadow"] .sidebar .sidebar-item.is-focused .sidebar-item-icon {
+  color: var(--md-leaf-soft);
+}
+
+/* The sidebar's toggle is a bare chevron, centred in its box, just inside
+   the page's left edge: Thymer's place for it, astride the sidebar's edge,
+   puts half of it on the sidebar's scrollbar once its disc is gone. */
+html:not([data-device=mobile])[data-theme="thymer-meadow"] .sidebar--toggler {
+  right: -34px;
+  z-index: 60;
+  justify-content: center;
+}
+html[data-theme="thymer-meadow"] .sidebar--toggler:hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--md-leaf-soft);
+}
+
+/* The title is heavy and upright. */
+html[data-theme="thymer-meadow"] .id--panel-title .id--h1 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Headings carry a leaf (h2) or a daisy (h3) in the margin. */
+html[data-theme="thymer-meadow"] :is(.line-div.heading-h2, .line-div.heading-h3) {
+  position: relative;
+}
+html[data-theme="thymer-meadow"] :is(.line-div.heading-h2, .line-div.heading-h3)::before {
+  content: "";
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  background: var(--md-leaf-icon) center / contain no-repeat;
+  pointer-events: none;
+}
+html[data-theme="thymer-meadow"] .line-div.heading-h3::before {
+  background-image: var(--md-daisy);
+}
+
+/* Inline code is a leaf-tinted chip. */
+html[data-theme="thymer-meadow"] .lineitem-code {
+  background: var(--md-chip-bg);
+  border-color: var(--md-chip-border);
+  color: var(--md-chip-fg);
+}
+
+/* Code blocks: a deep green pane with a soft hairline, and summer colours
+   for the syntax: sky-blue directives, grass-green types, warm strings. */
+html[data-theme="thymer-meadow"] .block-codelang {
+  border-radius: 12px;
+}
+html[data-theme="thymer-meadow"] :is(.hljs-meta, .hljs-selector-tag) {
+  color: #8ccbe8;
+}
+html[data-theme="thymer-meadow"] :is(.hljs-keyword, .hljs-literal) {
+  color: #c9dd6e;
+}
+html[data-theme="thymer-meadow"] :is(.hljs-type, .hljs-built_in, .hljs-name, .hljs-tag, .hljs-variable, .hljs-template-variable, .hljs-attribute) {
+  color: #b9dc74;
+}
+html[data-theme="thymer-meadow"] :is(.hljs-title, .hljs-section, .hljs-class .hljs-title) {
+  color: #f3eedd;
+}
+html[data-theme="thymer-meadow"] :is(.hljs-string, .hljs-symbol, .hljs-regexp, .hljs-link) {
+  color: #f2a865;
+}
+html[data-theme="thymer-meadow"] .hljs-number {
+  color: #f2c14e;
+}
+html[data-theme="thymer-meadow"] :is(.hljs-comment, .hljs-quote, .hljs-deletion) {
+  color: #8f9a85;
+  font-style: italic;
+}
+
+/* Scrollbars: a slim leaf-green pill. */
+html[data-theme="thymer-meadow"] :is(.vscrollbar-thumb, .hscrollbar-thumb) {
+  -webkit-mask-image: none;
+  mask-image: none;
+  box-sizing: border-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: #d0e99c2e;
+}
+html[data-theme="thymer-meadow"] :is(.vscrollbar-thumb:hover, .vscrollbar.dragging .vscrollbar-thumb, .hscrollbar-thumb:hover, .hscrollbar.dragging .hscrollbar-thumb) {
+  background-color: #d0e99c59;
+}
+html[data-theme="thymer-meadow"] .vscrollbar.has-thumb:hover {
+  background-color: transparent;
+}
+
+/* Everything that floats is frosted green. */
+html[data-theme="thymer-meadow"] :is(.cmdpal--dialog, .cmdpal--inline, .inline-view-editor-popover, .modal-dialog.modal-popout, .toaster, .page-details-popover, .tooltip-element) {
+  -webkit-backdrop-filter: saturate(140%) blur(20px);
+  backdrop-filter: saturate(140%) blur(20px);
+  box-shadow: var(--md-shadow-pop);
+}
+html[data-theme="thymer-meadow"] .modal-background {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+html[data-theme="thymer-meadow"] .autocomplete--option-selected {
+  border-radius: 7px;
+}
+
+/* Numbers line up in tables and do not jump while they change. */
+html[data-theme="thymer-meadow"] :is(.table-view, .statusbar) {
+  font-variant-numeric: tabular-nums;
+}

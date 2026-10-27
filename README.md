@@ -22,12 +22,13 @@ Personal plugins for [Thymer](https://thymer.com).
 | --- | --- |
 | [`premium`](themes/premium) | Premium and Premium Light, made from the Premium Design (Pano) design system: Apple-like greys on a near-black (or #f5f5f7) ground, one blue accent kept for focus, selection and links, panels as cards with a 1px edge that fades from the top, raised pill buttons, frosted popovers and tooltips, the system font |
 | [`sakura`](themes/sakura) | Sakura, a dark theme over a cherry-blossom wallpaper: the window is a plum veil the picture shows through, blossom pink for selection, links and the open page, pink-tinted inline code, blossom syntax colours, a branch in the sidebar's corners, a blossom before h3 headings, a few slowly falling petals, JetBrains Mono everywhere |
+| [`meadow`](themes/meadow) | Meadow, a dark theme over a summer valley: an all but solid forest-green sidebar, a page veil that is solid on the left and opens on the lake and the village towards the right, no banners, leaf green for selection and links, leaf-tinted inline code, summer syntax colours, a leaf before h2 and a daisy before h3 headings, JetBrains Mono everywhere |
 
 A Thymer theme is a `html[data-theme="<id>"]` rule in the custom CSS (Settings → Custom CSS); Thymer lists it in its theme picker under the id without its first word. To install Premium, paste `themes/premium/premium.css` at the end of the custom CSS, or with Thymer open run `python3 themes/premium/push.py`, which backs up the custom CSS and replaces only the theme's block in it; then choose Premium or Premium Light in the theme picker.
 
 `premium.css` is built: `python3 themes/premium/build.py` copies every rule of Thymer's Dark Sans and Light Sans themes (read from the desktop app's cache) into the new ids, turns their greys into Pano's and their teal into its blue, and puts `tokens.json` (Pano's tokens as Thymer variables) and `material.css` (raised controls, glass, edged panels) on top.
 
-Sakura is installed the same way (`sakura.css`, `python3 themes/sakura/push.py`, then Sakura in the theme picker) and built with `python3 themes/sakura/build.py`, which uses Premium's builder on Dark Sans with plum greys and pink for teal, then adds `tokens.json`, the wallpaper (`wallpaper.jpg`, embedded as a data URI) and `material.css`.
+Sakura and Meadow are installed the same way (`sakura.css` or `meadow.css`, `python3 themes/<name>/push.py`, then the theme in the theme picker) and built with `python3 themes/<name>/build.py`, which uses Premium's builder on Dark Sans with the theme's own greys and accent (plum and pink, forest and leaf green), then adds `tokens.json`, the wallpaper (`wallpaper.jpg`, embedded as a data URI) and `material.css`.
 
 ## Install a plugin
 

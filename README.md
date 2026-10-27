@@ -8,6 +8,7 @@ Personal plugins for [Thymer](https://thymer.com).
 | [`achievements`](plugins/achievements) | 68 writing achievements, from easy to legendary (words, speed, streaks, tasks, night owl, ...) that pay crowns, with a small 3D knight drawn in plain WebGL in the top-left corner: its head follows the pointer, nods while you type, and it salutes with a banner when something unlocks |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common â†’ Legendary) |
 | [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
+| [`calendar-plus`](plugins/calendar-plus) | Thymer's date picker with its days as tiles that fill the grid, the days on which something changed in the workspace tinted in the accent colour (deeper the more changed), and a Today button that brings the calendar to this month and picks today |
 | [`home`](plugins/home) | A dashboard opened from a Home button beside Tasks: a full-width WebGL sky (a nebula, a neural field or a star atlas, in one of six biomes) in which every day you changed something is a star, brighter the more changed, days in a row joined by lines that pass light along; then the last 30 days, today's journal and recently edited pages |
 
 ## Themes
@@ -26,6 +27,10 @@ A Thymer theme is a `html[data-theme="<id>"]` rule in the custom CSS (Settings â
 2. Open **Edit Code** and paste the contents of the plugin's `plugin.js` into the code tab.
 3. Paste the plugin's `plugin.css` into the **CSS** tab.
 4. Paste the plugin's `plugin.json` into the **Configuration** tab and save.
+
+## Calendar Plus
+
+Adds to Thymer's date picker wherever it opens (the journal's date popup, dates in properties and in the editor). The days are tiles that fill the grid instead of small numbers far apart; a day on which something changed in the workspace is tinted in the theme's accent colour, in four steps by how much changed, and pointing at it says how many changes. Today has an accent ring, the picked day the accent gradient. A Today button in the header (in place of Thymer's dot) brings the calendar to this month and picks today; picking is Thymer's own click on the day, so what it does stays Thymer's. What changed when is counted like Home counts it (a page on the day it was made, a line on the day it was written and the day it was last changed), read a few seconds after Thymer starts and again when a calendar opens after two minutes. The colours come from the theme's variables, so it fits any theme.
 
 ## Achievements
 

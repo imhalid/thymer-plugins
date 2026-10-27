@@ -1,0 +1,22 @@
+{
+  "ver": 1,
+  "name": "Calendar Plus",
+  "icon": "ti-calendar",
+  "off": false,
+  "item_name": "Note",
+  "description": "The date picker's days as tiles, tinted where something changed in the workspace, and a Today button",
+  "show_sidebar_items": true,
+  "show_cmdpal_items": true,
+  "views": [],
+  "fields": [],
+  "page_field_ids": [],
+  "sidebar_record_sort_field_id": "updated_at",
+  "sidebar_record_sort_dir": "desc",
+  "managed": {
+    "fields": false,
+    "views": false,
+    "sidebar": false
+  },
+  "custom": {},
+  "home": false
+}

@@ -1,0 +1,163 @@
+/* Bookmarks - loaded by Thymer from the collection's CSS tab. The colours come from the theme (--text*, --enum-*), so the
+   view follows light and dark. --bm-fg/-bg/-border are a category's enum colour, set on chips, groups and cards from the code. */
+
+.bm { --bm-line: color-mix(in srgb, var(--text, #888) 14%, transparent); --bm-card: color-mix(in srgb, var(--text, #888) 5%, transparent);
+	box-sizing: border-box; max-width: 1280px; margin: 0 auto; padding: 4px 28px 56px; container: bm / inline-size; }
+
+/* the bar: the category chips on the left, the button that opens the Add bookmark dialog on the right */
+.bm-bar { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
+.bm-add { all: unset; box-sizing: border-box; flex: none; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 15px 0 12px; border-radius: 10px;
+	font-size: 13px; font-weight: 600; color: var(--text); background: color-mix(in srgb, var(--text, #888) 12%, transparent);
+	box-shadow: inset 0 0 0 1px var(--bm-line); transition: background .12s, transform .1s; }
+.bm-add .ti { font-size: 16px; }
+.bm-add:hover { background: color-mix(in srgb, var(--text, #888) 20%, transparent); }
+.bm-add:active { transform: scale(.97); }
+.bm-add:focus-visible { outline: 2px solid color-mix(in srgb, var(--text, #888) 60%, transparent); outline-offset: 2px; }
+
+/* the category chips */
+.bm-chips { flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 6px; padding-top: 3px; }
+.bm-chip { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px; font-size: 12.5px; font-weight: 550;
+	color: var(--bm-fg, var(--text)); background: var(--bm-bg, var(--bm-card)); box-shadow: inset 0 0 0 1px var(--bm-border, var(--bm-line)); transition: transform .1s, box-shadow .12s; }
+.bm-chip span { font-size: 11px; opacity: .6; font-variant-numeric: tabular-nums; }
+.bm-chip .ti { font-size: 14px; }
+.bm-chip:hover { transform: translateY(-1px); }
+.bm-chip.on { box-shadow: inset 0 0 0 2px var(--bm-fg, var(--text)); }
+.bm-chips:has(.bm-chip.on:not([data-cat=""])) .bm-chip:not(.on) { opacity: .55; }
+
+/* a category: its heading, then the cards */
+.bm-group { margin-bottom: 34px; }
+.bm-group h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 13px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--bm-fg); }
+.bm-group h3 .ti { font-size: 16px; }
+.bm-group h3 span { font-size: 11.5px; font-weight: 500; letter-spacing: 0; color: var(--text-muted); }
+.bm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+@container bm (max-width: 760px) { .bm-bar { flex-direction: column-reverse; align-items: stretch; } .bm-add { justify-content: center; } }
+@container bm (max-width: 560px) { .bm-grid { grid-template-columns: 1fr 1fr; gap: 10px; } }
+
+/* a card: the cover, then the favicon and title, the domain and the description. --bm-tone is the card's colour (the cover's,
+   set from the code once it has loaded, or the category's) */
+.bm-card { --bm-tone: var(--bm-fg); position: relative; display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; text-decoration: none; color: inherit; cursor: pointer;
+	background: linear-gradient(to bottom, color-mix(in srgb, var(--bm-tone) 13%, transparent), color-mix(in srgb, var(--bm-tone) 4%, transparent) 70%), var(--bm-card);
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--bm-tone) 18%, var(--bm-line)); transition: box-shadow .15s ease; }
+.bm-card:hover { box-shadow: 0 0 0 1px color-mix(in srgb, var(--bm-tone) 60%, transparent); }
+.bm-card:focus-visible { outline: 2px solid var(--bm-tone); outline-offset: 2px; }
+
+.bm-cover { position: relative; aspect-ratio: 16 / 9; overflow: hidden; }
+/* the cover fades into the card at its foot */
+.bm-img, .bm-dither { position: absolute; inset: 0; width: 100%; height: 100%; -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent); }
+.bm-img { object-fit: cover; object-position: top center; opacity: 0; transition: opacity .3s; }
+.bm-cover.has-img .bm-img { opacity: 1; }
+.bm-cover.seen .bm-img { transition: none; }   /* a cover seen before does not fade in again */
+/* the drawn cover of a site without one, in the category's colour */
+.bm-dither { color: var(--bm-fg); image-rendering: pixelated; }
+
+/* the buttons in the cover's corner, shown on hover: the one that opens the record, and the one that deletes it */
+.bm-page, .bm-del { all: unset; position: absolute; z-index: 1; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; cursor: pointer;
+	color: #fff; background: rgba(10, 10, 14, .55); backdrop-filter: blur(6px); opacity: 0; transform: translateY(-3px); transition: opacity .12s, transform .12s, background .12s; }
+.bm-del { right: 42px; }
+.bm-page .ti, .bm-del .ti { font-size: 15px; }
+.bm-card:hover .bm-page, .bm-card:hover .bm-del, .bm-page:focus-visible, .bm-del:focus-visible { opacity: 1; transform: none; }
+.bm-page:hover { background: rgba(10, 10, 14, .85); }
+.bm-del:hover, .bm-del:focus-visible { background: rgba(200, 40, 55, .9); }
+
+.bm-text { position: relative; padding: 6px 14px 14px; display: flex; flex-direction: column; min-width: 0; }
+.bm-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* the favicon beside the title (the title's first letter in the card's colour when the site has none at /favicon.ico) */
+.bm-fav { flex: none; width: 16px; height: 16px; display: grid; place-items: center; }
+.bm-fav img { width: 16px; height: 16px; object-fit: contain; border-radius: 3px; grid-area: 1 / 1; }
+.bm-fav b { display: none; grid-area: 1 / 1; width: 16px; height: 16px; border-radius: 4px; place-items: center; font: 700 10px/1 system-ui, sans-serif; text-transform: uppercase;
+	color: var(--bm-tone); background: color-mix(in srgb, var(--bm-tone) 20%, transparent); }
+.bm-fav.none img { display: none; }
+.bm-fav.none b { display: grid; }
+.bm-title { font-size: 14px; font-weight: 650; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bm-host { margin: 2px 0 0 24px; font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* always two lines high, so the cards in a row line up */
+.bm-desc { margin-top: 8px; min-height: calc(2 * 1.45em); font-size: 12.5px; line-height: 1.45; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+.bm-empty { padding: 60px 0; text-align: center; color: var(--text-muted); }
+
+/* the Add bookmark dialog: laid over the page (outside the view), so it carries its own copy of the view's colours.
+   --bm-fg/-bg/-border on the dialog are the chosen category's, set from the code. */
+.bm-overlay { --bm-line: color-mix(in srgb, var(--text, #888) 14%, transparent); --bm-card: color-mix(in srgb, var(--text, #888) 5%, transparent); --bm-surface: var(--panel-bg-color, Canvas);
+	position: fixed; inset: 0; z-index: 2147483100; display: grid; place-items: center; box-sizing: border-box; padding: 24px;
+	background: rgba(8, 8, 12, .5); backdrop-filter: blur(3px); animation: bm-fade .14s ease-out; }
+.bm-overlay.out { opacity: 0; transition: opacity .14s; pointer-events: none; }
+.bm-dialog { position: relative; width: min(560px, 100%); max-height: 100%; overflow: auto; box-sizing: border-box; padding: 26px 26px 20px; border-radius: 18px;
+	color: var(--text); font-size: 13px; line-height: 1.4; background: var(--bm-surface);
+	box-shadow: 0 0 0 1px var(--bm-line), 0 24px 70px rgba(0, 0, 0, .45); animation: bm-pop .2s cubic-bezier(.2, .9, .3, 1.08); }
+/* once a category is chosen, its colour glows from the top of the dialog */
+.bm-dialog::before { content: ''; position: absolute; inset: 0 0 auto; height: 170px; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .25s;
+	background: radial-gradient(120% 100% at 50% 0, color-mix(in srgb, var(--bm-fg, transparent) 18%, transparent), transparent 70%); }
+.bm-dialog.tinted::before { opacity: 1; }
+.bm-dialog > * { position: relative; }
+.bm-dialog h2 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+.bm-dlg-sub { margin: 4px 36px 0 0; color: var(--text-muted); font-size: 13px; }
+.bm-dlg-x { all: unset; position: absolute; top: 18px; right: 18px; z-index: 1; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; color: var(--text-muted); transition: background .12s, color .12s; }
+.bm-dlg-x:hover { color: var(--text); background: color-mix(in srgb, var(--text, #888) 12%, transparent); }
+.bm-dlg-x .ti { font-size: 16px; }
+.bm-dlg-label { margin: 20px 0 8px; font-size: 11.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+
+/* the link: its site's favicon where the link icon is, once the field holds a link */
+.bm-dlg-url { display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 11px; color: var(--text-muted); background: var(--bm-card);
+	box-shadow: inset 0 0 0 1px var(--bm-line); transition: box-shadow .12s; }
+.bm-dlg-url:focus-within { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--text, #888) 45%, transparent); }
+.bm-dlg-url input { all: unset; flex: 1; min-width: 0; color: var(--text); font-size: 14px; }
+.bm-dlg-url input::placeholder { color: var(--text-muted); opacity: .8; }
+.bm-dlg-lead { flex: none; width: 18px; height: 18px; display: grid; place-items: center; }
+.bm-dlg-lead > * { grid-area: 1 / 1; }
+.bm-dlg-lead .ti { font-size: 17px; }
+.bm-dlg-lead img { width: 18px; height: 18px; object-fit: contain; border-radius: 4px; display: none; }
+.bm-dlg-lead.fav img { display: block; }
+.bm-dlg-lead.fav .ti { display: none; }
+
+/* what it is: one tile per category, Other last */
+.bm-dlg-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.bm-tile { all: unset; box-sizing: border-box; position: relative; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 8px; border-radius: 12px;
+	color: var(--text); background: var(--bm-card); box-shadow: inset 0 0 0 1px var(--bm-line); transition: background .12s, box-shadow .12s, transform .1s; }
+.bm-tile-ic { flex: none; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-size: 16px;
+	color: var(--bm-fg); background: var(--bm-bg); box-shadow: inset 0 0 0 1px var(--bm-border); }
+.bm-tile-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bm-tile-tick { margin-left: auto; font-size: 15px; color: var(--bm-fg); opacity: 0; transform: scale(.5); transition: opacity .12s, transform .16s cubic-bezier(.3, 1.6, .5, 1); }
+.bm-tile:hover { background: color-mix(in srgb, var(--bm-bg) 55%, var(--bm-card)); box-shadow: inset 0 0 0 1px var(--bm-border); }
+.bm-tile:active { transform: scale(.97); }
+.bm-tile.on { background: var(--bm-bg); box-shadow: inset 0 0 0 2px var(--bm-fg); }
+.bm-tile.on .bm-tile-tick { opacity: 1; transform: none; }
+.bm-tile:focus-visible { outline: 2px solid var(--bm-fg); outline-offset: 2px; }
+
+/* a line for what is wrong (no link, nothing chosen, a link already saved); its height is kept so the dialog does not jump */
+.bm-dlg-note { min-height: 18px; margin-top: 14px; font-size: 12.5px; opacity: 0; transition: opacity .15s; }
+.bm-dlg-note.on { opacity: 1; }
+.bm-dlg-note.warn { color: var(--enum-orange-fg, #d9822b); }
+
+.bm-dlg-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.bm-dlg-keys { margin-right: auto; font-size: 11.5px; color: var(--text-muted); }
+.bm-dlg-keys kbd { margin: 0 3px 0 8px; padding: 1px 6px; border-radius: 5px; font: 500 11px/1.5 inherit; color: var(--text-muted); box-shadow: inset 0 0 0 1px var(--bm-line); }
+.bm-dlg-keys kbd:first-child { margin-left: 0; }
+.bm-dlg-cancel, .bm-dlg-go { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px; border-radius: 10px; font-size: 13px; font-weight: 600; transition: background .12s, opacity .12s, transform .1s; }
+.bm-dlg-cancel { color: var(--text-muted); }
+.bm-dlg-cancel:hover { color: var(--text); background: color-mix(in srgb, var(--text, #888) 10%, transparent); }
+.bm-dlg-go { color: var(--bm-surface); background: var(--text); }
+.bm-dlg-go:hover { opacity: .88; }
+.bm-dlg-go:active, .bm-dlg-cancel:active { transform: scale(.97); }
+.bm-dlg-cancel:focus-visible, .bm-dlg-go:focus-visible { outline: 2px solid color-mix(in srgb, var(--text, #888) 60%, transparent); outline-offset: 2px; }
+.bm-spin { display: none; width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: bm-spin .7s linear infinite; }
+.bm-dialog.busy .bm-spin { display: inline-block; }
+.bm-dialog.busy .bm-dlg-go { opacity: .7; cursor: default; }
+.bm-dialog.busy .bm-tile:not(.on) { opacity: .5; }
+.bm-dialog.busy .bm-tile, .bm-dialog.busy .bm-dlg-cancel, .bm-dialog.busy .bm-dlg-x { cursor: default; }
+
+@keyframes bm-fade { from { opacity: 0; } }
+@keyframes bm-pop { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+@keyframes bm-spin { to { transform: rotate(360deg); } }
+@media (max-width: 520px) { .bm-dlg-keys { display: none; } .bm-dialog { padding: 22px 18px 16px; } .bm-dlg-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.bm-tile { gap: 8px; padding-right: 8px; } .bm-tile-ic { width: 24px; height: 24px; font-size: 14px; } .bm-tile-tick { display: none; } }
+@media (prefers-reduced-motion: reduce) { .bm-overlay, .bm-dialog { animation: none; } .bm-tile-tick, .bm-dialog::before { transition: none; } }
+
+/* the dialog that asks before a bookmark is deleted */
+.bm-confirm { width: min(400px, 100%); padding-bottom: 18px; }
+.bm-confirm .bm-dlg-sub { margin: 6px 0 0; }
+.bm-confirm h2 { font-size: 17px; }
+.bm-confirm-ic { width: 40px; height: 40px; margin-bottom: 14px; border-radius: 12px; display: grid; place-items: center; font-size: 20px;
+	color: var(--enum-red-fg, #e5484d); background: var(--enum-red-bg, rgba(229, 72, 77, .15)); box-shadow: inset 0 0 0 1px var(--enum-red-border, rgba(229, 72, 77, .4)); }
+.bm-confirm .bm-dlg-foot { margin-top: 22px; }
+.bm-danger { color: var(--bm-surface); background: var(--enum-red-fg, #e5484d); }
+.bm-danger .ti { font-size: 15px; }

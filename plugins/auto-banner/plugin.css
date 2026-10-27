@@ -1,0 +1,28 @@
+/* Auto Banner: the picture drawn in a page's banner strip when it has no banner */
+
+/* the strip takes a banner's height while it shows a picture */
+html:not([data-mobile-type="phone"]) .panel-heading.banner-is-empty.ab-on { --panel-banner-height: 210px; }
+html:not([data-mobile-type="phone"]) .panel-heading.banner-is-empty.has-crumb-path.ab-on { --panel-banner-height: 235px; }
+
+.ab-wrap {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	overflow: hidden;
+	border-radius: inherit;
+	pointer-events: none;
+}
+.ab-canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+.ab-canvas.ab-dots { image-rendering: pixelated; }
+
+/* in a light theme Thymer drops the scrim of a page without a banner: fade the picture into the page ourselves */
+html.is-light .ab-wrap::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(to bottom, transparent 45%, var(--panel-bg-color));
+}

@@ -1,0 +1,354 @@
+{
+  "ver": 1,
+  "name": "Bookmarks",
+  "icon": "ti-bookmark",
+  "color": 3,
+  "home": false,
+  "page_field_ids": [],
+  "item_name": "Page",
+  "description": "Kaydedilen siteler, araçlar ve ilham kaynakları",
+  "show_sidebar_items": false,
+  "sidebar_display_mode": {
+    "mode": "hidden_records"
+  },
+  "show_cmdpal_items": true,
+  "property_sets": [],
+  "property_style": "pills",
+  "property_set_default": "filled",
+  "property_pinned": [],
+  "fields": [
+    {
+      "icon": "ti-list-tree",
+      "id": "parent_page",
+      "label": "Sub-page of",
+      "many": false,
+      "read_only": false,
+      "active": true,
+      "type": "record",
+      "filter_colguid": "154ZWB6ESVQ23TVFAF8Z59NWJ7"
+    },
+    {
+      "id": "fJ5CQHJHNB2Z73J",
+      "label": "URL",
+      "type": "url",
+      "icon": "ti-globe",
+      "active": true,
+      "many": false,
+      "read_only": false
+    },
+    {
+      "id": "f4015PW43S5C4JQ",
+      "label": "Description",
+      "type": "text",
+      "icon": "ti-align-left",
+      "active": true,
+      "many": false,
+      "read_only": false
+    },
+    {
+      "id": "category",
+      "label": "Category",
+      "type": "choice",
+      "icon": "ti-category",
+      "active": true,
+      "many": false,
+      "read_only": false,
+      "choices": [
+        {
+          "id": "components",
+          "label": "Components",
+          "icon": "ti-components",
+          "color": "4",
+          "active": true
+        },
+        {
+          "id": "effects",
+          "label": "Effects",
+          "icon": "ti-sparkles",
+          "color": "7",
+          "active": true
+        },
+        {
+          "id": "generators",
+          "label": "Generators",
+          "icon": "ti-wand",
+          "color": "5",
+          "active": true
+        },
+        {
+          "id": "assets",
+          "label": "Assets",
+          "icon": "ti-photo",
+          "color": "2",
+          "active": true
+        },
+        {
+          "id": "fonts",
+          "label": "Fonts",
+          "icon": "ti-typography",
+          "color": "1",
+          "active": true
+        },
+        {
+          "id": "inspiration",
+          "label": "Inspiration",
+          "icon": "ti-bulb",
+          "color": "6",
+          "active": true
+        },
+        {
+          "id": "tools",
+          "label": "Tools",
+          "icon": "ti-tool",
+          "color": "3",
+          "active": true
+        },
+        {
+          "id": "dev",
+          "label": "Dev",
+          "icon": "ti-code",
+          "color": "12",
+          "active": true
+        },
+        {
+          "id": "ai",
+          "label": "AI",
+          "icon": "ti-robot",
+          "color": "10",
+          "active": true
+        },
+        {
+          "id": "books",
+          "label": "Books",
+          "icon": "ti-book",
+          "color": "9",
+          "active": true
+        },
+        {
+          "id": "fun",
+          "label": "Fun",
+          "icon": "ti-confetti",
+          "color": "8",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "fMGQ5THEKD94XWG",
+      "label": "Tags",
+      "type": "text",
+      "icon": "ti-align-left",
+      "active": false,
+      "many": true,
+      "read_only": false
+    },
+    {
+      "icon": "ti-abc",
+      "id": "title",
+      "label": "Title",
+      "many": false,
+      "read_only": false,
+      "active": true,
+      "type": "text"
+    },
+    {
+      "icon": "ti-align-left",
+      "id": "icon",
+      "label": "Icon",
+      "many": false,
+      "read_only": false,
+      "active": true,
+      "type": "text"
+    },
+    {
+      "icon": "ti-clock-edit",
+      "id": "updated_at",
+      "label": "Modified",
+      "many": false,
+      "read_only": true,
+      "active": true,
+      "type": "datetime"
+    },
+    {
+      "icon": "ti-clock-plus",
+      "id": "created_at",
+      "label": "Created",
+      "many": false,
+      "read_only": true,
+      "active": true,
+      "type": "datetime"
+    },
+    {
+      "icon": "ti-photo",
+      "id": "banner",
+      "label": "Banner",
+      "many": false,
+      "read_only": false,
+      "active": true,
+      "type": "banner"
+    },
+    {
+      "icon": "ti-folders",
+      "id": "collection",
+      "label": "Collection",
+      "many": false,
+      "read_only": false,
+      "active": true,
+      "type": "choice",
+      "choices": [
+        {
+          "id": "1FPNYJQ96PBA77GKFGTCVG51GS",
+          "label": "Dreams",
+          "icon": "ti-moon",
+          "color": "13",
+          "active": true
+        },
+        {
+          "id": "1XNW30CY3E9B2AV4696SGDCSPM",
+          "label": "C Dersleri",
+          "icon": "ti-code",
+          "color": "13",
+          "active": true
+        },
+        {
+          "id": "1XCJTJCY8PCWA077N5WN6QWKEG",
+          "label": "Test Collection",
+          "icon": "ti-notes",
+          "color": "13",
+          "active": true
+        },
+        {
+          "id": "1PDRT2DZBMXDJS3BXEDVKK7SES",
+          "label": "Examples",
+          "icon": "ti-bulb",
+          "color": "13",
+          "active": true
+        },
+        {
+          "id": "1D7YAK7CCPDFANVK7X22F181WT",
+          "label": "Notes",
+          "icon": "ti-notes",
+          "color": "1",
+          "active": true
+        },
+        {
+          "id": "16S1WSXAWSHVHJZ72G6J3JRTCP",
+          "label": "Journal",
+          "icon": "ti-notebook",
+          "color": "0",
+          "active": true
+        },
+        {
+          "id": "1Y71TS517PYYW8P5TTE0AX9MMS",
+          "label": "Reading Log",
+          "icon": "ti-books",
+          "color": "13",
+          "active": true
+        },
+        {
+          "id": "1YZSAEFPHMEYWQH72ECZTNC3KM",
+          "label": "Articles",
+          "icon": "ti-news",
+          "color": "13",
+          "active": true
+        },
+        {
+          "id": "1STBH3R3F567GT25S29QV8JXGJ",
+          "label": "Docs",
+          "icon": "ti-file-text",
+          "color": "2",
+          "active": true
+        },
+        {
+          "id": "154ZWB6ESVQ23TVFAF8Z59NWJ7",
+          "label": "Bookmarks",
+          "icon": "ti-bookmark",
+          "color": "3",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "sidebar_record_sort_dir": "desc",
+  "sidebar_record_sort_field_id": "updated_at",
+  "managed": {
+    "fields": false,
+    "views": false,
+    "sidebar": false
+  },
+  "custom": {},
+  "views": [
+    {
+      "id": "bookmarks",
+      "label": "Bookmarks",
+      "type": "custom",
+      "icon": "ti-bookmarks",
+      "description": "",
+      "query": "",
+      "read_only": false,
+      "shown": true,
+      "field_ids": [
+        "title"
+      ],
+      "sort_field_id": "title",
+      "sort_dir": "asc",
+      "group_by_field_id": null,
+      "opts": {}
+    },
+    {
+      "id": "v0GD2PXB4DFF44J",
+      "label": "Gallery",
+      "type": "gallery",
+      "icon": "ti-layout-grid",
+      "description": "",
+      "read_only": false,
+      "shown": true,
+      "sort_field_id": "category",
+      "sort_dir": "asc",
+      "group_by_field_id": null,
+      "field_ids": [
+        "title",
+        "category",
+        "f4015PW43S5C4JQ"
+      ],
+      "opts": {
+        "gallery_style": "cover-banner"
+      }
+    },
+    {
+      "id": "v8MMD6PEAHDF1GJ",
+      "label": "Table",
+      "type": "table",
+      "icon": "ti-table",
+      "description": "",
+      "read_only": false,
+      "shown": true,
+      "sort_field_id": "category",
+      "sort_dir": "asc",
+      "group_by_field_id": null,
+      "field_ids": [
+        "title",
+        "fJ5CQHJHNB2Z73J",
+        "category",
+        "f4015PW43S5C4JQ",
+        "created_at"
+      ]
+    },
+    {
+      "id": "list",
+      "type": "list",
+      "icon": "ti-list",
+      "label": "List",
+      "description": "",
+      "read_only": false,
+      "shown": true,
+      "field_ids": [
+        "title",
+        "category"
+      ],
+      "sort_dir": "asc",
+      "sort_field_id": "title",
+      "group_by_field_id": "category"
+    }
+  ]
+}

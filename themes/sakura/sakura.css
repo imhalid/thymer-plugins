@@ -922,7 +922,14 @@ html[data-theme="thymer-sakura"] .sidebar .sidebar-item.is-focused .sidebar-item
   color: #ffffff;
 }
 
-/* The sidebar's toggle is a bare chevron. */
+/* The sidebar's toggle is a bare chevron, centred in its box, just inside
+   the page's left edge: Thymer's place for it, astride the sidebar's edge,
+   puts half of it on the sidebar's scrollbar once its disc is gone. */
+html:not([data-device=mobile])[data-theme="thymer-sakura"] .sidebar--toggler {
+  right: -34px;
+  z-index: 60;
+  justify-content: center;
+}
 html[data-theme="thymer-sakura"] .sidebar--toggler:hover {
   background: transparent;
   border-color: transparent;

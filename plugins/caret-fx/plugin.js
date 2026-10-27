@@ -4058,6 +4058,13 @@ class Plugin extends AppPlugin {
 		if (sb && isVisiblyRendered(sb)) { const b = sb.getBoundingClientRect(); if (b.height > 0) bottom = Math.min(bottom, b.top); }
 		const panel = (this.caretEl && this.caretEl.closest('.panel')) || document.querySelector(FOCUSED_PANEL_SEL);
 		const scroller = panel && (panel.querySelector('.panel-scroller-y') || panel);
+		if (panel) {   // content scrolls under the panel's own title bar; its box can be empty when its contents are laid over the page, so what is in it is measured too
+			const pt = panel.getBoundingClientRect().top;
+			for (const el of panel.querySelectorAll('.panel-bar, .panel-bar *')) {
+				const b = el.getBoundingClientRect();
+				if (b.height > 0 && b.width > 0 && b.top < pt + 90 && b.bottom < pt + 140) top = Math.max(top, b.bottom);
+			}
+		}
 		if (scroller) {
 			const b = scroller.getBoundingClientRect();
 			top = Math.max(top, b.top); bottom = Math.min(bottom, b.bottom);

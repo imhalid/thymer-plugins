@@ -36,6 +36,22 @@ html:not([data-device=mobile]):is([data-theme="thymer-premium"], [data-theme="th
 html:not([data-device=mobile]):is([data-theme="thymer-premium"], [data-theme="thymer-premium-light"]) .panel-h-sizer {
   border-left-color: var(--pm-bg);
 }
+/* The sidebar's toggle is a bare chevron just inside the card's left edge,
+   away from the sidebar's scrollbar: no disc, no ring, even on hover, where
+   only the chevron brightens. */
+html:not([data-device=mobile]):is([data-theme="thymer-premium"], [data-theme="thymer-premium-light"]) .sidebar--toggler {
+  right: -34px;
+  z-index: 60; /* over the card's edge ring */
+}
+html:not([data-device=mobile]):is([data-theme="thymer-premium"], [data-theme="thymer-premium-light"]) .sidebar--toggler,
+html:not([data-device=mobile]):is([data-theme="thymer-premium"], [data-theme="thymer-premium-light"]) .sidebar--toggler:hover {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+html:not([data-device=mobile]):is([data-theme="thymer-premium"], [data-theme="thymer-premium-light"]) .sidebar--toggler:hover {
+  color: var(--color-text-100);
+}
 
 /* The page open in the sidebar: a stronger fill than hover, edged like
    Pano's sunken separator (a half-pixel dark line above, a lit line under

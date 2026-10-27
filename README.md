@@ -8,6 +8,7 @@ Personal plugins for [Thymer](https://thymer.com).
 | [`achievements`](plugins/achievements) | 68 writing achievements, from easy to legendary (words, speed, streaks, tasks, night owl, ...) that pay crowns, with a small 3D knight drawn in plain WebGL in the top-left corner: its head follows the pointer, nods while you type, and it salutes with a banner when something unlocks |
 | [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common â†’ Legendary) |
 | [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
+| [`dontspy`](plugins/dontspy) | A lock in every panel's title bar (left of the split-view button) that hides the panel's text from onlookers except around the caret (its word, sentence or paragraph; while typing, only the last letter), in 9 looks (bars, mosaic, matrix, braille, hex, barcode, static, squiggle, marker) in a colour of your choice, with a settings page |
 | [`calendar-plus`](plugins/calendar-plus) | Thymer's date picker with its days as tiles that fill the grid, the days on which something changed in the workspace tinted in the accent colour (deeper the more changed), and a Today button that brings the calendar to this month and picks today |
 | [`home`](plugins/home) | A dashboard opened from a Home button beside Tasks: a full-width WebGL sky (a nebula, a neural field or a star atlas, in one of six biomes) in which every day you changed something is a star, brighter the more changed, days in a row joined by lines that pass light along; then the last 30 days, today's journal and recently edited pages |
 | [`bookmarks`](plugins/bookmarks) | A collection for saved sites with a view of cards under their category: each with the site's preview image as its cover, its favicon, domain and description, category chips to filter by, and an Add bookmark button whose dialog takes the link and what it is |
@@ -30,6 +31,12 @@ A Thymer theme is a `html[data-theme="<id>"]` rule in the custom CSS (Settings â
 2. Open **Edit Code** and paste the contents of the plugin's `plugin.js` into the code tab.
 3. Paste the plugin's `plugin.css` into the **CSS** tab.
 4. Paste the plugin's `plugin.json` into the **Configuration** tab and save.
+
+## DontSpy
+
+A lock in each panel's title bar, left of the split-view button. A locked panel hides what is written in it: the real glyphs are made transparent with the CSS Custom Highlight API (the page's DOM is never touched) and a canvas over the window paints a mask in their place. What stays readable is a window around the caret: its word, sentence or paragraph, or everything; while you type, the word you are typing shows only its last letter, until you move the caret on with the arrow keys or a click (or, if chosen, after a pause).
+
+Looks: Bars, Mosaic, Matrix, Braille, Hex, Barcode, Static, Squiggle and Marker, in the text's own colour or one you pick. Click the lock to lock or unlock a panel; right-click it for quick options. `DontSpy: open settings` opens a page with a locked pad to try it on and a gallery of live samples. Other commands: lock or unlock this panel, lock or unlock all panels, next style. Choices are kept per device. Thymer's editor draws its caret and its selection as layers of their own, so the caret is found from its element and the selection's rectangles are painted again over the masks; selected text stays masked. The page title, sidebar and tabs are not hidden.
 
 ## Calendar Plus
 

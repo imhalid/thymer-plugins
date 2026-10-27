@@ -21,7 +21,8 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CACHE = os.path.expanduser('~/.config/Thymer/Partitions/thymer.com/Service Worker/CacheStorage')
+CACHES = [os.path.expanduser(d + '/Thymer/Partitions/thymer.com/Service Worker/CacheStorage')
+          for d in ('~/.config', '~/Library/Application Support')]  # Linux, macOS
 
 BASES = {'thymer-premium': 'thymer-dark-sans', 'thymer-premium-light': 'thymer-light-sans'}
 
@@ -29,7 +30,7 @@ BASES = {'thymer-premium': 'thymer-dark-sans', 'thymer-premium-light': 'thymer-l
 def read_app_css():
     if len(sys.argv) > 1:
         return open(sys.argv[1], encoding='utf-8', errors='replace').read()
-    paths = [p for p in glob.glob(CACHE + '/*/*/*') if os.path.isfile(p)]
+    paths = [p for c in CACHES for p in glob.glob(c + '/*/*/*') if os.path.isfile(p)]
     for path in sorted(paths, key=os.path.getmtime, reverse=True):
         with open(path, 'rb') as f:
             head = f.read(400)

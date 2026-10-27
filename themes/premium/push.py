@@ -13,7 +13,11 @@ import argparse, json, os, re, sys, time, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 H = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
-BLOCK = re.compile(r"\n*/\* ===== Premium theme start =====.*?/\* ===== Premium theme end ===== \*/\n?", re.S)
+
+
+def block(name):
+    """The theme's own stretch of the custom CSS, between its start and end markers."""
+    return re.compile(r"\n*/\* ===== %s theme start =====.*?/\* ===== %s theme end ===== \*/\n?" % (name, name), re.S)
 
 
 class Mcp:
@@ -48,8 +52,9 @@ class Mcp:
             return text
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+def main(name="Premium", here=HERE, doc=__doc__):
+    """Also used by the other themes' push.py, with their name, folder and docstring."""
+    ap = argparse.ArgumentParser(description=doc, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--workspace", help="workspace name (default: the focused one)")
     ap.add_argument("--remove", action="store_true", help="take the theme out of the custom CSS")
     ap.add_argument("--port", type=int, default=13100)
@@ -64,13 +69,13 @@ def main():
         sys.exit(f"MCP access of '{ws['name']}' is '{ws['mcp_access']}': set it to readwrite (command palette -> MCP Settings)")
 
     live = mcp.call("get_custom_css", workspace=ws["guid"])["custom_css"]
-    os.makedirs(os.path.join(HERE, ".backups"), exist_ok=True)
-    bak = os.path.join(HERE, ".backups", "custom-" + time.strftime("%Y%m%d-%H%M%S") + ".css")
+    os.makedirs(os.path.join(here, ".backups"), exist_ok=True)
+    bak = os.path.join(here, ".backups", "custom-" + time.strftime("%Y%m%d-%H%M%S") + ".css")
     open(bak, "w").write(live)
     print("backed up the live custom CSS to", bak)
 
-    rest = BLOCK.sub("\n", live).rstrip()
-    css = rest + "\n" if a.remove else (rest + "\n\n" if rest else "") + open(os.path.join(HERE, "premium.css")).read()
+    rest = block(name).sub("\n", live).rstrip()
+    css = rest + "\n" if a.remove else (rest + "\n\n" if rest else "") + open(os.path.join(here, name.lower() + ".css")).read()
     mcp.call("set_custom_css", workspace=ws["guid"], css=css)
     back = mcp.call("get_custom_css", workspace=ws["guid"])["custom_css"]
     if back != css:

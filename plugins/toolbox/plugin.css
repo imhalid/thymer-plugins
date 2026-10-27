@@ -1,0 +1,20 @@
+/* toolbox - loaded by Thymer from the plugin's CSS tab (while the plugin is on). */
+
+/* The box that floats above the selected text. Its place is set from the code (left, top; --tb-arrow: where its arrow points). */
+.tb-box { position: fixed; z-index: 700; box-sizing: border-box; display: none; align-items: center; gap: 2px; min-height: 34px; padding: 4px 10px; border-radius: 10px;
+	background: var(--cmdpal-bg-color, #2a2b32); color: var(--cmdpal-fg-color, #e7e7ec); font: 12px/1.2 system-ui, sans-serif; white-space: nowrap; user-select: none; cursor: default;
+	box-shadow: 0 0 0 1px rgba(127, 127, 127, .32), 0 8px 24px rgba(0, 0, 0, .35); --tb-arrow: 50%; }
+.tb-box.on { display: flex; animation: tb-in .09s ease-out; }
+@keyframes tb-in { from { opacity: 0; transform: translateY(4px) scale(.97); } to { opacity: 1; transform: none; } }
+.tb-box.below.on { animation-name: tb-in-below; }
+@keyframes tb-in-below { from { opacity: 0; transform: translateY(-4px) scale(.97); } to { opacity: 1; transform: none; } }
+
+/* The arrow, pointing at the selection */
+.tb-box::after { content: ''; position: absolute; left: var(--tb-arrow); width: 10px; height: 10px; margin-left: -5px; bottom: -5px; transform: rotate(45deg);
+	background: inherit; border-radius: 0 0 2px 0; box-shadow: 1px 1px 0 rgba(127, 127, 127, .32); }
+.tb-box.below::after { bottom: auto; top: -5px; border-radius: 2px 0 0 0; box-shadow: -1px -1px 0 rgba(127, 127, 127, .32); }
+
+.tb-label { opacity: .55; letter-spacing: .03em; }
+.tb-tool { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 7px; }
+.tb-tool:hover { background: rgba(127, 127, 127, .22); }
+@media (prefers-reduced-motion: reduce) { .tb-box.on { animation: none; } }

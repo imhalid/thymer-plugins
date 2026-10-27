@@ -1,0 +1,22 @@
+{
+  "ver": 1,
+  "name": "toolbox",
+  "icon": "ti-tools",
+  "off": false,
+  "item_name": "Note",
+  "description": "A toolbox that appears above the text you select",
+  "show_sidebar_items": true,
+  "show_cmdpal_items": true,
+  "views": [],
+  "fields": [],
+  "page_field_ids": [],
+  "sidebar_record_sort_field_id": "updated_at",
+  "sidebar_record_sort_dir": "desc",
+  "managed": {
+    "fields": false,
+    "views": false,
+    "sidebar": false
+  },
+  "custom": {},
+  "home": false
+}

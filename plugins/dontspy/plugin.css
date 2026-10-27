@@ -1,0 +1,76 @@
+/* DontSpy - loaded by Thymer from the plugin's CSS tab (while the plugin is on). */
+
+/* The text of a locked panel is hidden by highlighting it (CSS Custom Highlight API): its glyphs go transparent, and the
+   canvas (.dontspy-canvas) paints what stands in their place. */
+::highlight(dontspy-ink) { color: transparent; -webkit-text-fill-color: transparent; }
+
+.dontspy-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 450; }
+
+/* The lock beside the split-view button */
+.panel-bar .panel-icon-button.dontspy-btn { opacity: .55; }
+.panel-bar .panel-icon-button.dontspy-btn:hover { opacity: 1; }
+.panel-bar .panel-icon-button.dontspy-btn.on { color: var(--ds-accent, #f5a524) !important; opacity: 1; }
+
+/* The quick options popover (right-click the lock) */
+.dontspy-pop { --ds-accent: #f5a524; position: fixed; z-index: 999; width: 340px; max-height: calc(100vh - 24px); overflow-y: auto; box-sizing: border-box; padding: 14px 14px 12px;
+	border-radius: 14px; background: var(--cmdpal-bg-color, #2a2b32); color: var(--cmdpal-fg-color, #e7e7ec); font: 12.5px/1.4 system-ui, sans-serif;
+	box-shadow: 0 0 0 1px rgba(127, 127, 127, .3), 0 14px 40px rgba(0, 0, 0, .4); animation: ds-pop .14s ease-out; }
+@keyframes ds-pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.dontspy-pop .ds-head { display: flex; align-items: center; gap: 7px; margin-bottom: 2px; }
+.dontspy-pop .ds-head .ti { color: var(--ds-accent); font-size: 16px; }
+.dontspy-pop .ds-sub { margin-left: 2px; font-size: 11px; opacity: .5; }
+.ds-sec { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; opacity: .55; margin: 12px 0 6px; }
+.ds-styles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 188px; overflow-y: auto; padding: 2px; margin: 0 -2px; }
+.ds-chip { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 4px 4px; border-radius: 9px; background: rgba(127, 127, 127, .1); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .2); }
+.ds-chip canvas { width: 88px; height: 26px; }
+.ds-chip span { font-size: 10.5px; opacity: .65; }
+.ds-chip:hover { background: rgba(127, 127, 127, .18); }
+.ds-chip.on { box-shadow: inset 0 0 0 2px var(--ds-accent); }
+.ds-chip.on span { opacity: 1; }
+.ds-swatch:focus-visible, .ds-chip:focus-visible, .ds-segbtn:focus-visible, .ds-card:focus-visible, .ds-more:focus-visible { outline: 2px solid var(--ds-accent); outline-offset: 1px; }
+/* Colour choices */
+.ds-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.ds-swatch { all: unset; box-sizing: border-box; cursor: pointer; width: 22px; height: 22px; border-radius: 50%; background: var(--c, transparent); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .4); transition: transform .1s; position: relative; }
+.ds-swatch:hover { transform: scale(1.12); }
+.ds-swatch.on { box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .4), 0 0 0 2px var(--ds-accent); }
+.ds-swatch.auto { width: auto; padding: 0 9px; border-radius: 11px; font-size: 11.5px; line-height: 22px; background: rgba(127, 127, 127, .14); }
+.ds-swatch.custom { background: conic-gradient(#f44, #fc4, #4f6, #4cf, #84f, #f44); overflow: hidden; }
+.ds-swatch.custom.on { background: var(--c); }
+.ds-swatch.custom input { position: absolute; inset: -6px; width: 34px; height: 34px; opacity: 0; cursor: pointer; }
+.ds-seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.ds-segbtn { all: unset; box-sizing: border-box; cursor: pointer; padding: 5px 10px; border-radius: 8px; font-size: 12px; background: rgba(127, 127, 127, .12); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .2); }
+.ds-segbtn:hover { background: rgba(127, 127, 127, .2); }
+.ds-segbtn.on { background: color-mix(in srgb, var(--ds-accent) 22%, transparent); box-shadow: inset 0 0 0 1.5px var(--ds-accent); }
+.ds-row { display: flex; align-items: center; gap: 8px; margin: 14px 0 2px; cursor: pointer; }
+.ds-row input { accent-color: var(--ds-accent); margin: 0; }
+.ds-more { all: unset; box-sizing: border-box; cursor: pointer; display: block; margin: 10px 0 0 auto; padding: 4px 8px; border-radius: 7px; font-size: 11.5px; opacity: .7; }
+.ds-more:hover { opacity: 1; background: rgba(127, 127, 127, .15); }
+/* a group that applies only to one choice (data-... hidden from the code) */
+.dontspy-pop [hidden], .ds-page [hidden] { display: none !important; }
+
+/* The settings page: a page in a panel (registerCustomPanelType), opened the way a note is */
+.ds-scroll { display: block; }
+.ds-page { --ds-accent: #f5a524; max-width: 760px; margin: 0 auto; padding: 26px 28px 56px; font: 13px/1.45 system-ui, sans-serif; animation: ds-page .3s cubic-bezier(.2, .9, .3, 1); }
+@keyframes ds-page { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.ds-hero h1 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
+.ds-hero h1 .ti { color: var(--ds-accent); }
+.ds-hero p { margin: 0 0 20px; font-size: 14px; opacity: .65; }
+.ds-page .ds-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .55; margin: 24px 0 8px; }
+.ds-hint { margin: 8px 2px 0; font-size: 11.5px; opacity: .5; }
+
+/* The pad: lines of a locked region (.ds-pad is lockable like a panel; .ds-line is read like an editor line) */
+.ds-pad { border-radius: 14px; background: rgba(127, 127, 127, .1); border: 1px solid rgba(127, 127, 127, .22); padding: 8px 4px; transition: border-color .15s, box-shadow .15s; }
+.ds-pad:focus-within { border-color: color-mix(in srgb, var(--ds-accent) 60%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-accent) 16%, transparent); }
+.ds-padrow { padding: 4px 18px; }
+.ds-line { display: block; outline: none; font-size: 16px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.7em; }
+
+/* The gallery of looks */
+.ds-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); gap: 10px; }
+.ds-card { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 1fr; gap: 1px; padding: 10px 12px 9px; border-radius: 12px; background: rgba(127, 127, 127, .09); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .2); transition: background .12s, transform .12s; }
+.ds-card:hover { background: rgba(127, 127, 127, .16); transform: translateY(-1px); }
+.ds-card canvas { width: 224px; height: 46px; max-width: 100%; }
+.ds-card b { font-size: 13px; margin-top: 3px; }
+.ds-card span { font-size: 11.5px; opacity: .55; }
+.ds-card.on { background: color-mix(in srgb, var(--ds-accent) 12%, transparent); box-shadow: inset 0 0 0 2px var(--ds-accent); }
+.ds-card.on span { opacity: .85; }
+@media (prefers-reduced-motion: reduce) { .dontspy-pop, .ds-page { animation: none; } }

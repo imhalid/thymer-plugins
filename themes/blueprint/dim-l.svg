@@ -1,0 +1,5 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'>
+  <!-- A dimension line's left end: its extension line and arrowhead. -->
+  <path d='M.5 0V14' stroke='#9bd8ff' stroke-opacity='.7'/>
+  <path d='M1 7L13 4V10Z' fill='#9bd8ff' fill-opacity='.85'/>
+</svg>

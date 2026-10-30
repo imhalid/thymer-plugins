@@ -1,0 +1,8 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'>
+  <!-- A registration mark for the sheet's corners. -->
+  <g fill='none' stroke='#9bd8ff' stroke-opacity='.7' stroke-width='1'>
+    <circle cx='13' cy='13' r='6.5'/>
+    <path d='M13 0V26M0 13H26'/>
+  </g>
+  <circle cx='13' cy='13' r='1.6' fill='#9bd8ff' fill-opacity='.8'/>
+</svg>

@@ -1,0 +1,255 @@
+/* --- Blueprint's own: the whole window is a drafting sheet, drawn in CSS and
+   SVG alone, no picture. kit/build.py adds this after the shared material;
+   the --bp-* pictures are the SVGs in this folder. --- */
+
+html[data-theme="thymer-blueprint"] {
+  --bp-label: "DIN Alternate", Bahnschrift, "D-DIN", "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+  --bp-line: #9bd8ff;
+  --bp-grid: #9bd8ff0e;
+  --bp-grid-major: #9bd8ff1f;
+  --bp-frame: #9bd8ff66;
+  --bp-redline: #ff7b54;
+  --bp-ink: #071629;
+  /* A faint wash of light from the top, dusk towards the bottom. */
+  --bp-wash: linear-gradient(165deg, #ffffff1a 0%, #ffffff08 35%, #0000 55%, #0000001f 80%, #0000004d 100%) fixed;
+}
+
+/* The paper: Prussian blue with its tooth, a fine grid and a coarser one
+   every five squares, lighter where the lamp is, under the wash. */
+html[data-theme="thymer-blueprint"] {
+  background:
+    var(--bp-paper) 0 0 / 220px 220px,
+    var(--bp-wash),
+    linear-gradient(var(--bp-grid-major) 1px, transparent 1px) 0 0 / 60px 60px,
+    linear-gradient(90deg, var(--bp-grid-major) 1px, transparent 1px) 0 0 / 60px 60px,
+    linear-gradient(var(--bp-grid) 1px, transparent 1px) 0 0 / 12px 12px,
+    linear-gradient(90deg, var(--bp-grid) 1px, transparent 1px) 0 0 / 12px 12px,
+    radial-gradient(ellipse 90% 80% at 60% 25%, #14365e, #0b213d 55%, #081a31) fixed;
+  background-color: #0b213d;
+}
+
+/* The page is a sheet in its frame: a ruled border under the tab bar, a
+   registration mark on each corner, rulers along the top and the left, and
+   a north arrow at the bottom right. All of it is the panel's own
+   background, so it stays put while the writing scrolls over it. */
+html:not([data-device=mobile])[data-theme="thymer-blueprint"] .panels-grid > .panel {
+  --bp-t: 40px;
+  --bp-s: 14px;
+  --bp-r: 22px;
+  background:
+    var(--bp-mark) left calc(var(--bp-s) - 13px) top calc(var(--bp-t) - 13px) / 26px no-repeat,
+    var(--bp-mark) right calc(var(--bp-r) - 13px) top calc(var(--bp-t) - 13px) / 26px no-repeat,
+    var(--bp-mark) left calc(var(--bp-s) - 13px) bottom calc(var(--bp-s) - 13px) / 26px no-repeat,
+    var(--bp-mark) right calc(var(--bp-r) - 13px) bottom calc(var(--bp-s) - 13px) / 26px no-repeat,
+    var(--bp-compass) right calc(var(--bp-r) + 22px) bottom calc(var(--bp-s) + 22px) / 92px no-repeat,
+    var(--bp-ruler-x) left calc(var(--bp-s) + 1px) top var(--bp-t) / 100px 12px repeat-x,
+    var(--bp-ruler-y) left var(--bp-s) top calc(var(--bp-t) + 1px) / 12px 100px repeat-y,
+    linear-gradient(var(--bp-frame), var(--bp-frame)) left var(--bp-s) top var(--bp-t) / calc(100% - var(--bp-s) - var(--bp-r)) 1px no-repeat,
+    linear-gradient(var(--bp-frame), var(--bp-frame)) left var(--bp-s) bottom var(--bp-s) / calc(100% - var(--bp-s) - var(--bp-r)) 1px no-repeat,
+    linear-gradient(var(--bp-frame), var(--bp-frame)) left var(--bp-s) top var(--bp-t) / 1px calc(100% - var(--bp-t) - var(--bp-s)) no-repeat,
+    linear-gradient(var(--bp-frame), var(--bp-frame)) right var(--bp-r) top var(--bp-t) / 1px calc(100% - var(--bp-t) - var(--bp-s)) no-repeat,
+    var(--wt-veil);
+}
+/* The sidebar is the sheet's parts list: darker paper, a double rule at its
+   edge, every row ruled off. */
+html[data-theme="thymer-blueprint"] .sidebar {
+  background:
+    linear-gradient(var(--bp-grid) 1px, transparent 1px) 0 0 / 12px 12px,
+    linear-gradient(90deg, var(--bp-grid) 1px, transparent 1px) 0 0 / 12px 12px,
+    var(--bp-wash),
+    #081a31f0;
+  border-right: 3px double #9bd8ff40;
+}
+html[data-theme="thymer-blueprint"] .sidebar--icons .sidebar-item-hoverable {
+  border-radius: 2px;
+  box-shadow: inset 0 -1px 0 #9bd8ff0d;
+}
+html[data-theme="thymer-blueprint"] .sidebar .sidebar-item-heading {
+  font-family: var(--bp-label);
+  font-size: 11px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--color-primary-300);
+}
+html[data-theme="thymer-blueprint"] .sidebar .sidebar-item-heading {
+  background: linear-gradient(90deg, #9bd8ff4d, transparent) left bottom 2px / 100% 1px no-repeat;
+}
+/* The open page is marked as a drawing marks a change: a dashed box and a
+   red revision bar. */
+html[data-theme="thymer-blueprint"] .sidebar .sidebar-item.is-focused {
+  outline: 1px dashed #9bd8ff80;
+  outline-offset: -1px;
+  box-shadow: inset 3px 0 0 var(--bp-redline);
+}
+
+/* The title is lettered in DIN with a dimension line under it, extension
+   lines and arrowheads at its ends. */
+html[data-theme="thymer-blueprint"] .id--panel-title .id--h1 {
+  font-family: var(--bp-label);
+  font-weight: 700;
+  letter-spacing: .005em;
+  padding-bottom: 18px;
+  background:
+    var(--bp-dim-l) left bottom 0 / 14px 14px no-repeat,
+    var(--bp-dim-r) right bottom 0 / 14px 14px no-repeat,
+    linear-gradient(#9bd8ffb3, #9bd8ffb3) left bottom 6.5px / 100% 1px no-repeat;
+}
+/* The heading starts below the sheet's top rule and its ruler, whatever
+   the title's size. */
+html:not([data-mobile-type=phone])[data-theme="thymer-blueprint"] .panel-heading {
+  --panel-banner-height: 175px !important;
+}
+html:not([data-mobile-type=phone])[data-theme="thymer-blueprint"] .panel-heading.has-crumb-path {
+  --panel-banner-height: 200px !important;
+}
+html[data-theme="thymer-blueprint"] .panel-context-pill {
+  font-family: var(--bp-label);
+  letter-spacing: .06em;
+  border: 1px solid #9bd8ff33;
+}
+
+/* Headings are lettered too, and numbered as a drawing numbers its parts:
+   each h2 is followed by a leader to its balloon, each h3 has its h2's
+   number and its own in the margin. */
+html[data-theme="thymer-blueprint"] .content-container {
+  counter-reset: bp-h2 bp-h3;
+}
+html[data-theme="thymer-blueprint"] .line-div:is(.heading-h1, .heading-h2, .heading-h3, .heading-h4) {
+  font-family: var(--bp-label);
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+html[data-theme="thymer-blueprint"] .line-div.heading-h1 {
+  border-bottom: 3px double #9bd8ff40;
+  padding-bottom: 4px;
+}
+html[data-theme="thymer-blueprint"] .line-div.heading-h2 {
+  counter-increment: bp-h2;
+  counter-set: bp-h3 0;
+}
+html[data-theme="thymer-blueprint"] .line-div.heading-h2::after {
+  content: counter(bp-h2);
+  display: inline-block;
+  box-sizing: content-box;
+  width: 28px;
+  height: 28px;
+  margin-left: 10px;
+  padding-left: 30px;
+  vertical-align: middle;
+  background:
+    radial-gradient(circle at calc(100% - 14px) 50%, var(--bp-ink) 0 11.4px, var(--color-primary-300) 12px 13.2px, transparent 13.8px),
+    linear-gradient(#9bd8ff8c, #9bd8ff8c) left center / 31px 1px no-repeat;
+  color: var(--color-primary-200);
+  font: 700 13px/28px var(--bp-label);
+  text-align: center;
+  letter-spacing: 0;
+  pointer-events: none;
+  user-select: none;
+}
+html[data-theme="thymer-blueprint"] .line-div.heading-h3 {
+  position: relative;
+  counter-increment: bp-h3;
+}
+html[data-theme="thymer-blueprint"] .line-div.heading-h3::before {
+  content: counter(bp-h2) "." counter(bp-h3);
+  position: absolute;
+  right: calc(100% + 24px);
+  top: 50%;
+  margin-top: -9px;
+  padding: 0 4px;
+  border-bottom: 1px solid #9bd8ff66;
+  color: var(--color-primary-300);
+  font: 700 12px/18px var(--bp-label);
+  letter-spacing: .04em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+html[data-theme="thymer-blueprint"] .line-div.heading-h4 {
+  color: var(--color-primary-200);
+}
+
+/* Code is a detail view: a square frame with heavy corners and its
+   language as the detail's label. */
+html[data-theme="thymer-blueprint"] .block-codelang {
+  border-radius: 2px;
+  background:
+    linear-gradient(var(--bp-line), var(--bp-line)) left top / 14px 2px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) left top / 2px 14px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) right top / 14px 2px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) right top / 2px 14px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) left bottom / 14px 2px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) left bottom / 2px 14px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) right bottom / 14px 2px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) right bottom / 2px 14px no-repeat,
+    var(--ed-container-bg-color);
+}
+html[data-theme="thymer-blueprint"] .block-codelang > .block-nstype-button {
+  border: 1px solid #9bd8ff59;
+  border-radius: 2px;
+  background: var(--bp-ink);
+  color: var(--color-primary-200);
+  font-family: var(--bp-label);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+html[data-theme="thymer-blueprint"] .block-codelang > .block-nstype-button::before {
+  content: "Detail\00a0\00b7\00a0";
+  color: var(--text-muted);
+}
+
+/* A quote is a note, its ground hatched as a drawing hatches a section. */
+html[data-theme="thymer-blueprint"] .listitem-quote > .line-div {
+  border-left-width: 2px;
+  background: repeating-linear-gradient(135deg, #9bd8ff1c 0 1px, transparent 1px 7px);
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+/* A rule is a centre line: long dash, short dash. */
+html[data-theme="thymer-blueprint"] .hr-divider hr {
+  height: 1px;
+  border: 0;
+  background: repeating-linear-gradient(90deg, #9bd8ff66 0 22px, transparent 22px 27px, #9bd8ff66 27px 30px, transparent 30px 35px);
+}
+
+/* Inline code, tags and dates are square stamps. */
+html[data-theme="thymer-blueprint"] :is(.lineitem-code, .lineitem-hashtag, .page-prop-pill) {
+  border-radius: 2px;
+}
+
+/* The status bar is the drawing's title block: a double rule over it, its
+   cells ruled off, and the sheet's particulars before the right-hand ones. */
+html[data-theme="thymer-blueprint"] .statusbar--status-bar {
+  background: #071629f2;
+  border-top: 3px double #9bd8ff40;
+}
+html[data-theme="thymer-blueprint"] .statusbar--left > .statusbar-item {
+  padding-right: 6px;
+  border-right: 1px solid #9bd8ff1f;
+}
+html[data-theme="thymer-blueprint"] .statusbar--right::before {
+  content: "Blueprint \00b7  Sheet 1 of 1 \00b7  Scale 1:1 \00b7  Rev. A";
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  margin-right: 8px;
+  padding: 0 12px;
+  border-left: 1px solid #9bd8ff1f;
+  border-right: 1px solid #9bd8ff1f;
+  color: var(--text-muted);
+  font: 700 10px var(--bp-label);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  white-space: pre;
+}
+@media (max-width: 1100px) {
+  html[data-theme="thymer-blueprint"] .statusbar--right::before {
+    content: "Rev. A";
+  }
+}
+
+/* Whatever floats is a slip of tracing paper on the sheet: crisp corners,
+   a fine blue edge. */
+html[data-theme="thymer-blueprint"] :is(.cmdpal--dialog, .cmdpal--inline, .inline-view-editor-popover, .modal-dialog.modal-popout, .toaster, .page-details-popover) {
+  border: 1px solid #9bd8ff4d;
+}

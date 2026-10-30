@@ -1,0 +1,25 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='-60 -60 120 120'>
+  <!-- A north arrow for the sheet's corner; its needle settles, never quite still. -->
+  <defs>
+    <path id='t' d='M0-50V-45'/>
+  </defs>
+  <g fill='none' stroke='#9bd8ff' stroke-width='1'>
+    <circle r='50' stroke-opacity='.5'/>
+    <circle r='42' stroke-opacity='.3' stroke-dasharray='2 3'/>
+    <g stroke-opacity='.6'>
+      <use href='#t'/><use href='#t' transform='rotate(30)'/><use href='#t' transform='rotate(60)'/>
+      <use href='#t' transform='rotate(90)'/><use href='#t' transform='rotate(120)'/><use href='#t' transform='rotate(150)'/>
+      <use href='#t' transform='rotate(180)'/><use href='#t' transform='rotate(210)'/><use href='#t' transform='rotate(240)'/>
+      <use href='#t' transform='rotate(270)'/><use href='#t' transform='rotate(300)'/><use href='#t' transform='rotate(330)'/>
+    </g>
+    <path d='M0-34L7-7L34 0L7 7L0 34L-7 7L-34 0L-7-7Z' stroke-opacity='.45'/>
+    <path d='M-24-24L24 24M24-24L-24 24' stroke-opacity='.2'/>
+  </g>
+  <g>
+    <animateTransform attributeName='transform' type='rotate' values='-7;4;-2;1.5;-4;2.5;-7' keyTimes='0;.18;.34;.5;.66;.82;1' dur='19s' repeatCount='indefinite' calcMode='spline' keySplines='.4 0 .6 1;.4 0 .6 1;.4 0 .6 1;.4 0 .6 1;.4 0 .6 1;.4 0 .6 1'/>
+    <path d='M0-38L5 0H-5Z' fill='#ff7b54' fill-opacity='.9'/>
+    <path d='M0 38L5 0H-5Z' fill='#9bd8ff' fill-opacity='.45'/>
+    <circle r='3' fill='#0c2340' stroke='#9bd8ff' stroke-width='1'/>
+  </g>
+  <text y='-53' text-anchor='middle' font-family='DIN Alternate, Bahnschrift, Arial Narrow, sans-serif' font-size='10' font-weight='700' fill='#ff7b54'>N</text>
+</svg>

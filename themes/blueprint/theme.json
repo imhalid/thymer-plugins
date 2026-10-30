@@ -1,0 +1,36 @@
+{
+  "name": "Blueprint",
+  "description": "Dark Sans as a drafting sheet, drawn in CSS and SVG alone: Prussian-blue paper with a fine grid, rulers, registration marks and a north arrow round the page, a dimension line under the title, balloon-numbered headings, detail frames round code, and the status bar as the drawing's title block",
+  "accent": "#6cc7ff",
+  "ground": "#0c2340",
+  "text": "#e4f1ff",
+  "sidebar": "#0a1d36",
+  "veil": {
+    "direction": "to bottom",
+    "stops": [[0.5, "0%"], [0.5, "100%"]]
+  },
+  "selected": "soft",
+  "title": "upright",
+  "syntax": {
+    "meta": "#ffb27a", "keyword": "#7fd6ff", "type": "#a8f0e0", "title": "#ffffff",
+    "string": "#ffd98a", "number": "#ff9e7a", "comment": "#6f91b8"
+  },
+  "code_alpha": 0.82,
+  "images": {
+    "--bp-paper": "paper.svg",
+    "--bp-ruler-x": "ruler-x.svg",
+    "--bp-ruler-y": "ruler-y.svg",
+    "--bp-mark": "mark.svg",
+    "--bp-compass": "compass.svg",
+    "--bp-dim-l": "dim-l.svg",
+    "--bp-dim-r": "dim-r.svg"
+  },
+  "tokens": {
+    "--radius-normal": "3px",
+    "--radius-larger": "4px",
+    "--radius-xlarge": "5px",
+    "--modal-radius": "6px",
+    "--prop-status-radius": "3px",
+    "--ed-caret-self-fg": "#ff7b54"
+  }
+}

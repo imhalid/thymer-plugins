@@ -1,0 +1,37 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='34' height='330' viewBox='0 0 34 330'>
+  <!-- The binder's three index tabs, sticking out from under its spine:
+       grey, blue and green card, rounded at the outer edge, labelled up
+       the side in embossed capitals. -->
+  <defs>
+    <linearGradient id='grey' x1='0' x2='1'>
+      <stop offset='0' stop-color='#d4d6d9'/><stop offset='.5' stop-color='#bfc2c6'/><stop offset='1' stop-color='#a9adb2'/>
+    </linearGradient>
+    <linearGradient id='blue' x1='0' x2='1'>
+      <stop offset='0' stop-color='#8fb0e3'/><stop offset='.5' stop-color='#6c90cf'/><stop offset='1' stop-color='#5677b5'/>
+    </linearGradient>
+    <linearGradient id='green' x1='0' x2='1'>
+      <stop offset='0' stop-color='#a8cf7e'/><stop offset='.5' stop-color='#86b25a'/><stop offset='1' stop-color='#6c9744'/>
+    </linearGradient>
+    <filter id='drop' x='-20%' y='-10%' width='140%' height='120%'>
+      <feDropShadow dx='-1' dy='1.5' stdDeviation='1.2' flood-color='#000' flood-opacity='.55'/>
+    </filter>
+    <path id='tab' d='M34 0H8C3.6 0 1 2.6 1 7V93C1 97.4 3.6 100 8 100H34Z'/>
+  </defs>
+  <g font-family='Helvetica Neue, Helvetica, Arial, sans-serif' font-size='10' font-weight='700' letter-spacing='1.6' text-anchor='middle'>
+    <g transform='translate(0 4)' filter='url(#drop)'>
+      <use href='#tab' fill='url(#grey)'/>
+      <path d='M34 1H8C4.2 1 2 3.2 2 7' fill='none' stroke='#fff' stroke-opacity='.6'/>
+      <text transform='translate(12 50) rotate(-90)' fill='#5b6068' dy='3.5'>NOTES</text>
+    </g>
+    <g transform='translate(0 112)' filter='url(#drop)'>
+      <use href='#tab' fill='url(#blue)'/>
+      <path d='M34 1H8C4.2 1 2 3.2 2 7' fill='none' stroke='#fff' stroke-opacity='.5'/>
+      <text transform='translate(12 50) rotate(-90)' fill='#fff' dy='3.5'>TAGS</text>
+    </g>
+    <g transform='translate(0 220)' filter='url(#drop)'>
+      <use href='#tab' fill='url(#green)'/>
+      <path d='M34 1H8C4.2 1 2 3.2 2 7' fill='none' stroke='#fff' stroke-opacity='.5'/>
+      <text transform='translate(12 50) rotate(-90)' fill='#fff' dy='3.5'>TASKS</text>
+    </g>
+  </g>
+</svg>

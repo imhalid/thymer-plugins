@@ -1,0 +1,55 @@
+{
+  "name": "Binder",
+  "description": "Light Sans as an iPad task binder of the leather-and-wood years, drawn in CSS and SVG alone: cherry planks for the desk, a leather spine with grey, blue and green index tabs, a grey grouped list for the sidebar with coloured icon squares, the page a stack of white sheets slightly askew, starred headings, coloured squares for bullets, green tag chips, and popovers in a navy info card",
+  "scheme": "light",
+  "accent": "#3b6fc4",
+  "paper": "#fdfdfb",
+  "ground": "#5a321d",
+  "text": "#2a2d33",
+  "sidebar": "#e4e6e9",
+  "veil": {
+    "direction": "to bottom",
+    "stops": [[0, "0%"], [0, "100%"]]
+  },
+  "selected": "soft",
+  "title": "upright",
+  "syntax": {
+    "meta": "#8a3fa6", "keyword": "#b0247a", "type": "#2a63b8", "title": "#1f5a8c",
+    "string": "#c4321e", "number": "#2235c9", "comment": "#3a8a3e"
+  },
+  "code_alpha": 0.04,
+  "images": {
+    "--bd-wood": "wood.svg",
+    "--bd-leather": "leather.svg",
+    "--bd-tabs": "tabs.svg",
+    "--bd-star": "star.svg"
+  },
+  "tokens": {
+    "--radius-normal": "4px",
+    "--radius-larger": "6px",
+    "--radius-xlarge": "8px",
+    "--modal-radius": "10px",
+    "--prop-status-radius": "4px",
+    "--selection-bg": "#b9d2f7",
+    "--selection-fg": "#1d2430",
+    "--ed-selection-self-bg": "#b9d2f7b3",
+    "--ed-caret-self-fg": "#3b6fc4",
+    "--side-fg-color": "#2c3036",
+    "--side-icon-color": "#6d737c",
+    "--sidebar-heading": "#5d6570",
+    "--sidebar-fg-hover": "#14171b",
+    "--sidebar-bg-hover": "#0000000d",
+    "--side-bg-focus": "transparent",
+    "--side-bg-active-focus": "transparent",
+    "--side-fg-focus": "#14171b",
+    "--side-fg-active-focus": "#14171b",
+    "--sidebar-toggler-color": "#f0e2cf",
+    "--cmdpal-selected-bg-color": "#3b6fc4",
+    "--cmdpal-selected-fg-color": "#ffffff",
+    "--cmdpal-inline-selected-bg": "#3b6fc4",
+    "--cmdpal-inline-selected-fg": "#ffffff",
+    "--link-color": "#2f62b8",
+    "--ed-link-color": "#2f62b8",
+    "--link-hover-color": "#1d4a94"
+  }
+}

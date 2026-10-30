@@ -102,3 +102,27 @@
 	.home-look span:nth-child(2) { display: none; }
 	.home-pick { top: 44px; right: 12px; }
 }
+
+
+/* On paper (a theme with a skin: data-skin on the page, data-home-skin on its panel; SKINS in the code): no sky and no picker,
+   the days an SVG chart on the page's own ground. The theme's CSS gives it its ink: --home-ink (the days), --home-line (the
+   links), --home-label (the weeks), --home-card (the cards' ground) and --accent (the rest); these are the plain defaults */
+.home[data-skin] { --home-ink: var(--accent); --home-line: var(--accent); --home-label: currentColor; --home-card: #fff; }
+.home[data-skin] .home-sky { height: 300px; background: var(--home-bg); }
+.home[data-skin] .home-sky::after, .home[data-skin] .home-sky canvas, .home[data-skin] .home-tools, .home[data-skin] .home-pick, .home[data-skin] .home-labels { display: none; }
+.home-paper { display: none; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.home[data-skin] .home-paper { display: block; }
+.home-pm { fill: var(--home-ink); rx: 99px; }   /* rx past half the width: a dot; a theme may square it */
+.home-pm-today { fill: none; stroke: var(--home-ink); stroke-width: 1.2; rx: 99px; opacity: .7; }
+.home-pl { stroke: var(--home-line); stroke-width: 1; opacity: .45; }
+.home-plabel { fill: var(--home-label); font: 600 9.5px/1 Georgia, 'Times New Roman', serif; letter-spacing: .14em; text-transform: uppercase; text-anchor: middle; opacity: .6; }
+.home-pmore { text-anchor: end; opacity: .4; }
+.home[data-skin] .home-hello { color: inherit; text-shadow: none; }
+.home[data-skin] .home-hello p { opacity: .6; font-family: var(--home-sub-font, inherit) !important; }   /* Thymer puts its editor face on every p, with !important: here the page's own, or the face the theme names */
+.home[data-skin] .home-quiet { color: inherit; opacity: .5; }
+.home[data-skin] .home-tip { background: var(--home-ink); color: #fff; box-shadow: none; }
+.home[data-skin] .home-body { margin-top: -16px; }
+.home[data-skin] .home-card { background: var(--home-card); border-color: rgba(0,0,0,.08); box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 10px 30px -18px rgba(0,0,0,.35); }
+.home[data-skin] .home-bars i.today { background: var(--home-ink); box-shadow: none; }
+.home[data-skin] .home-bars i.none { background: rgba(127,127,127,.18); }
+@container home (max-width: 640px) { .home[data-skin] .home-sky { height: 280px; } }

@@ -409,3 +409,47 @@ html[data-theme="thymer-herbarium"] .page-props-pills .prop-status.prop-is-editi
   outline: 2px solid color-mix(in srgb, currentColor 35%, transparent);
   outline-offset: 1px;
 }
+
+/* --- Home: the dashboard on the parchment, the days in green ink, today in
+   rust; the cards slips of the register's card, the button gold-stamped --- */
+html[data-theme="thymer-herbarium"] .home[data-skin] {
+  --accent: var(--hb-green);
+  --home-ink: var(--hb-green);
+  --home-line: #8a643a;
+  --home-label: #6b5a3a;
+  --home-card: var(--hb-card);
+  color: var(--hb-ink);
+}
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-sky {
+  background: var(--hb-parchment) 0 0 / 800px 800px, var(--hb-sheet);
+  box-shadow: inset 0 -1px 0 #8a643a52;
+}
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-hello h1 {
+  display: inline-block;
+  padding-bottom: 4px;
+  background: linear-gradient(var(--hb-rule), var(--hb-rule)) left bottom / 100% 1px no-repeat;
+  font-family: var(--hb-serif);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-hello p { --home-sub-font: var(--hb-serif); font-size: 15px; font-style: italic; opacity: .75; }
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-pm.today { fill: var(--hb-rust); }
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-pm-today { stroke: var(--hb-rust); opacity: 1; }
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-pl { opacity: .35; }
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-plabel { font: italic 600 11px var(--hb-serif); letter-spacing: .04em; text-transform: none; opacity: .8; }
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-tip { background: var(--hb-ink); }
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-card {
+  border: 1px solid #b8975f73;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px #fff8e6, 0 2px 6px #8a5a2426;
+}
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-label { color: #8a6a30; font: italic 600 13px var(--hb-serif); letter-spacing: .04em; text-transform: none; opacity: 1; }
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-go {
+  border-radius: 3px;
+  background: var(--hb-foil);
+  box-shadow: 0 0 0 1px #a8853a, inset 0 1px 0 #fff3c4;
+  color: #3a2a10;
+  text-shadow: 0 1px 0 #fff3c480;
+}
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-go:hover { background: linear-gradient(180deg, #fbeab0, #d4a84a 55%, #f0d58c); }
+html[data-theme="thymer-herbarium"] .home[data-skin] .home-ico { border-radius: 3px; background: #3f6b4514; color: var(--hb-green); opacity: 1; }

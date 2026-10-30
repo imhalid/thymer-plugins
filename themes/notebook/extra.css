@@ -475,3 +475,65 @@ html[data-theme="thymer-notebook"] .page-props-pills .prop-status.prop-is-editin
   outline: 2px solid color-mix(in srgb, currentColor 35%, transparent);
   outline-offset: 1px;
 }
+
+/* --- Home: the dashboard on the dotted page, the greeting under the
+   highlighter, the days in ballpoint with pencil lines, today in red pen;
+   the cards index cards taped on, today's journal a sticky note --- */
+html[data-theme="thymer-notebook"] .home[data-skin] {
+  --accent: var(--nb-blue);
+  --home-ink: var(--nb-blue);
+  --home-line: #6b6358;
+  --home-label: #5a4630;
+  --home-card: #fffdf8;
+  color: var(--nb-ink);
+}
+html[data-theme="thymer-notebook"] .home[data-skin] .home-sky {
+  background: radial-gradient(circle at 1.5px 1.5px, #9c927f80 1.1px, #0000 1.7px) 0 0 / 24px 24px, var(--nb-paper-colour);
+}
+html[data-theme="thymer-notebook"] .home[data-skin] .home-hello h1 {
+  display: inline-block;
+  padding-right: 6px;
+  background: var(--nb-marker) left bottom 2px / 100% 50% no-repeat;
+  font-family: var(--nb-serif);
+}
+html[data-theme="thymer-notebook"] .home[data-skin] .home-hello p { --home-sub-font: var(--nb-hand); font-size: 15px; opacity: .8; }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-pm.today { fill: var(--nb-red); }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-pm-today { stroke: var(--nb-red); stroke-width: 1.5; opacity: 1; }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-pl { stroke-dasharray: 2 2; opacity: .6; }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-plabel { font: 700 12px var(--nb-hand); letter-spacing: .02em; text-transform: none; opacity: .85; }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-tip { background: var(--nb-ink); }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-card {
+  position: relative;
+  border: 0;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #0000000f, 0 1px 2px #0000001f, 0 10px 20px -8px #00000038;
+}
+html[data-theme="thymer-notebook"] .home[data-skin] .home-card::before,
+html[data-theme="thymer-notebook"] .home[data-skin] .home-card::after {
+  content: "";
+  position: absolute;
+  top: -9px;
+  width: 64px;
+  height: 22px;
+  background: var(--nb-tape) center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+html[data-theme="thymer-notebook"] .home[data-skin] .home-card::before { left: 22px; transform: rotate(-4deg); }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-card::after { right: 22px; transform: rotate(3deg); }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-journal {
+  background: linear-gradient(#fff6b5, #ffeb8a);
+  transform: rotate(-.6deg);
+}
+html[data-theme="thymer-notebook"] .home[data-skin] .home-journal::before,
+html[data-theme="thymer-notebook"] .home[data-skin] .home-journal::after { display: none; }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-label { color: var(--nb-ink); font: 700 14px var(--nb-hand); letter-spacing: .02em; text-transform: none; opacity: .85; }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-go {
+  border-radius: 2px;
+  background: var(--nb-marker) center / 100% 72% no-repeat;
+  box-shadow: none;
+  color: var(--nb-ink);
+  font: 700 15px var(--nb-hand);
+}
+html[data-theme="thymer-notebook"] .home[data-skin] .home-go:hover { background: var(--nb-marker) center / 100% 90% no-repeat; }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-ico { border-radius: 3px; background: #0000000a; color: var(--nb-ink); }
+html[data-theme="thymer-notebook"] .home[data-skin] .home-item:hover { background: #3563c912; }

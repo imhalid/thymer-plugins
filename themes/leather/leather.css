@@ -1613,4 +1613,48 @@ html[data-theme="thymer-leather"] .panel-tab--hist {
   flex: none;
   white-space: nowrap;
 }
+
+/* --- Home: the dashboard on the ruled paper, its days in ballpoint blue --- */
+html[data-theme="thymer-leather"] .home[data-skin] {
+  --accent: var(--lt-blue);
+  --home-ink: var(--lt-blue);
+  --home-line: var(--lt-blue);
+  --home-label: #7a8699;
+  color: var(--lt-ink);
+  font-family: var(--lt-ui);
+}
+html[data-theme="thymer-leather"] .home[data-skin] .home-sky {
+  background:
+    linear-gradient(var(--lt-margin), var(--lt-margin)) 54px 0 / 1px 100% no-repeat,
+    linear-gradient(var(--lt-margin), var(--lt-margin)) 58px 0 / 1px 100% no-repeat,
+    repeating-linear-gradient(#0000 0 25px, var(--lt-rule) 25px 26px) 0 12px,
+    var(--lt-paper);
+}
+html[data-theme="thymer-leather"] .home[data-skin] .home-hello { left: max(76px, calc((100% - 1080px) / 2 + 48px)); }
+html[data-theme="thymer-leather"] .home[data-skin] .home-hello h1 { text-shadow: 0 1px 0 #fff; }
+html[data-theme="thymer-leather"] .home[data-skin] .home-plabel { font-family: var(--lt-ui); }
+html[data-theme="thymer-leather"] .home[data-skin] .home-card {
+  border: 1px solid #c3c9d2;
+  border-radius: 8px;
+  background: linear-gradient(#fff, #f6f7f9);
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px #0000001f;
+}
+html[data-theme="thymer-leather"] .home[data-skin] .home-label { color: #5b6677; opacity: 1; text-shadow: 0 1px 0 #fff; }
+html[data-theme="thymer-leather"] .home[data-skin] .home-go {
+  border-radius: 7px;
+  background: var(--lt-select);
+  box-shadow: inset 0 1px 0 #ffffff66, 0 0 0 1px #0f3f8f, 0 1px 0 #ffffffcc;
+  color: #fff;
+  text-shadow: 0 -1px 0 #0006;
+}
+html[data-theme="thymer-leather"] .home[data-skin] .home-go:hover { background: linear-gradient(#52a0ff, #2273ea); }
+html[data-theme="thymer-leather"] .home[data-skin] .home-go .ti-arrow-right { opacity: .85; }
+html[data-theme="thymer-leather"] .home[data-skin] .home-ico {
+  border-radius: 7px;
+  background: var(--lt-button);
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px #b9bec7;
+  color: var(--lt-ink);
+  opacity: 1;
+}
+html[data-theme="thymer-leather"] .home[data-skin] .home-item:hover { background: #2a6ad614; }
 /* ===== Leather theme end ===== */

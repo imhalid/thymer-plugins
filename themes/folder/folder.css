@@ -1604,4 +1604,50 @@ html[data-theme="thymer-folder"] .panel-tab--hist {
   flex: none;
   white-space: nowrap;
 }
+
+/* --- Home: the top of the page is the folder's kraft, the days riveted into
+   it and a week's days stitched together; the cards filed under it --- */
+html[data-theme="thymer-folder"] .home[data-skin] {
+  --accent: #3b5f9a;
+  --home-ink: #b5713a;
+  --home-line: #fff1d6;
+  --home-label: #5a3a16;
+  color: var(--fd-ink);
+  font-family: var(--fd-ui);
+}
+html[data-theme="thymer-folder"] .home[data-skin] .home-sky {
+  background: linear-gradient(#ffffff26, #0000 40%), var(--fd-kraft-board);
+  box-shadow: inset 0 -1px 0 #8a6331, inset 0 1px 0 #ffeccc66;
+}
+html[data-theme="thymer-folder"] .home[data-skin] .home-hello { color: #3a2408; }
+html[data-theme="thymer-folder"] .home[data-skin] .home-hello h1 { text-shadow: 0 1px 0 #ffe9c680; }
+html[data-theme="thymer-folder"] .home[data-skin] .home-hello p { opacity: .75; }
+html[data-theme="thymer-folder"] .home[data-skin] .home-pm { stroke: #6a3a17; stroke-width: .8; }
+html[data-theme="thymer-folder"] .home[data-skin] .home-pm-today { stroke: #fff1d6; opacity: .9; }
+html[data-theme="thymer-folder"] .home[data-skin] .home-pl { stroke-dasharray: 3 2.5; opacity: .85; }
+html[data-theme="thymer-folder"] .home[data-skin] .home-plabel { font-family: var(--fd-ui); opacity: .8; }
+html[data-theme="thymer-folder"] .home[data-skin] .home-tip { background: #3a2408; }
+html[data-theme="thymer-folder"] .home[data-skin] .home-card {
+  border: 1px solid #d6d2c9;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 #fff, 0 2px 6px #00000026, 0 12px 24px -16px #0000005c;
+}
+html[data-theme="thymer-folder"] .home[data-skin] .home-label { color: var(--fd-indigo); opacity: .8; }
+html[data-theme="thymer-folder"] .home[data-skin] .home-go {
+  border-radius: 8px;
+  background: var(--fd-select);
+  box-shadow: inset 0 1px 0 #ffffff4d, 0 0 0 1px #1e3058, 0 1px 0 #ffffffb3;
+  color: #fff;
+  text-shadow: 0 -1px 0 #0006;
+}
+html[data-theme="thymer-folder"] .home[data-skin] .home-go:hover { background: linear-gradient(#6484b8, #3f609a); }
+html[data-theme="thymer-folder"] .home[data-skin] .home-go .ti-arrow-right { opacity: .85; }
+html[data-theme="thymer-folder"] .home[data-skin] .home-ico {
+  border-radius: 8px;
+  background: var(--fd-kraft-board);
+  box-shadow: inset 0 1px 0 #ffeccc80, 0 0 0 1px #8a6331;
+  color: #3a2408;
+  opacity: 1;
+}
+html[data-theme="thymer-folder"] .home[data-skin] .home-item:hover { background: #3b5f9a14; }
 /* ===== Folder theme end ===== */

@@ -790,3 +790,60 @@ html[data-theme="thymer-binder"] .ach-btn svg {
 html[data-theme="thymer-binder"] .ach-btn:last-child svg {
   --bd-icon: #6fa64a;
 }
+
+/* --- Home: the dashboard on the top sheet, the days the binder's coloured
+   squares, today's ringed in blue; the cards blocks of the grouped list --- */
+html[data-theme="thymer-binder"] .home[data-skin] {
+  --accent: #3b6fc4;
+  --home-ink: #7d8590;
+  --home-line: #a9afb7;
+  --home-label: #5d6570;
+  color: var(--bd-ink);
+  font-family: var(--bd-ui);
+}
+html[data-theme="thymer-binder"] .home[data-skin] .home-sky {
+  background: repeating-linear-gradient(#0000 0 27px, var(--bd-rule) 27px 28px) 0 10px, var(--bd-paper);
+}
+html[data-theme="thymer-binder"] .home[data-skin] .home-pm { rx: 2px; stroke: #00000040; stroke-width: .6; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-pm:nth-of-type(5n+1) { fill: #4f86d8; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-pm:nth-of-type(5n+2) { fill: #e08a2c; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-pm:nth-of-type(5n+3) { fill: #6fa64a; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-pm:nth-of-type(5n+4) { fill: #c9505a; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-pm:nth-of-type(5n+5) { fill: #8a63c4; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-pm-today { rx: 3px; stroke: #3b6fc4; stroke-width: 1.5; opacity: 1; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-plabel { font: 700 10px var(--bd-ui); letter-spacing: .06em; opacity: .8; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-tip { background: #24365c; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-card {
+  padding-top: 0;
+  overflow: hidden;
+  border: 1px solid #b9bec6;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 1px 0 #ffffffb3, 0 1px 3px #00000026;
+}
+html[data-theme="thymer-binder"] .home[data-skin] .home-head {
+  margin: 0 -18px 12px;
+  padding: 7px 18px;
+  background: linear-gradient(#e9ebee, #cfd3d8);
+  box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 #a7adb5;
+}
+html[data-theme="thymer-binder"] .home[data-skin] :is(.home-label, .home-meta) { color: #5d6570; opacity: 1; text-shadow: 0 1px 0 #fff; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-label { font-size: 10.5px; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-go {
+  border-radius: 6px;
+  background: linear-gradient(#6b9ae6, #3b6fc4 50%, #2f5fb0 51%, #3566b8);
+  box-shadow: inset 0 1px 0 #ffffff66, 0 0 0 1px #1f4482, 0 1px 0 #ffffffb3;
+  color: #fff;
+  text-shadow: 0 -1px 0 #0006;
+}
+html[data-theme="thymer-binder"] .home[data-skin] .home-go:hover { background: linear-gradient(#7aa6ec, #4a7ccf 50%, #3a6bbd 51%, #4272c4); }
+html[data-theme="thymer-binder"] .home[data-skin] .home-go .ti-arrow-right { opacity: .85; }
+html[data-theme="thymer-binder"] .home[data-skin] .home-ico {
+  border-radius: 5px;
+  background: linear-gradient(#95b6e8, #4f86d8 55%, #3f6fb8);
+  box-shadow: inset 0 1px 0 #ffffff66, 0 0 0 1px #2f5398, 0 1px 0 #ffffffb3;
+  color: #fff;
+  opacity: 1;
+  text-shadow: 0 -1px 0 #00000059;
+}
+html[data-theme="thymer-binder"] .home[data-skin] .home-item:hover { background: #3b6fc414; }

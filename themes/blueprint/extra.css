@@ -265,3 +265,78 @@ html[data-theme="thymer-blueprint"] .statusbar--right::before {
 html[data-theme="thymer-blueprint"] :is(.cmdpal--dialog, .cmdpal--inline, .inline-view-editor-popover, .modal-dialog.modal-popout, .toaster, .page-details-popover) {
   border: 1px solid #9bd8ff4d;
 }
+
+/* --- Home: the dashboard lettered on the sheet, a dimension line under the
+   greeting, the days white points joined by centre lines, today redlined;
+   the cards detail views in their framed boxes --- */
+html[data-theme="thymer-blueprint"] .home[data-skin] {
+  --accent: var(--bp-line);
+  --home-ink: #ffffff;
+  --home-line: var(--bp-line);
+  --home-label: var(--bp-line);
+  --home-card: #0b2443;   /* solid: the sheet's north arrow and marks would show through the cards */
+  color: #e4f1ff;
+}
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-sky {
+  background:
+    linear-gradient(var(--bp-grid-major) 1px, #0000 1px) 0 0 / 120px 120px,
+    linear-gradient(90deg, var(--bp-grid-major) 1px, #0000 1px) 0 0 / 120px 120px,
+    linear-gradient(var(--bp-grid) 1px, #0000 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, var(--bp-grid) 1px, #0000 1px) 0 0 / 24px 24px,
+    var(--home-bg);
+}
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-hello h1 {
+  display: inline-block;
+  padding-bottom: 16px;
+  background:
+    var(--bp-dim-l) left bottom 0 / 14px 14px no-repeat,
+    var(--bp-dim-r) right bottom 0 / 14px 14px no-repeat,
+    linear-gradient(#9bd8ffb3, #9bd8ffb3) left bottom 6.5px / 100% 1px no-repeat;
+  color: #fff;
+  font-family: var(--bp-label);
+  letter-spacing: .005em;
+}
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-hello p { --home-sub-font: var(--bp-label); margin-top: 2px; color: var(--bp-line); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; opacity: .9; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-pm.today { fill: var(--bp-redline); }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-pm-today { stroke: var(--bp-redline); opacity: 1; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-pl { stroke-dasharray: 7 3 1.5 3; opacity: .7; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-plabel { font: 600 10px var(--bp-label); letter-spacing: .12em; opacity: .9; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-tip { border-radius: 2px; background: var(--bp-ink); box-shadow: 0 0 0 1px var(--bp-line); color: #fff; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-card {
+  border: 1px solid var(--bp-frame);
+  border-radius: 2px;
+  background:
+    linear-gradient(var(--bp-line), var(--bp-line)) left top / 14px 2px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) left top / 2px 14px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) right top / 14px 2px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) right top / 2px 14px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) left bottom / 14px 2px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) left bottom / 2px 14px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) right bottom / 14px 2px no-repeat,
+    linear-gradient(var(--bp-line), var(--bp-line)) right bottom / 2px 14px no-repeat,
+    var(--home-card);
+  box-shadow: none;
+}
+html[data-theme="thymer-blueprint"] .home[data-skin] :is(.home-label, .home-meta, .home-axis) { color: var(--bp-line); font-family: var(--bp-label); letter-spacing: .12em; opacity: .9; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-label { font-size: 11.5px; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-day b { color: #fff; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-go {
+  border-radius: 2px;
+  background: #9bd8ff1a;
+  box-shadow: inset 0 0 0 1px var(--bp-line);
+  color: #fff;
+  font: 600 12px var(--bp-label);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-go:hover { background: #9bd8ff33; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-bars i {
+  border-radius: 0;
+  background: repeating-linear-gradient(135deg, var(--bp-line) 0 1px, #0000 1px 4px);
+  box-shadow: inset 0 0 0 1px var(--bp-line);
+  opacity: .9;
+}
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-bars i.none { background: none; box-shadow: inset 0 0 0 1px #9bd8ff40; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-bars i.today { background: var(--bp-redline); box-shadow: none; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-ico { border-radius: 2px; background: transparent; box-shadow: inset 0 0 0 1px var(--bp-frame); color: var(--bp-line); opacity: 1; }
+html[data-theme="thymer-blueprint"] .home[data-skin] .home-item:hover { background: #9bd8ff14; }

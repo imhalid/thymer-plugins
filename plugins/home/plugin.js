@@ -17,6 +17,10 @@
  *
  * The shape and the biome are kept per device.
  *
+ * Under a theme that is paper rather than sky (the skeuomorphic ones, Notebook, Blueprint, Herbarium: SKINS) there is no WebGL
+ * sky and no picker: the days are an SVG chart on the page's own ground, a column a week, which the theme's CSS colours (see
+ * paper(), and data-skin / data-home-skin in plugin.css). Home is drawn again when the theme changes.
+ *
  * What changed when is read from the workspace when Home opens: each page counts on the day it was made, and each line on the
  * day it was written and the day it was last changed. Lines written while Home is open brighten today's star as they come.
  *
@@ -44,6 +48,10 @@ const BIOMES = [
 	{ id: 'gold', name: 'Gold', hot: [1.00, 0.95, 0.74], mid: [1.00, 0.74, 0.28], cold: [0.58, 0.32, 0.10], link: [1.00, 0.86, 0.52] },
 	{ id: 'abyss', name: 'Abyss', hot: [0.62, 1.00, 0.94], mid: [0.10, 0.62, 0.80], cold: [0.04, 0.16, 0.46], link: [0.42, 0.92, 1.00] },
 ];
+
+// Themes that are paper rather than sky: under them Home is drawn on the page (paper()), the theme's CSS colouring it.
+const SKINS = { 'thymer-leather': 'leather', 'thymer-folder': 'folder', 'thymer-desk': 'desk', 'thymer-binder': 'binder', 'thymer-notebook': 'notebook', 'thymer-blueprint': 'blueprint', 'thymer-herbarium': 'herbarium' };
+const skinOf = () => SKINS[document.documentElement.dataset.theme] || '';
 
 /** Thymer on a phone or tablet: <html data-device="mobile|desktop">, or the user agent without it. */
 const onMobile = () => {
@@ -369,6 +377,11 @@ class Plugin extends AppPlugin {
 		mo.observe(document.body, { childList: true, subtree: true });
 		this.cleanup.push(() => mo.disconnect());
 		ensure();
+
+		// The theme changing to or from a paper one: Home is drawn again, the other way.
+		const skins = new MutationObserver(() => [...this.views].forEach((v) => { if (v.skin !== skinOf() && v.root.isConnected) this.render(v.panel); }));
+		skins.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+		this.cleanup.push(() => skins.disconnect());
 	}
 
 	onUnload() {
@@ -438,7 +451,7 @@ class Plugin extends AppPlugin {
 		panel.setTitle?.('Home');
 		[...this.views].filter((v) => v.panel === panel || !v.root.isConnected).forEach((v) => this.closeView(v));
 		el.innerHTML = `<div-scrollable class="home-scroll force-active-scrollbar" style="overflow-y: scroll; height: 100%"><div class="home">
-			<header class="home-sky"><canvas></canvas><div class="home-labels"></div>
+			<header class="home-sky"><canvas></canvas><svg class="home-paper"></svg><div class="home-labels"></div>
 				<div class="home-hello"><h1></h1><p></p></div>
 				<div class="home-tip"></div><div class="home-quiet">Your stars will appear here as you write.</div>
 				<div class="home-tools"><button class="home-look"></button></div>
@@ -460,20 +473,29 @@ class Plugin extends AppPlugin {
 		root.style.setProperty('--home-bg', bg && bg !== 'rgba(0, 0, 0, 0)' ? bg : getComputedStyle(document.body).backgroundColor);
 		const v = { panel, el, root, canvas: root.querySelector('canvas'), stars: [], links: [], fade: 0, t0: performance.now(), labels: new Map() };
 		this.views.add(v);
+		v.skin = skinOf();   // on paper: no sky, the days drawn by paper() (see SKINS)
+		if (v.skin) root.dataset.skin = v.skin;
 		this.buildPicker(v);
 		this.fit(v);
 		// the sidebar opening or closing, or panels being resized: fit to the panel's edges again and place the stars anew
 		v.ro = new ResizeObserver(() => { if (this.views.has(v)) { this.fit(v); this.layoutStars(v); } });
 		v.ro.observe(el);
 		const host = v.host = el.closest('.panel');
-		if (host) { v.ro.observe(host); host.setAttribute('data-home-panel', ''); }   // its title bar is not needed here (see plugin.css)
+		if (host) {   // its title bar is not needed here (see plugin.css); the theme styles the panel by the skin
+			v.ro.observe(host); host.setAttribute('data-home-panel', '');
+			if (v.skin) host.setAttribute('data-home-skin', v.skin); else host.removeAttribute('data-home-skin');
+		}
 		const hour = new Date().getHours(), name = firstName(this.data.getActiveUsers?.()[0]?.getDisplayName?.());
 		root.querySelector('.home-hello h1').textContent = `${hour < 5 ? 'Good night' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'}${name ? ', ' + name : ''}`;
 		root.querySelector('.home-hello p').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-		v.sky = new Sky(v.canvas);
-		if (v.sky.ok) this.animate(v); else v.canvas.style.background = '#05060d';
-		v.canvas.addEventListener('mousemove', (e) => this.hover(v, e));
-		v.canvas.addEventListener('mouseleave', () => { root.querySelector('.home-tip').classList.remove('on'); });
+		if (v.skin) {
+			root.querySelector('.home-quiet').textContent = 'Your days will appear here as you write.';
+		} else {
+			v.sky = new Sky(v.canvas);
+			if (v.sky.ok) this.animate(v); else v.canvas.style.background = '#05060d';
+			v.canvas.addEventListener('mousemove', (e) => this.hover(v, e));
+			v.canvas.addEventListener('mouseleave', () => { root.querySelector('.home-tip').classList.remove('on'); });
+		}
 		this.showLook(v);
 		this.load().then(() => { if (this.views.has(v)) this.fill(v); });
 		this.fillJournal(v);
@@ -547,7 +569,7 @@ class Plugin extends AppPlugin {
 
 	closeView(v) {
 		cancelAnimationFrame(v.raf);
-		if (v.host && ![...this.views].some((o) => o !== v && o.host === v.host)) v.host.removeAttribute('data-home-panel');   // the panel shows something else: its bar comes back
+		if (v.host && ![...this.views].some((o) => o !== v && o.host === v.host)) { v.host.removeAttribute('data-home-panel'); v.host.removeAttribute('data-home-skin'); }   // the panel shows something else: its bar comes back
 		v.ro?.disconnect();
 		v.closePicker?.();
 		v.sky?.destroy();
@@ -650,7 +672,7 @@ class Plugin extends AppPlugin {
 		const days = this.days(), today = dayStart(new Date());
 		const score = (d) => days[dayKey(d)] || 0;
 		const active = Object.keys(days).filter((k) => days[k] > 0).length;
-		v.root.querySelector('.home-hello p').textContent = `${today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} · ${fmt(active)} ${active === 1 ? 'day' : 'days'} among the stars`;
+		v.root.querySelector('.home-hello p').textContent = `${today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} · ${fmt(active)} ${active === 1 ? 'day' : 'days'} ${v.skin === 'blueprint' ? 'on the sheet' : v.skin ? 'on the page' : 'among the stars'}`;
 		const bars = v.root.querySelector('.home-bars'), last = [...Array(30)].map((_, i) => daysAgo(29 - i)), most = Math.max(1, ...last.map(score));
 		bars.textContent = '';
 		let total = 0;
@@ -697,14 +719,15 @@ class Plugin extends AppPlugin {
 	 * linked (in the atlas, only within their week; in the neural field, not at all: its filaments are the links).
 	 */
 	layoutStars(v) {
-		v.w = v.canvas.clientWidth; v.h = v.canvas.clientHeight;
-		v.shape = this.shape();
+		const sky = v.root.querySelector('.home-sky');   // the canvas's size too, where there is one
+		v.w = sky.clientWidth; v.h = sky.clientHeight;
+		v.shape = v.skin ? 'paper' : this.shape();
 		const days = this.days(), shape = v.shape;
 		const keys = Object.keys(days).filter((k) => days[k] > 0).sort();
 		v.root.querySelector('.home-quiet').classList.toggle('on', !!this.activity && !keys.length);
 		v.labels.forEach((l) => l.remove()); v.labels.clear();
 		v.stars = []; v.links = [];
-		if (!keys.length) return;
+		if (!keys.length) { v.root.querySelector('.home-paper').innerHTML = ''; return; }
 		const first = keyDate(keys[0]).getTime(), span = Math.round((dayStart(new Date()).getTime() - first) / DAY) + 1;
 		const max = Math.max(...keys.map((k) => days[k])), todayKey = dayKey(new Date()), now = new Date();
 		const star = (k, i) => {
@@ -712,6 +735,7 @@ class Plugin extends AppPlugin {
 			const tint = STAR_COLORS[Math.min(STAR_COLORS.length - 1, Math.floor(hash(i + 17) * (b > 0.7 ? 2 : STAR_COLORS.length)))];
 			return { key: k, i, b, s: 1.1 + 3.6 * Math.pow(b, 1.3), tint, score: days[k], today: k === todayKey };
 		};
+		if (shape === 'paper') { this.paper(v, keys, star); return; }
 		if (shape === 'nebula') {   // young stars on a stream that winds through the cloud, from the oldest (left, far) to today
 			for (const k of keys) {
 				const i = Math.round((keyDate(k).getTime() - first) / DAY), s = star(k, i), u = span > 1 ? i / (span - 1) : 1;
@@ -751,6 +775,59 @@ class Plugin extends AppPlugin {
 		for (let j = 1; j < v.stars.length; j++) {
 			const a = v.stars[j - 1], b = v.stars[j];
 			if (b.i - a.i === 1 && shape !== 'neural' && (shape !== 'atlas' || a.week === b.week)) v.links.push([a, b]);   // the field is the network's links
+		}
+	}
+
+	/**
+	 * On paper (a theme with a skin): the days as an SVG chart in the sky's place, which the theme's CSS colours. A column for
+	 * each week, the newest at the right and as many older ones as fit (the rest counted at the left); in it the week's days
+	 * scattered, sized by how much changed, days in a row joined, today ringed, the week's number and month under them.
+	 * Pointing at a day tells it, as on the sky.
+	 */
+	paper(v, keys, star) {
+		const svg = v.root.querySelector('.home-paper'), W = v.w || 900, H = v.h || 300;
+		const monday = (d) => { const x = dayStart(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.getTime(); };
+		const first = keyDate(keys[0]), week0 = monday(first), weeks = Math.round((monday(new Date()) - week0) / (7 * DAY)) + 1;
+		const colW = 84, fit = Math.max(1, Math.floor((W - 56) / colW)), shown = Math.min(weeks, fit), skip = weeks - shown;
+		const x0 = W - 28 - shown * colW, top = H * 0.1;
+		// the weeks stay clear of the greeting: beside it they may use half the sky, over it (a narrow panel) only what is above it
+		const hello = v.root.querySelector('.home-hello'), sky = v.root.querySelector('.home-sky');
+		const hr = hello.getBoundingClientRect(), sr = sky.getBoundingClientRect(), helloTop = hr.top - sr.top, helloRight = hr.right - sr.left;
+		const span = x0 > helloRight + 16 ? H * 0.44 : Math.max(50, Math.min(H * 0.44, helloTop - top - 40));
+		const cols = new Map();   // each shown week: a day in it, for its label
+		for (const k of keys) {
+			const d = keyDate(k), wk = Math.round((monday(d) - week0) / (7 * DAY)) - skip;
+			if (wk < 0) continue;
+			const i = Math.round((d.getTime() - first.getTime()) / DAY), s = star(k, i);
+			s.week = wk; s.w = [x0 + wk * colW + 16 + hash(i + 3) * (colW - 32), top + hash(i + 5) * span];
+			v.stars.push(s);
+			if (!cols.has(wk)) cols.set(wk, d);
+		}
+		const n = (x) => x.toFixed(1);
+		let out = '';
+		for (let j = 1; j < v.stars.length; j++) {
+			const a = v.stars[j - 1], b = v.stars[j];
+			if (b.i - a.i === 1 && a.week === b.week) out += `<line class="home-pl" x1="${n(a.w[0])}" y1="${n(a.w[1])}" x2="${n(b.w[0])}" y2="${n(b.w[1])}"/>`;
+		}
+		for (const s of v.stars) {   // a rect, so the theme may round it into a dot or keep it square
+			const r = 2.6 + 5 * s.b, [x, y] = s.w;
+			if (s.today) out += `<rect class="home-pm-today" x="${n(x - r - 4)}" y="${n(y - r - 4)}" width="${n(2 * r + 8)}" height="${n(2 * r + 8)}"/>`;
+			out += `<rect class="home-pm${s.today ? ' today' : ''}" data-i="${s.i}" x="${n(x - r)}" y="${n(y - r)}" width="${n(2 * r)}" height="${n(2 * r)}"/>`;
+		}
+		for (const [wk, d] of cols) out += `<text class="home-plabel" x="${n(x0 + wk * colW + colW / 2)}" y="${n(top + span + 26)}">Wk ${isoWeek(d)} · ${d.toLocaleDateString(undefined, { month: 'short' })}</text>`;
+		if (skip) out += `<text class="home-plabel home-pmore" x="${n(x0 - 12)}" y="${n(top + span + 26)}">+${skip} wk</text>`;
+		svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+		svg.innerHTML = out;
+		const tip = v.root.querySelector('.home-tip');
+		for (const e of svg.querySelectorAll('.home-pm')) {
+			const s = v.stars.find((o) => o.i === Number(e.dataset.i));
+			e.addEventListener('mouseenter', () => {
+				tip.textContent = `${keyDate(s.key).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} · ${fmt(s.score)} change${s.score === 1 ? '' : 's'}`;
+				tip.classList.add('on');
+				const half = tip.offsetWidth / 2 + 8;   // the tip is centred on the day, and kept inside the sky
+				tip.style.left = `${Math.min(W - half, Math.max(half, s.w[0]))}px`; tip.style.top = `${s.w[1] - 14}px`;
+			});
+			e.addEventListener('mouseleave', () => tip.classList.remove('on'));
 		}
 	}
 
@@ -818,7 +895,8 @@ class Plugin extends AppPlugin {
 		if (!best) { tip.classList.remove('on'); return; }
 		const s = best.star;
 		tip.textContent = `${keyDate(s.key).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} · ${fmt(s.score)} change${s.score === 1 ? '' : 's'}`;
-		tip.style.left = `${Math.min(r.width - 10, Math.max(10, best.x))}px`; tip.style.top = `${best.y - 14}px`;
 		tip.classList.add('on');
+		const half = tip.offsetWidth / 2 + 8;   // the tip is centred on the star, and kept inside the sky
+		tip.style.left = `${Math.min(r.width - half, Math.max(half, best.x))}px`; tip.style.top = `${best.y - 14}px`;
 	}
 }

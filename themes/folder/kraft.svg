@@ -1,0 +1,15 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'>
+  <!-- Kraft board: the pulp's soft cloudiness and a fine, low tooth, both
+       in brown over the board's colour in CSS. Nothing sharp enough to read
+       as a speck. -->
+  <filter id='cloud' x='0' y='0' width='100%' height='100%'>
+    <feTurbulence type='fractalNoise' baseFrequency='.015' numOctaves='3' seed='3' stitchTiles='stitch'/>
+    <feColorMatrix values='0 0 0 0 .35  0 0 0 0 .22  0 0 0 0 .08  0 0 0 -1.8 1'/>
+  </filter>
+  <filter id='tooth' x='0' y='0' width='100%' height='100%'>
+    <feTurbulence type='fractalNoise' baseFrequency='.45 .28' numOctaves='3' seed='11' stitchTiles='stitch'/>
+    <feColorMatrix values='0 0 0 0 .3  0 0 0 0 .19  0 0 0 0 .07  .6 0 0 0 -.18'/>
+  </filter>
+  <rect width='300' height='300' filter='url(#cloud)' opacity='.18'/>
+  <rect width='300' height='300' filter='url(#tooth)' opacity='.8'/>
+</svg>

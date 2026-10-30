@@ -1,0 +1,57 @@
+{
+  "name": "Folder",
+  "description": "Light Sans as an Apple app of the leather years, drawn in CSS and SVG alone: dark denim for the window, the sidebar pressed into it in debossed wells, the page a card filed in a kraft cardboard folder, its top black leather where the buttons sit, a copper snap for the sidebar toggle; copper rivets for bullets, denim patches for tags, the command palette and date picker as kraft cards",
+  "scheme": "light",
+  "accent": "#3b5f9a",
+  "paper": "#fdfdfb",
+  "ground": "#2e4060",
+  "text": "#2a2f38",
+  "sidebar": "#2e4060",
+  "veil": {
+    "direction": "to bottom",
+    "stops": [[0, "0%"], [0, "100%"]]
+  },
+  "selected": "soft",
+  "title": "upright",
+  "syntax": {
+    "meta": "#8a3fa6", "keyword": "#a8306e", "type": "#2f5f9e", "title": "#1f4f80",
+    "string": "#b4461e", "number": "#2c3fb8", "comment": "#7b8a5a"
+  },
+  "code_alpha": 0.04,
+  "images": {
+    "--fd-denim": "denim.svg",
+    "--fd-kraft": "kraft.svg",
+    "--fd-leather": "leather.svg"
+  },
+  "tokens": {
+    "--radius-normal": "6px",
+    "--radius-larger": "8px",
+    "--radius-xlarge": "10px",
+    "--modal-radius": "12px",
+    "--prop-status-radius": "5px",
+    "--selection-bg": "#c4d4ee",
+    "--selection-fg": "#1d2430",
+    "--ed-selection-self-bg": "#c4d4eebf",
+    "--ed-caret-self-fg": "#3b5f9a",
+    "--side-fg-color": "#d5ddea",
+    "--side-icon-color": "#9fb0c9",
+    "--sidebar-heading": "#9fb0c9",
+    "--sidebar-fg-hover": "#ffffff",
+    "--sidebar-bg-hover": "#0000001f",
+    "--side-bg-focus": "transparent",
+    "--side-bg-active-focus": "transparent",
+    "--side-fg-focus": "#ffffff",
+    "--side-fg-active-focus": "#ffffff",
+    "--sidebar-toggler-color": "#9fb0c9",
+    "--cmdpal-selected-bg-color": "#365a8f",
+    "--cmdpal-selected-fg-color": "#ffffff",
+    "--cmdpal-inline-selected-bg": "#365a8f",
+    "--cmdpal-inline-selected-fg": "#ffffff",
+    "--link-color": "#2f5f9e",
+    "--ed-link-color": "#2f5f9e",
+    "--link-hover-color": "#1e3f70",
+    "--ed-check-div-border": "#9aa3b0",
+    "--ed-check-done-bg": "#3b5f9a",
+    "--ed-check-done-fg": "#ffffff"
+  }
+}

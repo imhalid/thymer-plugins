@@ -1,0 +1,11 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'>
+  <!-- Leather grain: a pebbled relief lit from the top left. Rendered grey,
+       to be blended (soft-light) over the leather's colour in CSS. -->
+  <filter id='grain' x='0' y='0' width='100%' height='100%' color-interpolation-filters='sRGB'>
+    <feTurbulence type='fractalNoise' baseFrequency='.42' numOctaves='2' seed='5' stitchTiles='stitch' result='n'/>
+    <feDiffuseLighting in='n' surfaceScale='1.25' diffuseConstant='1' lighting-color='#fff'>
+      <feDistantLight azimuth='235' elevation='62'/>
+    </feDiffuseLighting>
+  </filter>
+  <rect width='240' height='240' filter='url(#grain)'/>
+</svg>

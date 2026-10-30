@@ -1,0 +1,29 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'>
+  <!-- Denim: a 2/1 twill at one pixel a thread, the warp's lit floats
+       stepping one thread over each row, so the diagonal is fine and even,
+       as on cloth seen at arm's length; then the yarn's own slubs, long and
+       soft along the warp, and the dye fading unevenly. Light and shade
+       only; the indigo is the CSS underneath. -->
+  <defs>
+    <pattern id='twill' width='3' height='3' patternUnits='userSpaceOnUse'>
+      <rect x='0' y='0' width='2' height='1' fill='#fff' fill-opacity='.06'/>
+      <rect x='2' y='0' width='1' height='1' fill='#000' fill-opacity='.12'/>
+      <rect x='1' y='1' width='2' height='1' fill='#fff' fill-opacity='.06'/>
+      <rect x='0' y='1' width='1' height='1' fill='#000' fill-opacity='.12'/>
+      <rect x='2' y='2' width='1' height='1' fill='#fff' fill-opacity='.06'/>
+      <rect x='0' y='2' width='1' height='1' fill='#fff' fill-opacity='.06'/>
+      <rect x='1' y='2' width='1' height='1' fill='#000' fill-opacity='.12'/>
+    </pattern>
+    <filter id='slub' x='0' y='0' width='100%' height='100%'>
+      <feTurbulence type='fractalNoise' baseFrequency='.5 .025' numOctaves='2' seed='4' stitchTiles='stitch'/>
+      <feColorMatrix values='0 0 0 0 .85  0 0 0 0 .9  0 0 0 0 1  0 0 0 1.2 -.62'/>
+    </filter>
+    <filter id='dye' x='0' y='0' width='100%' height='100%'>
+      <feTurbulence type='fractalNoise' baseFrequency='.009' numOctaves='3' seed='6' stitchTiles='stitch'/>
+      <feColorMatrix values='0 0 0 0 .82  0 0 0 0 .88  0 0 0 0 1  0 0 0 -1.8 1.05'/>
+    </filter>
+  </defs>
+  <rect width='240' height='240' fill='url(#twill)'/>
+  <rect width='240' height='240' filter='url(#slub)' opacity='.08'/>
+  <rect width='240' height='240' filter='url(#dye)' opacity='.12'/>
+</svg>

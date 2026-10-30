@@ -1,0 +1,60 @@
+{
+  "name": "Notebook",
+  "description": "Light Sans as a spiral notebook on a walnut desk, drawn in CSS and SVG alone: a kraft cover for the sidebar, a wire binding across the seam, a dotted cream page with a red margin and a paper clip, the title under a highlighter, ink-underlined headings, code on taped index cards, quotes on sticky notes, a pencil by the status bar",
+  "scheme": "light",
+  "accent": "#3563c9",
+  "paper": "#fbf7ec",
+  "ground": "#3a2a1f",
+  "text": "#2b2620",
+  "sidebar": "#c9ad80",
+  "veil": {
+    "direction": "to bottom",
+    "stops": [[1, "0%"], [1, "100%"]]
+  },
+  "selected": "soft",
+  "title": "upright",
+  "syntax": {
+    "meta": "#b0413e", "keyword": "#2f55b0", "type": "#2f7d6d", "title": "#2b2620",
+    "string": "#a3452f", "number": "#b5651d", "comment": "#8d857a"
+  },
+  "code_alpha": 0.04,
+  "images": {
+    "--nb-wood": "wood.svg",
+    "--nb-kraft": "kraft.svg",
+    "--nb-paper": "paper.svg",
+    "--nb-rings": "rings.svg",
+    "--nb-marker": "marker.svg",
+    "--nb-wave": "wave.svg",
+    "--nb-star": "star.svg",
+    "--nb-tape": "tape.svg",
+    "--nb-pencil": "pencil.svg",
+    "--nb-clip": "clip.svg",
+    "--nb-pencil-line": "pencil-line.svg",
+    "--nb-ring": "ring.svg",
+    "--nb-underline": "underline.svg"
+  },
+  "tokens": {
+    "--radius-normal": "4px",
+    "--radius-larger": "5px",
+    "--radius-xlarge": "6px",
+    "--modal-radius": "6px",
+    "--prop-status-radius": "4px",
+    "--selection-bg": "#ffe14d",
+    "--selection-fg": "#2b2620",
+    "--ed-selection-self-bg": "#ffe14d8c",
+    "--ed-caret-self-fg": "#3563c9",
+    "--side-bg-focus": "transparent",
+    "--side-bg-active-focus": "transparent",
+    "--side-fg-focus": "#2b2620",
+    "--side-fg-active-focus": "#2b2620",
+    "--side-fg-color": "#3a2e22",
+    "--side-icon-color": "#6b5638",
+    "--sidebar-heading": "#5a4630",
+    "--sidebar-fg-hover": "#1f1a14",
+    "--sidebar-bg-hover": "#3a2a1f12",
+    "--cmdpal-selected-bg-color": "transparent",
+    "--cmdpal-selected-fg-color": "#2b2620",
+    "--cmdpal-inline-selected-bg": "transparent",
+    "--cmdpal-inline-selected-fg": "#2b2620"
+  }
+}

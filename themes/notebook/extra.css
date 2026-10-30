@@ -1,0 +1,443 @@
+/* --- Notebook's own: a spiral notebook open on a walnut desk, drawn in CSS
+   and SVG alone. kit/build.py adds this after the shared material; the
+   --nb-* pictures are the SVGs in this folder. --- */
+
+html[data-theme="thymer-notebook"] {
+  --nb-serif: "Iowan Old Style", Charter, "Palatino Linotype", Palatino, Georgia, serif;
+  --nb-hand: Noteworthy, "Bradley Hand", "Segoe Print", "Comic Neue", cursive;
+  --nb-ink: #2b2620;
+  --nb-red: #d6544f;
+  --nb-blue: #3563c9;
+  --nb-paper-colour: #fbf7ec;
+  --nb-kraft-colour: #c9ad80;
+  --nb-desk-ink: #e6d8bf;
+}
+
+/* The desk: walnut, a little darker towards the corners. Nothing of the
+   chrome covers it. */
+html[data-theme="thymer-notebook"] {
+  background:
+    radial-gradient(ellipse 85% 75% at 50% 40%, #0000 45%, #00000059) fixed,
+    var(--nb-wood) 0 0 / 600px 600px,
+    #3a2a1f;
+}
+html[data-theme="thymer-notebook"] :is(.title-bar, .statusbar--status-bar, .panel-h-sizer) {
+  background: transparent;
+}
+html[data-theme="thymer-notebook"] .title-bar {
+  color: var(--nb-desk-ink);
+}
+
+/* The sidebar is the notebook's kraft cover, the page its first sheet, and
+   both lie on the desk with a little of it showing round them. Each is drawn
+   behind its content, at -1 in the page's stacking, so popovers that live
+   in the sidebar (the command palette) still come out on top. */
+html:not([data-device=mobile])[data-theme="thymer-notebook"] .sidebar {
+  padding: 10px 0 10px 10px;
+  background: transparent;
+  border-right: 0;
+}
+html:not([data-device=mobile])[data-theme="thymer-notebook"] .sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 10px 0 10px 10px;
+  z-index: -1;
+  border-radius: 8px 2px 2px 8px;
+  background:
+    linear-gradient(270deg, #0000002e, #0000 22px),
+    var(--nb-kraft) 0 0 / 240px 240px,
+    var(--nb-kraft-colour);
+  box-shadow: inset 0 1px 0 #ffffff33, 0 2px 4px #0000004d, 0 12px 28px #00000066;
+  pointer-events: none;
+}
+html:not([data-device=mobile])[data-theme="thymer-notebook"] .panels-grid > .panel {
+  padding: 10px 10px 10px 32px;
+  background: transparent;
+}
+html:not([data-device=mobile])[data-theme="thymer-notebook"] .panels-grid > .panel::before {
+  content: "";
+  position: absolute;
+  inset: 10px 10px 10px 0;
+  z-index: -1;
+  border-radius: 2px 6px 6px 2px;
+  background:
+    linear-gradient(90deg, #0000001f, #0000 26px),
+    var(--nb-paper) 0 0 / 240px 240px,
+    var(--nb-paper-colour);
+  box-shadow: 0 2px 4px #00000040, 0 12px 28px #00000059;
+  pointer-events: none;
+}
+html:not([data-device=mobile])[data-theme="thymer-notebook"] .panels-grid > .panel > .vscrollbar {
+  top: 10px !important;
+  right: 10px !important;
+  bottom: 10px !important;
+}
+
+/* The wire binding: one turn every 28px across the seam, through a hole in
+   the cover and one in the page. It belongs to the sidebar, which lets it
+   reach over the page's edge. */
+html:not([data-device=mobile])[data-theme="thymer-notebook"] .sidebar::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  right: -28px;
+  width: 44px;
+  z-index: 3;
+  background: var(--nb-rings) 0 0 / 44px 28px repeat-y;
+  pointer-events: none;
+}
+/* The sidebar's toggle sits in the page's margin, clear of the wire. */
+html:not([data-device=mobile])[data-theme="thymer-notebook"] .sidebar--toggler {
+  right: -52px;
+}
+
+/* A paper clip on the page's top edge. */
+html:not([data-device=mobile])[data-theme="thymer-notebook"] .panels-grid > .panel::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 196px;
+  width: 24px;
+  height: 74px;
+  z-index: 20;
+  background: var(--nb-clip) center / 24px 74px no-repeat;
+  transform: rotate(4deg);
+  pointer-events: none;
+}
+
+/* The page is dotted paper that moves with the writing, with a red margin
+   rule down the left of the text. */
+html:not([data-device=mobile])[data-theme="thymer-notebook"] .panels-grid > .panel .panel-scroller-y {
+  background: radial-gradient(circle at 1.5px 1.5px, #9c927f80 1.1px, #0000 1.7px) 0 0 / 24px 24px local;
+}
+html[data-theme="thymer-notebook"] :is(.panel-heading, .panel-body) > .layout-margin {
+  position: relative;
+}
+html[data-theme="thymer-notebook"] :is(.panel-heading, .panel-body) > .layout-margin::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -28px;
+  width: 3px;
+  border-left: 1px solid #d6544f80;
+  border-right: 1px solid #d6544f80;
+  pointer-events: none;
+}
+
+/* The cover's contents: section names on strips of masking tape, written by
+   hand; the open page marked with a highlighter. */
+html[data-theme="thymer-notebook"] .sidebar .sidebar-item-heading .sidebar-item-label {
+  display: inline-block;
+  padding: 2px 14px 1px;
+  background: var(--nb-tape) center / 100% 100% no-repeat;
+  color: var(--nb-ink);
+  font: 700 14px var(--nb-hand);
+  letter-spacing: .02em;
+  text-transform: none;
+  transform: rotate(-2deg);
+}
+html[data-theme="thymer-notebook"] .sidebar .sidebar-item.is-focused {
+  background: var(--nb-marker) 4px center / calc(100% - 8px) 82% no-repeat;
+}
+
+/* Achievements' character is a polaroid on the cover. */
+html[data-theme="thymer-notebook"] .ach-card .ach-por {
+  border-radius: 1px;
+  box-shadow: 0 0 0 5px #fffdf6, 0 6px 0 5px #fffdf6, 0 10px 18px 5px #00000047;
+  transform: rotate(-1.5deg);
+}
+
+/* The title in a book face, under a highlighter, a size down from Thymer's
+   (a book face runs wider and the title stays on one line); the collection
+   it belongs to on a strip of tape above it. */
+html:not([data-mobile-type=phone])[data-theme="thymer-notebook"] .id--panel-title .id--h1 {
+  font-size: 38px;
+}
+html[data-theme="thymer-notebook"] .id--panel-title .id--h1 {
+  padding-right: 6px;
+  background: var(--nb-marker) left bottom 2px / 100% 50% no-repeat;
+  color: var(--nb-ink);
+  font-family: var(--nb-serif);
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+html[data-theme="thymer-notebook"] .panel-context-pill {
+  border: 0;
+  background: var(--nb-tape) center / 100% 100% no-repeat;
+  color: var(--nb-ink);
+  font: 700 14px var(--nb-hand);
+  transform: rotate(-1.5deg);
+}
+
+/* Headings in the book face: h2 underlined with an ink squiggle, h3 in
+   italics with a red asterisk out in the margin. */
+html[data-theme="thymer-notebook"] .line-div:is(.heading-h1, .heading-h2, .heading-h3, .heading-h4) {
+  color: var(--nb-ink);
+  font-family: var(--nb-serif);
+  letter-spacing: -.005em;
+}
+html[data-theme="thymer-notebook"] .line-div.heading-h2 > * {
+  padding-bottom: 6px;
+  background-image: var(--nb-wave);
+  background-position: left bottom;
+  background-size: 18px 8px;
+  background-repeat: repeat-x;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+html[data-theme="thymer-notebook"] .line-div.heading-h3 {
+  position: relative;
+  font-style: italic;
+}
+html[data-theme="thymer-notebook"] .line-div.heading-h3::before {
+  content: "";
+  position: absolute;
+  left: -54px;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin-top: -9px;
+  background: var(--nb-star) center / contain no-repeat;
+  pointer-events: none;
+}
+
+/* Inline code in blue highlighter; tags in red ink. */
+html[data-theme="thymer-notebook"] .lineitem-code {
+  border: 0;
+  border-radius: 3px;
+  background-color: #b9d0ff8c;
+  color: #1f3c85;
+}
+html[data-theme="thymer-notebook"] .lineitem-hashtag {
+  background: none;
+  color: var(--nb-red);
+}
+html[data-theme="thymer-notebook"] .block-codelang .lineitem-hashtag {
+  color: var(--wt-syn-meta);
+}
+
+/* Code is an index card taped onto the page. */
+html[data-theme="thymer-notebook"] .block-codelang {
+  border: 0;
+  border-radius: 2px;
+  background: #fffdf8;
+  box-shadow: 0 0 0 1px #0000000f, 0 1px 2px #0000001f, 0 10px 20px -8px #00000038;
+}
+html[data-theme="thymer-notebook"] .block-codelang::before,
+html[data-theme="thymer-notebook"] .block-codelang::after {
+  content: "";
+  position: absolute;
+  top: -11px;
+  z-index: 2;
+  width: 76px;
+  height: 22px;
+  background: var(--nb-tape) center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+html[data-theme="thymer-notebook"] .block-codelang::before {
+  left: 22px;
+  transform: rotate(-4deg);
+}
+html[data-theme="thymer-notebook"] .block-codelang::after {
+  right: 22px;
+  transform: rotate(3deg);
+}
+html[data-theme="thymer-notebook"] .block-codelang > .block-nstype-button {
+  border: 0;
+  background: transparent;
+  color: #8d857a;
+  font: 700 13px var(--nb-hand);
+}
+
+/* A quote is a sticky note, its corner lifting. */
+html[data-theme="thymer-notebook"] .listitem-quote > .line-div {
+  padding: 10px 16px 12px;
+  border: 0;
+  border-radius: 2px;
+  background:
+    linear-gradient(315deg, #0000 0 7px, #e2c64f 7px 11px, #0000 11px) right bottom / 18px 18px no-repeat,
+    linear-gradient(160deg, #fff7b8, #ffec88);
+  box-shadow: 0 1px 1px #00000024, 0 12px 16px -12px #0000006b;
+  color: #3a3220;
+}
+
+/* A rule is a pencil line drawn by hand. */
+html[data-theme="thymer-notebook"] .hr-divider hr {
+  height: 8px;
+  border: 0;
+  background: var(--nb-pencil-line) left center / 160px 8px repeat-x;
+}
+
+/* The status bar lies on the desk: light lettering, and a pencil put down
+   beside the right-hand items. */
+html[data-theme="thymer-notebook"] .statusbar--status-bar {
+  --statusbar-fg: var(--nb-desk-ink);
+  --statusbar-hover-bg: #ffffff14;
+  --kbd-bg: #ffffff1f;
+  --kbd-fg: #f3e9d6;
+  --text-muted: #cdbd9f;
+  --text-subtle: #dccdb2;
+  --text-default: var(--nb-desk-ink);
+  border-top: 0;
+  color: var(--nb-desk-ink);
+}
+html[data-theme="thymer-notebook"] .statusbar--right::before {
+  content: "";
+  align-self: center;
+  width: 220px;
+  height: 16px;
+  margin-right: 22px;
+  background: var(--nb-pencil) center / contain no-repeat;
+  transform: rotate(-1.5deg);
+}
+@media (max-width: 1100px) {
+  html[data-theme="thymer-notebook"] .statusbar--right::before {
+    display: none;
+  }
+}
+
+/* Whatever floats is a card laid on the page: white stock with the
+   paper's tooth, square corners, a real shadow, no frost. */
+html[data-theme="thymer-notebook"] :is(.cmdpal--dialog, .cmdpal--inline, .inline-view-editor-popover, .modal-dialog.modal-popout, .toaster, .page-details-popover, .tooltip-element) {
+  border: 0;
+  border-radius: 2px;
+  background: var(--nb-paper) 0 0 / 240px 240px, #fffdf8;
+  box-shadow: 0 0 0 1px #00000014, 0 2px 4px #0000001f, 0 20px 40px -12px #00000066;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* The command palette and the small pickers are index cards: a strip of
+   tape holds them on, a red rule runs under the line you type on, a faint
+   blue one under each row, and the chosen row is highlighted. */
+html[data-theme="thymer-notebook"] :is(.cmdpal--dialog, .cmdpal--inline)::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  z-index: 2;
+  width: 104px;
+  height: 24px;
+  margin-left: -52px;
+  background: var(--nb-tape) center / 100% 100% no-repeat;
+  transform: rotate(-2deg);
+  pointer-events: none;
+}
+html[data-theme="thymer-notebook"] .cmdpal--inline::before {
+  width: 72px;
+  height: 20px;
+  margin-left: -36px;
+  top: -10px;
+}
+html[data-theme="thymer-notebook"] :is(.cmdpal--input-container, .cmdpal--inline-input-container) {
+  border-bottom: 1px solid #d6544f8c;
+  box-shadow: 0 2px 0 -1px #fffdf8, 0 3px 0 -1px #d6544f40;
+}
+html[data-theme="thymer-notebook"] :is(.cmdpal--dialog, .cmdpal--inline) .autocomplete--option {
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 #3563c91f;
+}
+html[data-theme="thymer-notebook"] :is(.cmdpal--dialog, .cmdpal--inline) .autocomplete--option-selected {
+  background: var(--nb-marker) center / 100% 92% no-repeat;
+  color: var(--nb-ink);
+  font-weight: 600;
+}
+html[data-theme="thymer-notebook"] .autocomplete--option-selected :is(.autocomplete--option-icon, .autocomplete--option-label, .autocomplete--option-right, .ti) {
+  color: var(--nb-ink);
+}
+html[data-theme="thymer-notebook"] .autocomplete--option-selected .autocomplete--kbd {
+  background: #2b262014;
+}
+
+/* The date picker is a page of a desk calendar: the month in the book face
+   over a red rule, the days ruled into a grid, Sundays in red. Days with
+   writing on them carry highlighter (deeper the more was written), today
+   is underlined in red, the picked day ringed in blue ink. */
+html[data-theme="thymer-notebook"] .datepicker-calendar.cp-on {
+  --cp-gap: 0px;
+  --cp-radius: 0px;
+  --cp-tile: transparent;
+  --cp-tile-hover: #2b26200f;
+  --cp-accent: #f2bd00;
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar .datepicker-header {
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #d6544f8c;
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar .datepicker-header .current-month {
+  color: var(--nb-ink);
+  font: italic 700 17px var(--nb-serif);
+  letter-spacing: 0;
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar .day .day-inner {
+  font: italic 600 15px var(--nb-serif);
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar .weekday {
+  font: 700 13px var(--nb-hand);
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar .weekday:first-child,
+html[data-theme="thymer-notebook"] .datepicker-calendar .day.current-month:nth-child(7n+1):not(.selected) .day-inner {
+  color: var(--nb-red);
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar.cp-on .datepicker-days {
+  box-shadow: inset 1px 1px 0 #2b26201f;
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar.cp-on .datepicker-days .day {
+  position: relative;
+  box-shadow: inset -1px -1px 0 #2b26201f;
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar.cp-on .datepicker-days .day.today .day-inner {
+  box-shadow: none;
+  color: var(--nb-red);
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar.cp-on .datepicker-days .day.today::after {
+  content: "";
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: 2px;
+  height: 5px;
+  background: var(--nb-underline) center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar.cp-on .datepicker-days .day.selected .day-inner,
+html[data-theme="thymer-notebook"] .datepicker-calendar.cp-on .datepicker-days .day.selected:not(.disabled):hover .day-inner {
+  background: transparent;
+  box-shadow: none;
+  color: var(--nb-ink);
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar.cp-on .datepicker-days .day.selected.today .day-inner {
+  color: var(--nb-red);
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar.cp-on .datepicker-days .day.selected::before {
+  content: "";
+  position: absolute;
+  inset: -2px 1px;
+  z-index: 1;
+  background: var(--nb-ring) center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+html[data-theme="thymer-notebook"] .datepicker-calendar.cp-on .datepicker-days .day.inrange:not(.selected) .day-inner {
+  background: #3563c91f;
+}
+html[data-theme="thymer-notebook"] .cp-today,
+html[data-theme="thymer-notebook"] .cp-today:hover {
+  padding: 1px 10px;
+  border: 0;
+  border-radius: 0;
+  background: var(--nb-tape) center / 100% 100% no-repeat;
+  box-shadow: none;
+  color: var(--nb-ink);
+  font: 700 13px var(--nb-hand);
+  filter: none;
+  transform: rotate(-2deg);
+}
+
+/* The Home plugin's cards are sheets of the page too: its ground is the
+   paper (it sets its own, for a dark page, unless told). */
+html[data-theme="thymer-notebook"] .home {
+  --home-bg: var(--nb-paper-colour) !important;
+}

@@ -1,0 +1,5 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 30' preserveAspectRatio='none'>
+  <!-- A strip of masking tape, its ends torn. -->
+  <path d='M3 2L117 1L119 5L116 9L119 13L116 17L119 21L116 25L118 29L2 29L4 25L1 21L4 17L1 13L4 9L1 5Z' fill='#efe3bf' fill-opacity='.86'/>
+  <path d='M3 2L117 1L119 5L116 9L119 13L116 17L119 21L116 25L118 29L2 29L4 25L1 21L4 17L1 13L4 9L1 5Z' fill='none' stroke='#b79f6a' stroke-opacity='.35' stroke-width='.6'/>
+</svg>

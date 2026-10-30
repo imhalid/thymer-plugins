@@ -1,0 +1,6 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='24' height='74' viewBox='0 0 24 74'>
+  <!-- A paper clip on the page's top edge. -->
+  <path d='M8 18V58C8 66 18 66 18 58V12C18 2 4 2 4 12V60C4 72 22 72 22 60V22' fill='none' stroke='#000' stroke-opacity='.22' stroke-width='2.4' stroke-linecap='round' transform='translate(1.5 2)'/>
+  <path d='M8 18V58C8 66 18 66 18 58V12C18 2 4 2 4 12V60C4 72 22 72 22 60V22' fill='none' stroke='#aab0b8' stroke-width='2.4' stroke-linecap='round'/>
+  <path d='M8 18V58C8 66 18 66 18 58V12C18 2 4 2 4 12V60C4 72 22 72 22 60V22' fill='none' stroke='#f2f4f6' stroke-width='.8' stroke-linecap='round' transform='translate(-.5 -.5)'/>
+</svg>

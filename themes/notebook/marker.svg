@@ -1,0 +1,5 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 24' preserveAspectRatio='none'>
+  <!-- A highlighter's stroke: uneven edges, a darker overlap at its ends. -->
+  <path d='M3 5C34 2 90 4 132 3S186 2 197 4L196 19C170 21 120 19 80 21S18 20 4 20C2 15 2 9 3 5Z' fill='#ffe14d' fill-opacity='.62'/>
+  <path d='M3 5C6 4 9 4 12 4L11 20C8 20 6 20 4 20C2 15 2 9 3 5ZM188 3C191 3 194 3 197 4L196 19C193 19 190 20 187 20Z' fill='#f5c400' fill-opacity='.25'/>
+</svg>

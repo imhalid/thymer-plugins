@@ -1,0 +1,8 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'>
+  <!-- Kraft board's fibres: dark and light flecks over its colour. -->
+  <filter id='f' x='0' y='0' width='100%' height='100%'>
+    <feTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' seed='9' stitchTiles='stitch'/>
+    <feColorMatrix values='0 0 0 0 .32  0 0 0 0 .22  0 0 0 0 .12  1.3 0 0 0 -.62'/>
+  </filter>
+  <rect width='240' height='240' filter='url(#f)'/>
+</svg>

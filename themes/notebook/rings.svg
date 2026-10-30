@@ -1,0 +1,17 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='44' height='28' viewBox='0 0 44 28'>
+  <!-- One turn of the spiral binding, seen from above: a hole in the cover
+       (left), a hole in the page (right) and the wire over the seam, which
+       is at x=16. -->
+  <defs>
+    <linearGradient id='m' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0' stop-color='#f4f5f7'/>
+      <stop offset='.45' stop-color='#a9aeb5'/>
+      <stop offset='1' stop-color='#5b6069'/>
+    </linearGradient>
+  </defs>
+  <ellipse cx='6.5' cy='18' rx='3' ry='3.4' fill='#2a1d14'/>
+  <ellipse cx='34.5' cy='18' rx='3' ry='3.4' fill='#2a1d14'/>
+  <path d='M6.5 19C6.5 7 34.5 7 34.5 19' fill='none' stroke='#000' stroke-opacity='.28' stroke-width='3.4' transform='translate(1.5 2.5)'/>
+  <path d='M6.5 19C6.5 7 34.5 7 34.5 19' fill='none' stroke='url(#m)' stroke-width='3.4' stroke-linecap='round'/>
+  <path d='M9 13C13 9.5 28 9.5 32 13' fill='none' stroke='#fff' stroke-opacity='.8' stroke-width='.9' stroke-linecap='round'/>
+</svg>

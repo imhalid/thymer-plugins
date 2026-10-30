@@ -1,0 +1,59 @@
+{
+  "name": "Herbarium",
+  "description": "Light Sans as a herbarium sheet, drawn in CSS and SVG alone: a green linen folder with gold-stamped section heads for the sidebar, a page of parchment ruled as a register, softly mottled and browned at its edges, with a sprig of faded flowers and the entry's printed label, titles in Cormorant italic, a thyme sprig before h2, code in seed packets, quotes as collector's notes, a trailing stem for rules, and the date picker as a botanical calendar",
+  "scheme": "light",
+  "accent": "#4f7a45",
+  "paper": "#f3e7cb",
+  "ground": "#2c3a2a",
+  "text": "#2b3428",
+  "sidebar": "#2c3a2a",
+  "veil": {
+    "direction": "to bottom",
+    "stops": [[0, "0%"], [0, "100%"]]
+  },
+  "selected": "soft",
+  "title": "italic",
+  "syntax": {
+    "meta": "#a5562f", "keyword": "#3f6b45", "type": "#7a6a2f", "title": "#24402a",
+    "string": "#8a4a2a", "number": "#a5562f", "comment": "#8f957f"
+  },
+  "code_alpha": 0.04,
+  "images": {
+    "--hb-linen": "linen.svg",
+    "--hb-paper": "paper.svg",
+    "--hb-parchment": "parchment.svg",
+    "--hb-flowers": "flowers.svg",
+    "--hb-label": "label.svg",
+    "--hb-sprig": "sprig.svg",
+    "--hb-leaf": "leaf.svg",
+    "--hb-vine": "vine.svg"
+  },
+  "tokens": {
+    "--radius-normal": "3px",
+    "--radius-larger": "4px",
+    "--radius-xlarge": "5px",
+    "--modal-radius": "5px",
+    "--prop-status-radius": "3px",
+    "--selection-bg": "#4f7a45",
+    "--selection-fg": "#fbf8ef",
+    "--ed-selection-self-bg": "#9fbf8f66",
+    "--ed-caret-self-fg": "#a5562f",
+    "--side-fg-color": "#e6e0c8",
+    "--side-icon-color": "#aeb894",
+    "--sidebar-heading": "#d4b766",
+    "--sidebar-fg-hover": "#fbf8ef",
+    "--sidebar-bg-hover": "#f6f1e414",
+    "--side-bg-focus": "#f3ecd8",
+    "--side-bg-active-focus": "#f3ecd8",
+    "--side-fg-focus": "#24402a",
+    "--side-fg-active-focus": "#24402a",
+    "--sidebar-toggler-color": "#d4b766",
+    "--cmdpal-selected-bg-color": "#dbe5cf",
+    "--cmdpal-selected-fg-color": "#24402a",
+    "--cmdpal-inline-selected-bg": "#dbe5cf",
+    "--cmdpal-inline-selected-fg": "#24402a",
+    "--link-color": "#3f6b45",
+    "--ed-link-color": "#3f6b45",
+    "--link-hover-color": "#a5562f"
+  }
+}

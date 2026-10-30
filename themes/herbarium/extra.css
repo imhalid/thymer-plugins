@@ -1,0 +1,406 @@
+/* --- Herbarium's own: a herbarium sheet in its green linen folder, drawn in
+   CSS and SVG alone. kit/build.py adds this after the shared material; the
+   --hb-* pictures are the SVGs in this folder (draw.py grows the plants). --- */
+
+/* Cormorant Garamond for titles and headings; the writing stays in the
+   theme's monospace. */
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/cormorantgaramond/v21/co3bmX5slCNuHLi8bLeY9MK7whWMhyjYp3tKky2F7i6C.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/cormorantgaramond/v21/co3bmX5slCNuHLi8bLeY9MK7whWMhyjYqXtKky2F7g.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: italic;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/cormorantgaramond/v21/co3ZmX5slCNuHLi8bLeY9MK7whWMhyjYrEtGmSqn7B6DxjY.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: italic;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/cormorantgaramond/v21/co3ZmX5slCNuHLi8bLeY9MK7whWMhyjYrEtImSqn7B6D.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+html[data-theme="thymer-herbarium"] {
+  --hb-serif: "Cormorant Garamond", "Iowan Old Style", Garamond, Georgia, serif;
+  --hb-ink: #24402a;
+  --hb-green: #3f6b45;
+  --hb-rust: #a5562f;
+  --hb-gold: #d4b766;
+  --hb-foil: linear-gradient(180deg, #f5e3a2, #c99a3e 55%, #ecd085);
+  --hb-sheet: #f3e7cb;
+  --hb-card: #fbf7ea;
+  --hb-rule: #c9b98f;
+  --hb-cream: #e6e0c8;
+}
+
+/* The folder: green bookcloth, finely woven, a little darker at the edges. */
+html[data-theme="thymer-herbarium"] {
+  background:
+    radial-gradient(ellipse 100% 90% at 50% 35%, #0000 55%, #0000002e) fixed,
+    var(--hb-linen) 0 0 / 240px 240px,
+    #34432f;
+}
+html[data-theme="thymer-herbarium"] :is(.title-bar, .panel-h-sizer) {
+  background: transparent;
+}
+html[data-theme="thymer-herbarium"] .title-bar {
+  color: var(--hb-cream);
+}
+
+/* The sidebar is the folder's inside flap: the cloth itself, stitched along
+   its edge, section heads stamped in gold foil over a gold rule, and the
+   open page a paper label pasted on. */
+html[data-theme="thymer-herbarium"] .sidebar {
+  background: transparent;
+  border-right: 0;
+}
+html:not([data-device=mobile])[data-theme="thymer-herbarium"] .sidebar::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  right: 4px;
+  border-right: 1.5px dashed #d4b76659;
+  pointer-events: none;
+}
+html[data-theme="thymer-herbarium"] .sidebar .sidebar-item-heading {
+  background: linear-gradient(90deg, #d4b766a6, #d4b76600) left bottom 2px / 100% 1px no-repeat;
+}
+html[data-theme="thymer-herbarium"] .sidebar .sidebar-item-heading .sidebar-item-label {
+  background: var(--hb-foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font: 700 13px var(--hb-serif);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+}
+/* Collection colours are Light Sans's, made for paper: lifted to read on
+   the cloth. */
+html[data-theme="thymer-herbarium"] .sidebar [class*="sidebar-item-color-"]:not(.is-focused) .sidebar-item-icon {
+  filter: brightness(2.3) saturate(.55);
+}
+html[data-theme="thymer-herbarium"] .sidebar .sidebar-item.is-focused {
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px var(--hb-rule), 0 1px 2px #00000066;
+}
+
+/* Achievements' character is mounted like a plate: a cream mat and a gold
+   fillet. */
+html[data-theme="thymer-herbarium"] .ach-card .ach-por {
+  border-radius: 2px;
+  box-shadow: 0 0 0 4px #efe6cf, 0 0 0 5px #b89c55, 0 8px 16px #00000080;
+}
+
+/* The page is a leaf of parchment on the cloth, ruled as a register: its
+   skin mottled and stained, a few faint fibres, browned towards
+   its edges, with a fine double rule in sepia ink just inside them. Where
+   the sheet is wide enough to keep them clear of the text, a sprig of
+   pressed flowers sits at the top right, faded under a wash of the
+   parchment, and the entry's printed label at the bottom right. */
+html:not([data-device=mobile])[data-theme="thymer-herbarium"] .panels-grid > .panel {
+  padding: 14px;
+  background: transparent;
+}
+html:not([data-device=mobile])[data-theme="thymer-herbarium"] .panels-grid > .panel::before {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  z-index: -1;
+  border-radius: 2px;
+  background:
+    var(--hb-parchment) 0 0 / 800px 800px,
+    radial-gradient(ellipse 120% 100% at 30% 20%, #fff8e6 0, #0000 60%),
+    var(--hb-sheet);
+  box-shadow:
+    inset 0 0 0 1px #b8975f73,
+    inset 0 0 26px #8a5a2440,
+    inset 0 0 90px #8a5a2426,
+    0 2px 4px #00000059,
+    0 16px 34px #00000073;
+  pointer-events: none;
+}
+html:not([data-device=mobile])[data-theme="thymer-herbarium"] .panels-grid > .panel::after {
+  content: "";
+  position: absolute;
+  inset: 54px 30px 30px;
+  z-index: -1;
+  border: 1px solid #8a643a52;
+  outline: 1px solid #8a643a33;
+  outline-offset: 3px;
+  pointer-events: none;
+}
+@media (min-width: 1400px) {
+  html:not([data-device=mobile])[data-theme="thymer-herbarium"] .panels-grid > .panel::before {
+    background:
+      var(--hb-label) right 46px bottom 44px / 250px 128px no-repeat,
+      linear-gradient(#f3e7cb80, #f3e7cb80) right 50px top 80px / 150px 215px no-repeat,
+      var(--hb-flowers) right 50px top 80px / 150px 215px no-repeat,
+      var(--hb-parchment) 0 0 / 800px 800px,
+      radial-gradient(ellipse 120% 100% at 30% 20%, #fff8e6 0, #0000 60%),
+      var(--hb-sheet);
+  }
+}
+html:not([data-device=mobile])[data-theme="thymer-herbarium"] .panels-grid > .panel > .vscrollbar {
+  top: 14px !important;
+  right: 14px !important;
+  bottom: 14px !important;
+}
+
+/* The page's own buttons are bare glyphs in the green ink; the one under
+   the mouse sits on a small sage label. */
+html[data-theme="thymer-herbarium"] :is(.panel-icon-button, .panel-bar--crumbnav-icon) {
+  border-radius: 3px;
+}
+html[data-theme="thymer-herbarium"] :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover {
+  background: #dfe7d3;
+  box-shadow: inset 0 0 0 1px #c3d0b4;
+  color: var(--hb-ink);
+}
+
+/* The title in Cormorant italic over a hairline, the collection's name a
+   small label above it. */
+html[data-theme="thymer-herbarium"] .id--panel-title .id--h1 {
+  padding-bottom: 4px;
+  background: linear-gradient(var(--hb-rule), var(--hb-rule)) left bottom / 100% 1px no-repeat;
+  color: var(--hb-ink);
+  font-family: var(--hb-serif);
+  font-size-adjust: ex-height .46;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+html[data-theme="thymer-herbarium"] .panel-context-pill {
+  border: 1px solid var(--hb-rule);
+  border-radius: 2px;
+  background: var(--hb-card);
+  box-shadow: 0 1px 1px #0000001f;
+  color: var(--hb-green);
+  font: italic 600 16px var(--hb-serif);
+}
+
+/* Headings in Cormorant (matched to the writing's x-height): a thyme sprig
+   before each h2, h3 in green italics, h4 in rust. */
+html[data-theme="thymer-herbarium"] .line-div:is(.heading-h1, .heading-h2, .heading-h3, .heading-h4) {
+  color: var(--hb-ink);
+  font-family: var(--hb-serif);
+  font-size-adjust: ex-height .46;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+html[data-theme="thymer-herbarium"] .line-div.heading-h2 {
+  position: relative;
+}
+html[data-theme="thymer-herbarium"] .line-div.heading-h2::before {
+  content: "";
+  position: absolute;
+  left: -32px;
+  top: 50%;
+  width: 22px;
+  height: 24px;
+  margin-top: -12px;
+  background: var(--hb-sprig) center / contain no-repeat;
+  pointer-events: none;
+}
+html[data-theme="thymer-herbarium"] .line-div.heading-h3 {
+  color: var(--hb-green);
+  font-style: italic;
+  font-weight: 600;
+}
+html[data-theme="thymer-herbarium"] .line-div.heading-h4 {
+  color: var(--hb-rust);
+  letter-spacing: .06em;
+}
+
+/* Bullets are leaves; inline code a sage chip; tags in rust. */
+html[data-theme="thymer-herbarium"] .line-chrome-ulist-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 0;
+  background: var(--hb-leaf) center / contain no-repeat;
+}
+html[data-theme="thymer-herbarium"] .lineitem-code {
+  border: 0;
+  border-radius: 3px;
+  background: #dfe7d3;
+  color: #2f5232;
+}
+html[data-theme="thymer-herbarium"] .lineitem-hashtag {
+  background: none;
+  color: var(--hb-rust);
+}
+html[data-theme="thymer-herbarium"] .block-codelang .lineitem-hashtag {
+  color: var(--wt-syn-meta);
+}
+
+/* Code is kept in a seed packet: a kraft-tinted envelope with its flap
+   folded down along the top, its language written on it. */
+html[data-theme="thymer-herbarium"] .block-codelang {
+  padding-top: 22px;
+  border: 1px solid var(--hb-rule);
+  border-radius: 2px;
+  background:
+    linear-gradient(to bottom left, #e6d8b4 0 calc(50% - .6px), #b8a374 calc(50% - .6px) 50%, #0000 50%) left top / 50% 20px no-repeat,
+    linear-gradient(to bottom right, #e6d8b4 0 calc(50% - .6px), #b8a374 calc(50% - .6px) 50%, #0000 50%) right top / 50% 20px no-repeat,
+    var(--hb-paper) 0 0 / 260px 260px,
+    #f1e8d0;
+  box-shadow: 0 1px 2px #0000001f, 0 8px 16px -10px #0000004d;
+}
+html[data-theme="thymer-herbarium"] .block-codelang > .block-nstype-button {
+  border: 1px solid var(--hb-rule);
+  border-radius: 2px;
+  background: var(--hb-card);
+  color: var(--hb-rust);
+  font: italic 600 14px var(--hb-serif);
+}
+
+/* A quote is the collector's note: a slip of card, a rust rule down its
+   side, the words in italics. */
+html[data-theme="thymer-herbarium"] .listitem-quote > .line-div {
+  padding: 8px 16px;
+  border: 0;
+  border-left: 2px solid var(--hb-rust);
+  border-radius: 0 2px 2px 0;
+  background: var(--hb-card);
+  box-shadow: 0 1px 2px #0000001a;
+  color: #3b4a33;
+  font-family: var(--hb-serif);
+  font-size-adjust: ex-height .46;
+  font-style: italic;
+}
+
+/* A rule is a trailing stem. */
+html[data-theme="thymer-herbarium"] .hr-divider hr {
+  height: 16px;
+  border: 0;
+  background: var(--hb-vine) left center / 120px 16px repeat-x;
+}
+
+/* The status bar lies on the cloth: cream lettering under a stitched seam,
+   the herbarium's name in gold before the right-hand items. */
+html[data-theme="thymer-herbarium"] .statusbar--status-bar {
+  --statusbar-fg: var(--hb-cream);
+  --statusbar-hover-bg: #ffffff14;
+  --kbd-bg: #ffffff1a;
+  --kbd-fg: #f3edd8;
+  --text-muted: #b9b79c;
+  --text-subtle: #d6d0b6;
+  --text-default: var(--hb-cream);
+  background: transparent;
+  border-top: 1.5px dashed #d4b76640;
+  color: var(--hb-cream);
+}
+html[data-theme="thymer-herbarium"] .statusbar--right::before {
+  content: "Herbarium Thymerianum";
+  display: flex;
+  align-items: center;
+  margin-right: 16px;
+  background: var(--hb-foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font: 700 12px var(--hb-serif);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+}
+@media (max-width: 1100px) {
+  html[data-theme="thymer-herbarium"] .statusbar--right::before {
+    display: none;
+  }
+}
+
+/* Whatever floats is a printed card: cream stock, a fine double rule just
+   inside its edge, a soft shadow on the cloth. */
+html[data-theme="thymer-herbarium"] :is(.cmdpal--dialog, .cmdpal--inline, .inline-view-editor-popover, .modal-dialog.modal-popout, .toaster, .page-details-popover, .tooltip-element) {
+  border: 1px solid #b9a97c;
+  border-radius: 3px;
+  background: var(--hb-paper) 0 0 / 260px 260px, var(--hb-card);
+  box-shadow: inset 0 0 0 3px var(--hb-card), inset 0 0 0 4px #ddd1ad, 0 2px 4px #0000002e, 0 16px 34px #00000059;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-theme="thymer-herbarium"] :is(.cmdpal--input-container, .cmdpal--inline-input-container) {
+  border-bottom: 1px solid #ddd1ad;
+}
+html[data-theme="thymer-herbarium"] :is(.cmdpal--input, .cmdpal--inline-input)::placeholder {
+  color: #9a9a82;
+  font-family: var(--hb-serif);
+  font-size-adjust: ex-height .46;
+  font-style: italic;
+}
+html[data-theme="thymer-herbarium"] .autocomplete--option-selected :is(.autocomplete--option-icon, .autocomplete--option-label, .autocomplete--option-right, .ti) {
+  color: var(--hb-ink);
+}
+
+/* The date picker is a botanical calendar: the month in Cormorant italic
+   over a hairline, round days, Sundays in rust. Days with writing are
+   tinted with moss, deeper the more was written; today is ringed in rust,
+   the picked day filled green. */
+html[data-theme="thymer-herbarium"] .datepicker-calendar.cp-on {
+  --cp-radius: 999px;
+  --cp-tile: transparent;
+  --cp-tile-hover: #24402a12;
+  --cp-accent: #4f7a45;
+}
+html[data-theme="thymer-herbarium"] .datepicker-calendar .datepicker-header {
+  margin-bottom: 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #ddd1ad;
+}
+html[data-theme="thymer-herbarium"] .datepicker-calendar .datepicker-header .current-month {
+  color: var(--hb-ink);
+  font: italic 700 19px var(--hb-serif);
+}
+html[data-theme="thymer-herbarium"] .datepicker-calendar .weekday {
+  color: #8f957f;
+  font: 700 13px var(--hb-serif);
+}
+html[data-theme="thymer-herbarium"] .datepicker-calendar .day .day-inner {
+  font: 700 16px var(--hb-serif);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+html[data-theme="thymer-herbarium"] .datepicker-calendar .weekday:first-child,
+html[data-theme="thymer-herbarium"] .datepicker-calendar .day.current-month:nth-child(7n+1):not(.selected) .day-inner {
+  color: var(--hb-rust);
+}
+html[data-theme="thymer-herbarium"] .datepicker-calendar.cp-on .datepicker-days .day.today .day-inner {
+  box-shadow: inset 0 0 0 1.5px var(--hb-rust);
+  color: var(--hb-rust);
+}
+html[data-theme="thymer-herbarium"] .datepicker-calendar.cp-on .datepicker-days .day.selected .day-inner {
+  color: #fbf8ef;
+}
+html[data-theme="thymer-herbarium"] .datepicker-calendar.cp-on .datepicker-days .day.selected.today .day-inner {
+  box-shadow: inset 0 0 0 1.5px #fbf8ef, 0 0 0 1.5px var(--hb-rust);
+}
+html[data-theme="thymer-herbarium"] .cp-today,
+html[data-theme="thymer-herbarium"] .cp-today:hover {
+  border: 1px solid var(--hb-rule);
+  border-radius: 999px;
+  background: var(--hb-card);
+  box-shadow: none;
+  color: var(--hb-green);
+  font: italic 700 14px var(--hb-serif);
+  filter: none;
+}
+
+/* The Home plugin's cards sit on the parchment. */
+html[data-theme="thymer-herbarium"] .home {
+  --home-bg: var(--hb-sheet) !important;
+}

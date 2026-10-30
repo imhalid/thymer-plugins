@@ -84,6 +84,17 @@ html[data-theme="THEME"] .sidebar--toggler:hover {
   color: var(--wt-accent-soft);
 }
 
+/* The page's own buttons are bare glyphs (the tokens clear Thymer's discs);
+   the one under the mouse gets the theme's hover fill. Thymer paints that
+   button near-white (light) or near-black (dark) with a rule that names
+   html.is-light or .is-dark, .panel-bar and the tab bar; this one is a
+   step more specific, so the theme's fill wins. */
+html[data-theme="THEME"] :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover,
+html[data-theme="THEME"]:is(.is-light, .is-dark) .panel-bar .panel-bar--tabsbar :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover {
+  background: var(--panel-icon-hover-bg);
+  color: var(--panel-icon-hover-color);
+}
+
 /* The title is heavy, upright or italic as the theme says. */
 html[data-theme="THEME"] .id--panel-title .id--h1 {
   font-style: var(--wt-title-style);

@@ -338,6 +338,14 @@ def tokens(cfg):
         '--side-bg-active-focus': c['side_active_focus'],
         '--sidebar-toggler-bg': 'transparent', '--sidebar-toggler-border': 'transparent',
         '--sidebar-toggler-color': muted,
+        # The page's own buttons (back, forward, lock, split, close): bare glyphs in the
+        # muted ink, a tint of the theme's fill under the one the mouse is on.
+        '--panel-title-icon-inactive-bg': 'transparent', '--panel-title-icon-active-bg': 'transparent',
+        '--panel-title-icon-disabled-bg': 'transparent',
+        '--panel-title-icon-inactive-fg': alpha(text, .3), '--panel-title-icon-active-fg': muted,
+        '--panel-title-icon-disabled-fg': alpha(text, .2),
+        '--panel-icon-hover-bg': 'var(--wt-fill-strong)', '--panel-icon-hover-color': text,
+        '--crumbnav-icon-hover-bg': 'var(--panel-icon-hover-bg)',
         '--hover-subtle': 'var(--wt-fill)', '--table-header-bg': 'var(--wt-fill)', '--table-row-hover-bg': 'var(--wt-fill)',
         '--prop-bg-hover': 'var(--wt-fill)', '--prop-bg-focused': 'var(--wt-fill-strong)',
         '--prop-bg-focused-focused': 'var(--wt-fill-strong)', '--prop-bg-focused-inactive-panel': 'var(--wt-fill)',

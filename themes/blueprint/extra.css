@@ -50,6 +50,18 @@ html:not([data-device=mobile])[data-theme="thymer-blueprint"] .panels-grid > .pa
     linear-gradient(var(--bp-frame), var(--bp-frame)) right var(--bp-r) top var(--bp-t) / 1px calc(100% - var(--bp-t) - var(--bp-s)) no-repeat,
     var(--wt-veil);
 }
+/* The page's own buttons are bare glyphs in the line colour; the one under
+   the mouse is boxed in a dashed line, as a detail is called out. */
+html[data-theme="thymer-blueprint"] :is(.panel-icon-button, .panel-bar--crumbnav-icon) {
+  border-radius: 2px;
+}
+html[data-theme="thymer-blueprint"] :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover {
+  background: #9bd8ff14;
+  outline: 1px dashed #9bd8ff99;
+  outline-offset: -1px;
+  color: var(--color-primary-100);
+}
+
 /* The sidebar is the sheet's parts list: darker paper, a double rule at its
    edge, every row ruled off. */
 html[data-theme="thymer-blueprint"] .sidebar {

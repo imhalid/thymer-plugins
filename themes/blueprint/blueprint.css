@@ -422,11 +422,11 @@ html[data-theme="thymer-blueprint"]{color-scheme:dark;
   --avatar-border: 1px solid var(--color-blackwhite-0-25);
   --avatar-online-border: 1px solid var(--text-status-online);
   --panel-title-icon-inactive-bg: transparent;
-  --panel-title-icon-inactive-fg: #cccfd34c;
-  --panel-title-icon-disabled-fg: var(--color-blackwhite-0-50);
+  --panel-title-icon-inactive-fg: #e4f1ff4c;
+  --panel-title-icon-disabled-fg: #e4f1ff33;
   --panel-title-icon-disabled-bg: transparent;
-  --panel-title-icon-active-bg: #191c20b8;
-  --panel-title-icon-active-fg: #eff1f4;
+  --panel-title-icon-active-bg: transparent;
+  --panel-title-icon-active-fg: #8ea1b4;
   --panel-title-bottom-border: transparent;
   --button-minimal-bg-color: transparent;
   --button-minimal-bg-active-color: var(--wt-fill-strong);
@@ -478,7 +478,7 @@ html[data-theme="thymer-blueprint"]{color-scheme:dark;
   --panelbar-fg-color: #a0a5ac;
   --tab-bordersep-color: var(--color-text-800);
   --crumbnav-border-color: #ffffff08;
-  --panel-icon-hover-color: #eff1f4;
+  --panel-icon-hover-color: #e4f1ff;
   --tab-focused-bg-color: var(--wt-fill);
   --tab-focused-fg-color: var(--color-blackwhite-0);
   --crumbnav-bg-color: transparent;
@@ -765,7 +765,7 @@ html[data-theme="thymer-blueprint"]{color-scheme:dark;
   --cmdpal-inline-selected-bg: #488fbad9;
   --cmdpal-inline-selected-fg: #f9fbfe;
   --cmdpal-inline-selected-shadow: none;
-  --panel-icon-hover-bg: color-mix(in srgb, var(--color-primary-500) 8%, transparent);
+  --panel-icon-hover-bg: var(--wt-fill-strong);
   --crumbnav-icon-hover-bg: var(--panel-icon-hover-bg);
   --prop-editing-background-clip: padding-box;
   --prop-editing-shadow: 0 1px 2px #0000002e;
@@ -929,6 +929,17 @@ html[data-theme="thymer-blueprint"] .sidebar--toggler:hover {
   color: var(--wt-accent-soft);
 }
 
+/* The page's own buttons are bare glyphs (the tokens clear Thymer's discs);
+   the one under the mouse gets the theme's hover fill. Thymer paints that
+   button near-white (light) or near-black (dark) with a rule that names
+   html.is-light or .is-dark, .panel-bar and the tab bar; this one is a
+   step more specific, so the theme's fill wins. */
+html[data-theme="thymer-blueprint"] :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover,
+html[data-theme="thymer-blueprint"]:is(.is-light, .is-dark) .panel-bar .panel-bar--tabsbar :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover {
+  background: var(--panel-icon-hover-bg);
+  color: var(--panel-icon-hover-color);
+}
+
 /* The title is heavy, upright or italic as the theme says. */
 html[data-theme="thymer-blueprint"] .id--panel-title .id--h1 {
   font-style: var(--wt-title-style);
@@ -1061,6 +1072,18 @@ html:not([data-device=mobile])[data-theme="thymer-blueprint"] .panels-grid > .pa
     linear-gradient(var(--bp-frame), var(--bp-frame)) right var(--bp-r) top var(--bp-t) / 1px calc(100% - var(--bp-t) - var(--bp-s)) no-repeat,
     var(--wt-veil);
 }
+/* The page's own buttons are bare glyphs in the line colour; the one under
+   the mouse is boxed in a dashed line, as a detail is called out. */
+html[data-theme="thymer-blueprint"] :is(.panel-icon-button, .panel-bar--crumbnav-icon) {
+  border-radius: 2px;
+}
+html[data-theme="thymer-blueprint"] :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover {
+  background: #9bd8ff14;
+  outline: 1px dashed #9bd8ff99;
+  outline-offset: -1px;
+  color: var(--color-primary-100);
+}
+
 /* The sidebar is the sheet's parts list: darker paper, a double rule at its
    edge, every row ruled off. */
 html[data-theme="thymer-blueprint"] .sidebar {

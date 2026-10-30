@@ -92,6 +92,16 @@ html:not([data-device=mobile])[data-theme="thymer-notebook"] .sidebar--toggler {
   right: -52px;
 }
 
+/* The page's own buttons are pencilled glyphs; the one under the mouse is
+   highlighted. */
+html[data-theme="thymer-notebook"] :is(.panel-icon-button, .panel-bar--crumbnav-icon) {
+  border-radius: 0;
+}
+html[data-theme="thymer-notebook"] :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover {
+  background: var(--nb-marker) center / 100% 70% no-repeat;
+  color: var(--nb-ink);
+}
+
 /* A paper clip on the page's top edge. */
 html:not([data-device=mobile])[data-theme="thymer-notebook"] .panels-grid > .panel::after {
   content: "";

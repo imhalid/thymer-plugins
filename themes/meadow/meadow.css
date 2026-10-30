@@ -422,11 +422,11 @@ html[data-theme="thymer-meadow"]{color-scheme:dark;
   --avatar-border: 1px solid var(--color-blackwhite-0-25);
   --avatar-online-border: 1px solid var(--text-status-online);
   --panel-title-icon-inactive-bg: transparent;
-  --panel-title-icon-inactive-fg: #ccd0ce4c;
-  --panel-title-icon-disabled-fg: var(--color-blackwhite-0-50);
+  --panel-title-icon-inactive-fg: #efe9d64c;
+  --panel-title-icon-disabled-fg: #efe9d633;
   --panel-title-icon-disabled-bg: transparent;
-  --panel-title-icon-active-bg: #191d1bb8;
-  --panel-title-icon-active-fg: #eef2f0;
+  --panel-title-icon-active-bg: transparent;
+  --panel-title-icon-active-fg: #a79e83;
   --panel-title-bottom-border: transparent;
   --button-minimal-bg-color: transparent;
   --button-minimal-bg-active-color: var(--wt-fill-strong);
@@ -478,7 +478,7 @@ html[data-theme="thymer-meadow"]{color-scheme:dark;
   --panelbar-fg-color: #9ea7a2;
   --tab-bordersep-color: var(--color-text-800);
   --crumbnav-border-color: #ffffff08;
-  --panel-icon-hover-color: #eef2f0;
+  --panel-icon-hover-color: #efe9d6;
   --tab-focused-bg-color: var(--wt-fill);
   --tab-focused-fg-color: var(--color-blackwhite-0);
   --crumbnav-bg-color: transparent;
@@ -765,7 +765,7 @@ html[data-theme="thymer-meadow"]{color-scheme:dark;
   --cmdpal-inline-selected-bg: #5e8225d9;
   --cmdpal-inline-selected-fg: #fefbf2;
   --cmdpal-inline-selected-shadow: none;
-  --panel-icon-hover-bg: color-mix(in srgb, var(--color-primary-500) 8%, transparent);
+  --panel-icon-hover-bg: var(--wt-fill-strong);
   --crumbnav-icon-hover-bg: var(--panel-icon-hover-bg);
   --prop-editing-background-clip: padding-box;
   --prop-editing-shadow: 0 1px 2px #0000002e;
@@ -940,6 +940,17 @@ html[data-theme="thymer-meadow"] .sidebar--toggler:hover {
   background: transparent;
   border-color: transparent;
   color: var(--wt-accent-soft);
+}
+
+/* The page's own buttons are bare glyphs (the tokens clear Thymer's discs);
+   the one under the mouse gets the theme's hover fill. Thymer paints that
+   button near-white (light) or near-black (dark) with a rule that names
+   html.is-light or .is-dark, .panel-bar and the tab bar; this one is a
+   step more specific, so the theme's fill wins. */
+html[data-theme="thymer-meadow"] :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover,
+html[data-theme="thymer-meadow"]:is(.is-light, .is-dark) .panel-bar .panel-bar--tabsbar :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover {
+  background: var(--panel-icon-hover-bg);
+  color: var(--panel-icon-hover-color);
 }
 
 /* The title is heavy, upright or italic as the theme says. */

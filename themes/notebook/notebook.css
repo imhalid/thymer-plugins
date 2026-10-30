@@ -427,11 +427,11 @@ html[data-theme="thymer-notebook"]{color-scheme:light;
   --avatar-border: 1px solid var(--color-blackwhite-0-25);
   --avatar-online-border: 1px solid var(--text-status-online);
   --panel-title-icon-inactive-bg: transparent;
-  --panel-title-icon-inactive-fg: var(--color-blackwhite-0-20);
-  --panel-title-icon-disabled-fg: var(--color-blackwhite-0-50);
+  --panel-title-icon-inactive-fg: #2b26204c;
+  --panel-title-icon-disabled-fg: #2b262033;
   --panel-title-icon-disabled-bg: transparent;
-  --panel-title-icon-active-bg: var(--color-blackwhite-1000-40);
-  --panel-title-icon-active-fg: var(--color-blackwhite-0);
+  --panel-title-icon-active-bg: transparent;
+  --panel-title-icon-active-fg: #817c74;
   --panel-title-bottom-border: transparent;
   --button-minimal-bg-color: transparent;
   --button-minimal-bg-active-color: var(--wt-fill-strong);
@@ -483,7 +483,7 @@ html[data-theme="thymer-notebook"]{color-scheme:light;
   --panelbar-fg-color: var(--color-text-600);
   --tab-bordersep-color: var(--color-text-800);
   --crumbnav-border-color: var(--color-bg-700);
-  --panel-icon-hover-color: var(--color-text-50);
+  --panel-icon-hover-color: #2b2620;
   --tab-focused-bg-color: var(--wt-fill);
   --tab-focused-fg-color: var(--color-blackwhite-0);
   --crumbnav-bg-color: transparent;
@@ -775,6 +775,8 @@ html[data-theme="thymer-notebook"]{color-scheme:light;
   --cmdpal-inline-selected-fg: #2b2620;
   --button-group-bg: var(--wt-fill);
   --button-group-border: transparent;
+  --panel-icon-hover-bg: var(--wt-fill-strong);
+  --crumbnav-icon-hover-bg: var(--panel-icon-hover-bg);
   --table-header-bg: var(--wt-fill);
   --table-row-hover-bg: var(--wt-fill);
   --prop-status-radius: 4px;
@@ -858,6 +860,17 @@ html[data-theme="thymer-notebook"] .sidebar--toggler:hover {
   background: transparent;
   border-color: transparent;
   color: var(--wt-accent-soft);
+}
+
+/* The page's own buttons are bare glyphs (the tokens clear Thymer's discs);
+   the one under the mouse gets the theme's hover fill. Thymer paints that
+   button near-white (light) or near-black (dark) with a rule that names
+   html.is-light or .is-dark, .panel-bar and the tab bar; this one is a
+   step more specific, so the theme's fill wins. */
+html[data-theme="thymer-notebook"] :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover,
+html[data-theme="thymer-notebook"]:is(.is-light, .is-dark) .panel-bar .panel-bar--tabsbar :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover {
+  background: var(--panel-icon-hover-bg);
+  color: var(--panel-icon-hover-color);
 }
 
 /* The title is heavy, upright or italic as the theme says. */
@@ -1032,6 +1045,16 @@ html:not([data-device=mobile])[data-theme="thymer-notebook"] .sidebar::after {
 /* The sidebar's toggle sits in the page's margin, clear of the wire. */
 html:not([data-device=mobile])[data-theme="thymer-notebook"] .sidebar--toggler {
   right: -52px;
+}
+
+/* The page's own buttons are pencilled glyphs; the one under the mouse is
+   highlighted. */
+html[data-theme="thymer-notebook"] :is(.panel-icon-button, .panel-bar--crumbnav-icon) {
+  border-radius: 0;
+}
+html[data-theme="thymer-notebook"] :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover {
+  background: var(--nb-marker) center / 100% 70% no-repeat;
+  color: var(--nb-ink);
 }
 
 /* A paper clip on the page's top edge. */

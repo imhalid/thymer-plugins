@@ -1,0 +1,55 @@
+{
+  "name": "Desk",
+  "description": "Light Sans as a reminders app of the leather-and-gloss years, drawn in CSS and SVG alone: the window on a planked wooden desk, sidebar and page together in one black leather device, a glossy black bar with dark buttons and a segmented back/forward over a notepad held by two chrome clips; a red margin, dotted row rules, a red italic title, the corner turned up; red gloss for the chosen row, popovers in a black frame",
+  "scheme": "light",
+  "accent": "#c33148",
+  "paper": "#fdfdfc",
+  "ground": "#b8763f",
+  "text": "#2e2e2e",
+  "sidebar": "#1b1a19",
+  "veil": {
+    "direction": "to bottom",
+    "stops": [[0, "0%"], [0, "100%"]]
+  },
+  "selected": "soft",
+  "title": "italic",
+  "syntax": {
+    "meta": "#8a3fa6", "keyword": "#b0247a", "type": "#2a63b8", "title": "#1f5a8c",
+    "string": "#c4321e", "number": "#2235c9", "comment": "#3a8a3e"
+  },
+  "code_alpha": 0.03,
+  "images": {
+    "--dk-wood": "wood.svg",
+    "--dk-leather": "leather.svg",
+    "--dk-dots": "dots.svg",
+    "--dk-curl": "curl.svg"
+  },
+  "tokens": {
+    "--radius-normal": "5px",
+    "--radius-larger": "7px",
+    "--radius-xlarge": "10px",
+    "--modal-radius": "10px",
+    "--prop-status-radius": "4px",
+    "--selection-bg": "#f6c6ce",
+    "--selection-fg": "#2e2e2e",
+    "--ed-selection-self-bg": "#f6c6ceb3",
+    "--ed-caret-self-fg": "#c33148",
+    "--side-fg-color": "#e4e0da",
+    "--side-icon-color": "#9b968f",
+    "--sidebar-heading": "#8f8a83",
+    "--sidebar-fg-hover": "#ffffff",
+    "--sidebar-bg-hover": "#ffffff12",
+    "--side-bg-focus": "transparent",
+    "--side-bg-active-focus": "transparent",
+    "--side-fg-focus": "#1f1f1f",
+    "--side-fg-active-focus": "#1f1f1f",
+    "--sidebar-toggler-color": "#9b968f",
+    "--cmdpal-selected-bg-color": "#c33148",
+    "--cmdpal-selected-fg-color": "#ffffff",
+    "--cmdpal-inline-selected-bg": "#c33148",
+    "--cmdpal-inline-selected-fg": "#ffffff",
+    "--link-color": "#c33148",
+    "--ed-link-color": "#c33148",
+    "--link-hover-color": "#8e1f31"
+  }
+}

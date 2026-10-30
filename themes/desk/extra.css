@@ -1,0 +1,618 @@
+/* --- Desk's own: a reminders app of the leather-and-gloss years, lying on
+   a wooden desk, drawn in CSS and SVG alone. kit/build.py adds this after
+   the shared material; the --dk-* pictures are the SVGs in this folder. --- */
+
+html[data-theme="thymer-desk"] {
+  --dk-ui: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --dk-red: #c33148;
+  --dk-ink: #2e2e2e;
+  --dk-paper: #fdfdfc;
+  --dk-margin: #e5a3ac;
+  --dk-hide: linear-gradient(#0000002e, #0000002e) fixed, var(--dk-leather) 0 0 / 240px 240px fixed, #161514;
+  /* The bar's black gloss, the chosen row's red gloss, a light button. */
+  --dk-bar: linear-gradient(#3d3d3d, #232323 50%, #151515 51%, #1c1c1c);
+  --dk-select: linear-gradient(#e2566c, #c33148 50%, #b2243a 51%, #bd2c43);
+  --dk-light: linear-gradient(#ffffff, #ececec 50%, #dedede 51%, #eaeaea);
+  --dk-dark-button: linear-gradient(#4b4b4b, #2b2b2b 50%, #1b1b1b 51%, #232323);
+}
+
+/* The desk: planked wood, a little darker towards the corners. */
+html[data-theme="thymer-desk"] {
+  background:
+    radial-gradient(ellipse 100% 90% at 50% 40%, #0000 45%, #2a120333) fixed,
+    var(--dk-wood) 0 0 / 480px 480px,
+    #b8763f;
+}
+html[data-theme="thymer-desk"] :is(.title-bar, .panel-h-sizer, .statusbar--status-bar) {
+  background: transparent;
+  border: 0;
+}
+html[data-theme="thymer-desk"] .title-bar {
+  color: #3b2412;
+  text-shadow: 0 1px 0 #ffffff40;
+}
+
+/* The device: one piece of black leather under the sidebar and the page,
+   rounded, with a glint along its top edge, lying on the desk. */
+html:not([data-device=mobile])[data-theme="thymer-desk"] .panels-grid-sidebar {
+  position: relative;
+}
+html:not([data-device=mobile])[data-theme="thymer-desk"] .panels-grid-sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  z-index: -1;
+  border-radius: 18px;
+  background: var(--dk-hide);
+  background-blend-mode: normal, soft-light, normal;
+  box-shadow:
+    inset 0 1px 0 #ffffff33,
+    inset 0 0 0 1px #000000b3,
+    inset 0 2px 0 -1px #ffffff14,
+    0 2px 3px #00000066,
+    0 16px 36px #2a120399;
+  pointer-events: none;
+}
+
+/* The sidebar is on the leather: light lettering pressed in, section heads
+   small and spaced, the open page a light glossy key, as a segmented
+   control's chosen segment. */
+html:not([data-device=mobile])[data-theme="thymer-desk"] .sidebar {
+  padding: 16px 2px 16px 14px;
+}
+html[data-theme="thymer-desk"] .sidebar {
+  background: transparent;
+  border-right: 0;
+  text-shadow: 0 -1px 0 #000;
+}
+html[data-theme="thymer-desk"] .sidebar .sidebar-item-heading .sidebar-item-label {
+  color: #8f8a83;
+  font: 700 11px var(--dk-ui);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+html[data-theme="thymer-desk"] .sidebar .sidebar-item {
+  border-radius: 6px;
+}
+html[data-theme="thymer-desk"] .sidebar .sidebar-item-collection:not(.is-focused) .sidebar-item-label {
+  color: #d2cdc6;
+}
+html[data-theme="thymer-desk"] .sidebar .sidebar-item.is-focused {
+  background: var(--dk-light);
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px #000, 0 1px 0 #ffffff1f;
+  text-shadow: 0 1px 0 #fff;
+}
+html[data-theme="thymer-desk"] .sidebar .sidebar-item.is-focused :is(.sidebar-item-icon, .sidebar-item-label) {
+  color: #1f1f1f;
+}
+html[data-theme="thymer-desk"] .sidebar [class*="sidebar-item-color-"]:not(.is-focused) .sidebar-item-icon {
+  filter: brightness(1.9) saturate(.7);
+}
+/* The sidebar's toggle is a round black key on the seam between the
+   sidebar and the pad. */
+html:not([data-device=mobile])[data-theme="thymer-desk"] .sidebar--toggler {
+  right: -19px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  background: linear-gradient(#5c5c5c, #3d3d3d 50%, #2d2d2d 51%, #363636);
+  box-shadow: inset 0 1px 0 #ffffff3d, 0 0 0 1px #070707, 0 1px 3px #00000080;
+  color: #f4f4f4;
+  text-shadow: 0 -1px 0 #000;
+}
+html:not([data-device=mobile])[data-theme="thymer-desk"] .sidebar--toggler:hover {
+  background: linear-gradient(#707070, #4d4d4d 50%, #3b3b3b 51%, #454545);
+  color: #fff;
+}
+html:not([data-device=mobile])[data-theme="thymer-desk"] .sidebar--toggler .js--sb-toggler-icon {
+  font-size: 13px;
+}
+html:not([data-device=mobile])[data-theme="thymer-desk"] .ach-card {
+  top: 20px !important;
+  left: 22px !important;
+  width: calc(var(--sidebar-width, 250px) - 36px) !important;
+}
+html[data-theme="thymer-desk"] .ach-card .ach-por {
+  border-radius: 8px;
+  box-shadow: inset 0 2px 6px #000, 0 1px 0 #ffffff1f;
+}
+
+/* The notepad: the page sits in the device below a glossy black bar, the
+   paper being the scroller's background from under the bar down, bound
+   along its top with a strip of red gummed cloth, as a pad is, and the
+   sheets beneath showing at its foot. */
+html:not([data-device=mobile])[data-theme="thymer-desk"] .panels-grid > .panel {
+  padding: 18px 20px 28px 8px;
+  background: transparent;
+}
+html:not([data-device=mobile])[data-theme="thymer-desk"] .panels-grid > .panel > .panel-scroller-y {
+  border-radius: 9px 9px 3px 3px;
+  background:
+    linear-gradient(#ffffff3d, #ffffff00 2px, #0000 5px, #00000040) 0 35px / 100% 7px no-repeat,
+    linear-gradient(#a8352d, #8c2721) 0 35px / 100% 7px no-repeat,
+    linear-gradient(#00000026, #0000 4px) 0 42px / 100% 4px no-repeat,
+    linear-gradient(#efefec, var(--dk-paper) 22px) 0 42px / 100% calc(100% - 42px) no-repeat;
+  box-shadow:
+    0 1px 0 -0.5px #d2d2cc,
+    0 3px 0 -1px #f4f4f1, 0 4px 0 -1px #b5b5ae,
+    0 6px 0 -2px #ededea, 0 7px 0 -2px #a3a39c,
+    0 10px 8px -4px #000000b3;
+}
+html:not([data-device=mobile])[data-theme="thymer-desk"] .panels-grid > .panel > .vscrollbar {
+  top: 53px !important;
+  right: 20px !important;
+  bottom: 28px !important;
+}
+
+/* The pad's corner curls up (Leather's curl), still. It hangs off the
+   panel's scroll bar, which runs down to the paper's corner. */
+html:not([data-device=mobile])[data-theme="thymer-desk"] .panels-grid > .panel > .vscrollbar::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 70px;
+  height: 70px;
+  background: var(--dk-curl) right bottom / 100% 100% no-repeat;
+  pointer-events: none;
+}
+
+/* The bar: black gloss, rounded at the top, holding the page's buttons. */
+html:not([data-device=mobile])[data-theme="thymer-desk"] .panel-bar--tabsbar {
+  border-radius: 9px 9px 0 0;
+  background: var(--dk-bar) !important;
+  box-shadow: inset 0 1px 0 #ffffff2e, 0 0 0 1px #000, 0 2px 3px #00000059;
+  color: #e9e5df;
+  text-shadow: 0 -1px 0 #000;
+}
+html[data-theme="thymer-desk"] .panel-bar--tabsbar :is(.panel-tab--title, .panel-tab--collection-name, .crumb, .panel-tab) {
+  color: #e9e5df;
+}
+/* The buttons: the bar's own keys, a few shades lighter than it, with a
+   lit top edge and a dark rim; lighter under the mouse, pressed in when
+   held. Sizes only: Thymer hides some of them (the mobile menu, the
+   banner's), and their display stays its own. Background and colour are
+   !important: Thymer's and the kit's hover rules for these buttons are more
+   specific. */
+html[data-theme="thymer-desk"] .panel-bar--tabsbar :is(.panel-icon-button, .panel-bar--crumbnav-icon, .panel-bar--crumbnav-icon-disabled) {
+  box-sizing: border-box;
+  width: 32px;
+  height: 25px;
+  margin: 0 3px;
+  padding: 0 !important;
+  border-radius: 6px;
+  background: linear-gradient(#5c5c5c, #3d3d3d 50%, #2d2d2d 51%, #363636) !important;
+  box-shadow: inset 0 1px 0 #ffffff3d, inset 0 -1px 0 #ffffff0d, 0 0 0 1px #070707, 0 1px 0 #ffffff1f;
+  opacity: 1;
+  color: #f4f4f4 !important;
+  font-size: 15px;
+  line-height: 25px;
+  text-align: center;
+  text-shadow: 0 -1px 0 #000;
+}
+html[data-theme="thymer-desk"] .panel-bar--tabsbar :is(.panel-icon-button, .panel-bar--crumbnav-icon):hover {
+  background: linear-gradient(#707070, #4d4d4d 50%, #3b3b3b 51%, #454545) !important;
+  color: #fff !important;
+}
+html[data-theme="thymer-desk"] .panel-bar--tabsbar :is(.panel-icon-button, .panel-bar--crumbnav-icon):active {
+  background: linear-gradient(#1a1a1a, #2b2b2b) !important;
+  box-shadow: inset 0 2px 4px #000000d9, 0 0 0 1px #070707, 0 1px 0 #ffffff1f;
+}
+html[data-theme="thymer-desk"] .panel-bar--tabsbar .panel-bar--crumbnav-icon-disabled {
+  color: #f4f4f466 !important;
+}
+html[data-theme="thymer-desk"] .panel-bar--tabsbar :is(.panel-bar--crumbnav-icon, .panel-bar--crumbnav-icon-disabled) {
+  display: inline-block;  /* back and forward are always shown; inline, they would take no size */
+}
+/* DontSpy's lock: the key stays whole; an open panel's lock is a dim
+   glyph, a locked one glows amber. */
+html[data-theme="thymer-desk"] .panel-bar--tabsbar .panel-icon-button.dontspy-btn:not(.on) {
+  color: #f4f4f499 !important;
+}
+html[data-theme="thymer-desk"] .panel-bar--tabsbar .panel-icon-button.dontspy-btn:not(.on):hover {
+  color: #fff !important;
+}
+html[data-theme="thymer-desk"] .panel-bar--tabsbar .panel-icon-button.dontspy-btn.on {
+  color: #ffc35a !important;
+  text-shadow: 0 0 6px #ffb02e99, 0 -1px 0 #000;
+}
+/* The keys keep clear of the bar's ends and sit in its middle (Thymer
+   aligns the two groups a little low, each by its own amount). */
+html:not([data-device=mobile])[data-theme="thymer-desk"] .panel-bar--tabsbar .panel-tab--hist {
+  margin-left: 6px;
+  transform: translateY(-5px);
+}
+html:not([data-device=mobile])[data-theme="thymer-desk"] .panel-bar--tabsbar .panel-bar--icons {
+  margin-right: 6px;
+  transform: translateY(-3px);
+}
+/* Back and forward join into one segmented control. */
+html[data-theme="thymer-desk"] .panel-tab--hist > :is(.panel-bar--crumbnav-icon, .panel-bar--crumbnav-icon-disabled) {
+  margin: 0;
+  border-radius: 0;
+}
+html[data-theme="thymer-desk"] .panel-tab--hist > :first-child {
+  margin-left: 3px;
+  border-radius: 6px 0 0 6px;
+}
+html[data-theme="thymer-desk"] .panel-tab--hist > :last-child {
+  margin-right: 3px;
+  border-left: 1px solid #000;
+  border-radius: 0 6px 6px 0;
+}
+
+/* The writing: a thin red margin down the sheet, a dotted rule under every
+   line (each line's own background, so the dots always sit under the
+   words). */
+html[data-theme="thymer-desk"] :is(.panel-heading, .panel-body) > .layout-margin {
+  position: relative;
+}
+html[data-theme="thymer-desk"] :is(.panel-heading, .panel-body) > .layout-margin::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -24px;
+  width: 1px;
+  background: var(--dk-margin);
+  pointer-events: none;
+}
+html[data-theme="thymer-desk"] .content-container .listitem:is(.listitem-text, .listitem-ulist, .listitem-olist, .listitem-task):not(.block-content > *) > .line-div {
+  flex: 1 1 auto;
+  background: var(--dk-dots) 0 0 / 6px 26px repeat;
+}
+
+/* The title in red italics, the headings in dark grey. */
+html:not([data-mobile-type=phone])[data-theme="thymer-desk"] .panel-heading {
+  --panel-banner-height: 182px !important;
+}
+html:not([data-mobile-type=phone])[data-theme="thymer-desk"] .panel-heading.has-crumb-path {
+  --panel-banner-height: 206px !important;
+}
+html[data-theme="thymer-desk"] .id--panel-title .id--h1 {
+  color: var(--dk-red);
+  font-family: var(--dk-ui);
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  text-shadow: 0 1px 0 #fff;
+}
+html[data-theme="thymer-desk"] .line-div:is(.heading-h1, .heading-h2, .heading-h3, .heading-h4) {
+  color: #3a3a3a;
+  font-family: var(--dk-ui);
+  font-weight: 700;
+  letter-spacing: -.005em;
+}
+html[data-theme="thymer-desk"] .line-div.heading-h3 {
+  color: #6a6a6a;
+  font-style: italic;
+}
+html[data-theme="thymer-desk"] .line-div.heading-h4 {
+  color: var(--dk-red);
+  font-size: 13px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+/* Small controls on the paper are light glossy keys; the property chip
+   keeps its own colour under a gloss. */
+html[data-theme="thymer-desk"] .panel-context-pill {
+  border: 1px solid #9a9a9a;
+  border-radius: 6px;
+  background: var(--dk-light);
+  box-shadow: inset 0 1px 0 #fff, 0 1px 1px #0000001a;
+  color: #333;
+  font: 700 13px var(--dk-ui);
+}
+html[data-theme="thymer-desk"] .page-prop-pill {
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+html[data-theme="thymer-desk"] .page-props-pills .prop-status {
+  border: 1px solid color-mix(in srgb, currentColor 32%, transparent);
+  border-radius: 4px;
+  background-image: linear-gradient(#ffffff99, #ffffff1a 50%, #0000 51%, #0000000f);
+  box-shadow: inset 0 1px 0 #ffffffb3;
+  font-family: var(--dk-ui);
+  font-weight: 700;
+}
+html[data-theme="thymer-desk"] .lineitem-code {
+  border: 1px solid #dadad5;
+  border-radius: 3px;
+  background: #f3f3f0;
+  color: #3a3a3a;
+}
+html[data-theme="thymer-desk"] .lineitem-hashtag {
+  padding: 0 6px;
+  border: 1px solid #ecc2c9;
+  border-radius: 9px;
+  background: #fbecee;
+  color: var(--dk-red);
+  font-family: var(--dk-ui);
+  font-size: .8em;
+  font-weight: 700;
+}
+html[data-theme="thymer-desk"] .block-codelang .lineitem-hashtag {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--wt-syn-meta);
+  font: inherit;
+}
+
+/* Bullets are small graphite discs; numbers in red. */
+html[data-theme="thymer-desk"] .line-chrome-ulist-dot {
+  width: 6px;
+  height: 6px;
+  background: radial-gradient(circle at 35% 30%, #9a9a9a, #3a3a3a 65%);
+}
+html[data-theme="thymer-desk"] {
+  --ed-list-counter-color: #c33148;
+}
+
+/* A quote is a slip laid on the page, a red rule drawn inside it; code is a
+   card, its language on a small black key. */
+html[data-theme="thymer-desk"] .listitem-quote > .line-div {
+  padding: 8px 14px 8px 24px;
+  border: 1px solid #e4e0d6;
+  border-radius: 6px;
+  background:
+    linear-gradient(var(--dk-red), var(--dk-red)) left 11px top 9px / 2px calc(100% - 18px) no-repeat,
+    #fbfaf6;
+  box-shadow: 0 1px 2px #00000014;
+  color: #3e3e3e;
+}
+html[data-theme="thymer-desk"] .block-codelang {
+  border: 1px solid #dcdcd7;
+  border-radius: 6px;
+  background: #f7f7f5;
+  box-shadow: inset 0 1px 2px #0000000f, 0 1px 0 #fff;
+}
+html[data-theme="thymer-desk"] .block-codelang > .block-nstype-button {
+  border: 0;
+  border-radius: 5px;
+  background: var(--dk-dark-button);
+  box-shadow: inset 0 1px 0 #ffffff26, 0 0 0 1px #000;
+  color: #f2efea;
+  font: 700 11px var(--dk-ui);
+  text-shadow: 0 -1px 0 #000;
+}
+
+/* A rule is a row of dots. */
+html[data-theme="thymer-desk"] .hr-divider hr {
+  height: 2px;
+  border: 0;
+  background: radial-gradient(circle, #b9b9b9 1px, #0000 1.3px) 0 0 / 6px 2px repeat-x;
+}
+
+/* The status bar lies on the desk in the device's shadow (the wood a few
+   shades darker under it): light lettering, and keys like the device's
+   own, small and black. Under the mouse an item only brightens: no box. */
+html[data-theme="thymer-desk"] .statusbar--status-bar {
+  --statusbar-fg: #f1e3cf;
+  --statusbar-hover-bg: transparent;
+  --statusbar-hover-fg: #ffffff;
+  --text-muted: #dcc9ae;
+  --text-subtle: #f1e3cf;
+  --text-default: #f1e3cf;
+  background: linear-gradient(#00000059, #00000033 60%, #00000026);
+  color: #f1e3cf;
+  text-shadow: 0 -1px 0 #00000080;
+}
+html[data-theme="thymer-desk"] .statusbar--status-bar :is(.statusbar--kbd-label, .statusbar-item--label) {
+  color: #f1e3cf;
+  font-family: var(--dk-ui);
+  font-size: 12px;
+  font-weight: 500;
+  transition: color .15s;
+}
+html[data-theme="thymer-desk"] .statusbar--status-bar .statusbar-item {
+  color: #f1e3cf;
+}
+html[data-theme="thymer-desk"] .statusbar--kbd {
+  border: 0;
+  border-radius: 4px;
+  background: linear-gradient(#4a4a4a, #2e2e2e 50%, #1f1f1f 51%, #282828);
+  box-shadow: inset 0 1px 0 #ffffff2e, 0 0 0 1px #0a0a0a, 0 1px 0 #ffffff1a;
+  color: #f2f2f2;
+  text-shadow: 0 -1px 0 #000;
+  transition: background .15s;
+}
+html[data-theme="thymer-desk"] .statusbar--kbd .kbdmod {
+  color: inherit;
+}
+html[data-theme="thymer-desk"] .statusbar--item-hoverable:hover :is(.statusbar--kbd-label, .statusbar-item--label),
+html[data-theme="thymer-desk"] .statusbar--item-hoverable:hover {
+  background: none;
+  color: #ffffff;
+}
+html[data-theme="thymer-desk"] .statusbar--item-hoverable:hover .statusbar--kbd {
+  background: linear-gradient(#5e5e5e, #3c3c3c 50%, #2b2b2b 51%, #343434);
+  color: #ffffff;
+}
+
+/* Popovers sit in a black glossy frame: the field to type in on the bar,
+   the list on white inside it, the chosen row in red gloss. */
+html[data-theme="thymer-desk"] :is(.cmdpal--dialog, .cmdpal--inline) {
+  padding: 0 6px 6px;
+  border: 1px solid #000;
+  border-radius: 11px;
+  /* Popovers live inside the sidebar; its pressed-in lettering stays there. */
+  text-shadow: none;
+  background: linear-gradient(#444, #262626 22px, #161616 23px, #121212);
+  box-shadow: inset 0 1px 0 #ffffff33, 0 2px 4px #00000059, 0 18px 40px #2a1203a6;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-theme="thymer-desk"] :is(.cmdpal--input-container, .cmdpal--inline-input-container) {
+  padding: 8px 2px;
+  border-bottom: 0;
+  color: #fff;
+}
+html[data-theme="thymer-desk"] .cmdpal--searchtype {
+  margin: 0 8px 0 6px;
+}
+html[data-theme="thymer-desk"] :is(.cmdpal--searchtype, .cmdpal--mobile-cancel) {
+  color: #ece8e2;
+  text-shadow: 0 -1px 0 #000;
+}
+html[data-theme="thymer-desk"] :is(.cmdpal--input, .cmdpal--inline-input) {
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: inset 0 1px 3px #000000a6, 0 1px 0 #ffffff1f;
+  color: #222;
+  font-family: var(--dk-ui);
+}
+html[data-theme="thymer-desk"] :is(.cmdpal--input, .cmdpal--inline-input)::placeholder {
+  color: #9b9b9b;
+  font-style: italic;
+}
+html[data-theme="thymer-desk"] :is(.cmdpal--ac-container, .cmdpal--inline .autocomplete) {
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 0 0 1px #000;
+}
+html[data-theme="thymer-desk"] :is(.cmdpal--dialog, .cmdpal--inline) .autocomplete--option {
+  border-radius: 0;
+  box-shadow: none;
+  background-image: radial-gradient(circle, #cfcfcf .7px, #0000 1px);
+  background-position: 0 100%;
+  background-size: 6px 1px;
+  background-repeat: repeat-x;
+  font-family: var(--dk-ui);
+}
+html[data-theme="thymer-desk"] :is(.cmdpal--dialog, .cmdpal--inline) .autocomplete--option-selected {
+  background: var(--dk-select);
+  box-shadow: inset 0 1px 0 #ffffff47;
+  color: #fff;
+  text-shadow: 0 -1px 0 #0000004d;
+}
+html[data-theme="thymer-desk"] .autocomplete--option-selected :is(.autocomplete--option-icon, .autocomplete--option-label, .autocomplete--option-right, .ti) {
+  color: #fff;
+}
+html[data-theme="thymer-desk"] .autocomplete--option-selected .autocomplete--kbd {
+  background: #ffffff33;
+  color: #fff;
+}
+html[data-theme="thymer-desk"] :is(.toaster, .tooltip-element) {
+  border: 1px solid #000;
+  border-radius: 8px;
+  background: linear-gradient(#444, #1d1d1d);
+  box-shadow: inset 0 1px 0 #ffffff2e, 0 6px 16px #00000073;
+  color: #fff;
+  text-shadow: 0 -1px 0 #000;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* The date picker is a page of the same pad: the month in red italics, the
+   days ruled with fine lines, today circled in red, the picked day a black
+   glossy key; a day with writing carries a small dot. */
+html[data-theme="thymer-desk"] .datepicker-calendar.cp-on {
+  --cp-gap: 0px;
+  --cp-radius: 0px;
+  --cp-tile: transparent;
+  --cp-tile-hover: #0000000d;
+}
+html[data-theme="thymer-desk"] .datepicker-calendar .datepicker-header .current-month {
+  color: var(--dk-red);
+  font: italic 700 16px var(--dk-ui);
+}
+html[data-theme="thymer-desk"] .datepicker-calendar .weekday {
+  color: #8a8a8a;
+  font: 700 10px var(--dk-ui);
+  text-transform: uppercase;
+}
+html[data-theme="thymer-desk"] .datepicker-calendar.cp-on .datepicker-days .day {
+  position: relative;
+  box-shadow: inset 0 -1px 0 #ececea;
+}
+html[data-theme="thymer-desk"] .datepicker-calendar.cp-on .datepicker-days .day .day-inner {
+  color: #3a3a3a;
+  font: 700 13px var(--dk-ui);
+}
+html[data-theme="thymer-desk"] .datepicker-calendar.cp-on .datepicker-days .day:is(.prev-month, .next-month) .day-inner {
+  color: #b5b5b5;
+}
+html[data-theme="thymer-desk"] .datepicker-calendar.cp-on .datepicker-days .day[data-cp-level] .day-inner {
+  background: var(--cp-tile);
+}
+html[data-theme="thymer-desk"] .datepicker-calendar.cp-on .datepicker-days .day[data-cp-level]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: #3a3a3a;
+  opacity: .35;
+  pointer-events: none;
+}
+html[data-theme="thymer-desk"] .datepicker-calendar.cp-on .datepicker-days .day:is([data-cp-level="3"], [data-cp-level="4"])::after {
+  opacity: .75;
+}
+html[data-theme="thymer-desk"] .datepicker-calendar.cp-on .datepicker-days .day.today .day-inner {
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--dk-red);
+  color: var(--dk-red);
+}
+html[data-theme="thymer-desk"] .datepicker-calendar.cp-on .datepicker-days .day.selected .day-inner,
+html[data-theme="thymer-desk"] .datepicker-calendar.cp-on .datepicker-days .day.selected:not(.disabled):hover .day-inner {
+  border-radius: 6px;
+  background: var(--dk-dark-button);
+  box-shadow: inset 0 1px 0 #ffffff26, 0 0 0 1px #000;
+  color: #fff;
+  text-shadow: 0 -1px 0 #000;
+}
+html[data-theme="thymer-desk"] .datepicker-calendar.cp-on .datepicker-days .day.selected::after {
+  background: #fff;
+  opacity: .9;
+}
+html[data-theme="thymer-desk"] .cp-today,
+html[data-theme="thymer-desk"] .cp-today:hover {
+  border: 1px solid #9a9a9a;
+  border-radius: 6px;
+  background: var(--dk-light);
+  box-shadow: inset 0 1px 0 #fff;
+  color: #333;
+  font: 700 12px var(--dk-ui);
+  filter: none;
+}
+
+/* The Home plugin's cards sit on the paper. */
+html[data-theme="thymer-desk"] .home {
+  --home-bg: var(--dk-paper) !important;
+}
+
+/* Popover rows run from edge to edge of their list, so the chosen row's
+   fill meets the list's sides (Thymer insets each row 5px; that is moved
+   into the row's padding, so its content stays where it was). */
+html[data-theme="thymer-desk"] :is(.cmdpal--dialog, .cmdpal--inline) .vscroll-node .autocomplete--option {
+  width: 100%;
+  margin-left: 0;
+  padding-left: 15px;
+  padding-right: 15px;
+  border-radius: 0;
+}
+html[data-theme="thymer-desk"] :is(.cmdpal--dialog, .cmdpal--inline) .vscroll-node .autocomplete--option.is-indented {
+  padding-left: 22px;
+}
+
+/* Thymer fixes the inline popover's height (as a style on the element) for
+   its own, shorter search field; with this taller one the list ran past the
+   frame's padding and its last row sat on the frame's edge. The frame takes
+   its content's height, and the list keeps a little room under its last
+   row. */
+html[data-theme="thymer-desk"] .cmdpal--inline {
+  height: auto !important;
+}
+html[data-theme="thymer-desk"] .cmdpal--inline .autocomplete {
+  box-sizing: content-box;  /* the room is added below the height Thymer gives the list */
+  padding-bottom: 6px;
+}

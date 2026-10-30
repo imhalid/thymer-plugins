@@ -1,0 +1,540 @@
+<div class="app">
+	<div class="app-chrome-panels" style="display: grid; grid-template-rows: 0px minmax(0px, 1fr) 30px; height: 100%">
+			<div class="title-bar" style="display: flex; align-items: center;">
+                <div class="title-bar-icon">
+                    <div class="button-none button-minimal-hover">
+                        <span class="ti ti-chevron-down"></span>
+                    </div>
+                </div>
+                <div class="title-bar-title"><span class="id--title title-bar-title-text">Thymer - Field Notes [Workspace]</span></div>
+                <div class="window-controls">
+                    <button class="window-control minimize">─</button>
+                    <button class="window-control maximize">□</button>
+                    <button class="window-control close">×</button>
+                </div>
+            </div><div class="panels-grid-sidebar" style="--sidebar-width: 250px;">
+			<div class="sidebar no-selection" style="position: relative; height: 100%; display: flex; flex-direction: column; width: 250px;">
+				<div class="sidebar--toggler button-normal-hover tooltip" style="border-radius: 50%">
+					<span class="js--sb-toggler-icon ti ti-chevron-left"></span>
+				</div>
+				<div class="sidebar--accounts"></div>
+				<div class="sidebar--top" data-home-grid="" style="--home-row-gap: 2px;"><div class="sidebar-item sidebar-item-hoverable sidebar-item-workspaces">
+					<div class="topbar--workspace id--workspace-button button-small button-none" style="padding-left: 0px; padding-right: 0px; width: 100%; display: flex; align-items: center; gap: 10px; justify-content: center; line-height: 1.3">
+						<span class="topbar--avatar" style="margin-left: 0px; display: inline-flex; position: relative">W</span>
+						<span class="collapsed-hidden overflow-ellipsis" data-var="ws-name">Workspace</span>
+						<span class="collapsed-hidden ti ti-selector" style="display: inline-flex; margin-left: auto"></span>
+						<button type="button" class="sidebar--mobile-sync-status collapsed-hidden button-none">
+							<span class="js--mobile-sync-icon ti"></span>
+							<span class="js--mobile-sync-label">Sync Status</span>
+						</button>
+					</div>
+		</div><div class="sidebar-item     sidebar-item-hoverable sidebar-item-option    ">
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-bolt"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Quick Add</span>
+		</div><div class="sidebar-item     sidebar-item-hoverable sidebar-item-search    " data-ach-hide="">
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-search"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Search</span>
+		</div><div class="sidebar-item     sidebar-item-hoverable sidebar-item-search    " data-ach-hide="">
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-arrow-up-right"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Jump To</span>
+		</div><div class="sidebar-item     sidebar-item-hoverable sidebar-item-option    " data-home-half="">
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-checkbox"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Tasks</span>
+		</div><div class="sidebar-item sidebar-item-hoverable sidebar-item-option home-button" data-home-half="">
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-home"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Home</span>
+		</div><div class="sidebar-item   collapsed-only   sidebar-item-divider    ">
+		</div></div>
+				<div class="sidebar--mobile-primary"></div>
+				<div class="sidebar--body" style="position: relative; flex-grow: 1; overflow-x: hidden; overflow-y: hidden"> <!-- height: 100%;  -->
+					<div class="sidebar--icons" style="position: relative; overflow-y: scroll; scrollbar-width: none; height: 100%; touch-action: pan-y"><div class="sidebar-item    collapsed-hidden  sidebar-item-heading    ">
+			<span class="sidebar-item-label collapsed-hidden tooltip">Pinned</span>
+							<span style="flex-grow: 1; padding: 5px 0px" class="ti ti-chevron-down sidebar-section-chevron sidebar-item-hover-only"></span>
+		</div><div draggable="true" class="sidebar-item     sidebar-item-hoverable sidebar-item-pin    sidebar-item-nav-draggable">
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-bookmark"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Reading list</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+					</div>
+		</div><div class="sidebar-item   collapsed-only   sidebar-item-divider    ">
+		</div><div class="sidebar-item sidebar-item-collsheading   collapsed-hidden  sidebar-item-heading    ">
+			<span class="sidebar-item-label collapsed-hidden ">Collections</span>
+							<span style="flex-grow: 1; padding: 5px 0px" class="ti ti-chevron-down sidebar-section-chevron sidebar-item-hover-only"></span>
+						<div style="display: inline-flex; align-items: center;" class="cursor-pointer collapsed-hidden button-normal-hover tooltip sidebar-item-hover-only is-option-menu">
+							<span class="ti ti-dots" style="padding: 5px"></span>
+						</div>
+						<div style="display: inline-flex; align-items: center;" class="cursor-pointer collapsed-hidden button-normal-hover tooltip sidebar-item-hover-only">
+							<span class="ti ti-plus" style="padding: 5px"></span>
+						</div>
+		</div><div draggable="true" class="sidebar-item     sidebar-item-hoverable sidebar-item-collection sidebar-item-color-cyan   sidebar-item-nav-draggable">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right rotate-90  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-bookmark"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Notes</span>
+					<div style="display: flex">
+						<div style="display: inline-flex; padding: 5px; " class="cursor-pointer collapsed-hidden hover-button sidebar-item-hover-only is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 5px; " class="sidebar-collection-add cursor-pointer collapsed-hidden hover-button tooltip ">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item     sidebar-item-hoverable sidebar-item-collection    sidebar-item-nav-draggable">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right rotate-90 "></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-moon"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Journal</span>
+					<div style="display: flex">
+						<div style="display: inline-flex; padding: 5px; " class="cursor-pointer collapsed-hidden hover-button sidebar-item-hover-only is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 5px; " class="sidebar-collection-add cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hover-only">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item sidebar-item-ind collapsed-hidden sidebar-item-hoverable sidebar-item-record sidebar-item-nestable is-focused">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-moon"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Field Notes</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item     sidebar-item-hoverable sidebar-item-collection sidebar-item-color-green   sidebar-item-nav-draggable">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right rotate-90 "></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-file-text"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Projects</span>
+					<div style="display: flex">
+						<div style="display: inline-flex; padding: 5px; " class="cursor-pointer collapsed-hidden hover-button sidebar-item-hover-only is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 5px; " class="sidebar-collection-add cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hover-only">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record sidebar-item-color-green  sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-file-text"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Weekly review</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record sidebar-item-color-green  sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-file-text"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Ideas for the cabin</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item     sidebar-item-hoverable sidebar-item-collection    sidebar-item-nav-draggable">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right rotate-90 "></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Recipes</span>
+					<div style="display: flex">
+						<div style="display: inline-flex; padding: 5px; " class="cursor-pointer collapsed-hidden hover-button sidebar-item-hover-only is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 5px; " class="sidebar-collection-add cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hover-only">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record   sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Sourdough log</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item sidebar-item-ind collapsed-hidden sidebar-item-hoverable sidebar-item-record sidebar-item-nestable">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Seed order</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record   sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Trip to the coast</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record   sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Book notes</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record   sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Garden plan</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record   sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Letters</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record   sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Meeting notes</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record   sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Reading queue</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item sidebar-item-ind collapsed-hidden sidebar-item-hoverable sidebar-item-record sidebar-item-nestable">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Field Notes</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record   sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Weekly review</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record   sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Ideas for the cabin</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div><div draggable="true" class="sidebar-item  sidebar-item-ind  collapsed-hidden sidebar-item-hoverable sidebar-item-record   sidebar-item-nestable ">
+			<span class=" collapsed-hidden sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden"></span>
+			<span style="position: absolute; left: -2px" class="sidebar-item-hoverable collapsed-only sidebar-item-toggler ti ti-chevron-right  sidebar-item-toggler-hidden sidebar-item-hover-only"></span>
+			<span class="sidebar-item-icon tooltip">
+				<span class="ti ti-code"></span>
+				</span>
+			<span class="sidebar-item-label collapsed-hidden ">Sourdough log</span>
+					<div style="display: flex; align-items: center">
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button sidebar-item-hide-unless-hover is-option-menu">
+							<span class="ti ti-dots"></span>
+						</div>
+						<div style="display: inline-flex; padding: 2px 5px; margin: -2px 0px" class="cursor-pointer collapsed-hidden hover-button tooltip sidebar-item-hide-unless-hover">
+							<span class="ti ti-plus"></span>
+						</div>
+					</div>
+		</div></div>
+					<button type="button" class="sidebar--mobile-create-page button-normal"><span class="ti ti-pencil-plus"></span></button>
+				<div class="vscrollbar scrollbar has-thumb" style="z-index: 2; position: absolute; right: 0px; top: 0px; bottom: 0px; width: 15px; user-select: none;">
+			<div class="vscrollbar-thumb scrollbar-thumb clickable" style="opacity: 0; transform: translateY(0px); height: 195.156px;">&nbsp;</div>
+			</div></div>
+			</div><div class="panels-grid" style="grid-template-columns: 1fr;"><div class="panel panel-normal has-focus is-target focused-panel" style="overflow-y: scroll; scrollbar-width: none; position: relative; color: var(--panel-fg-color); height: 100%; max-width: 100%;">
+			<div class="panel-scroller-y">
+			<div class="panel-bar has-focus is-target">
+		<div class="panel-bar--tabsbar has-stack-indicator">
+				<span class="panel-bar--hamburger no-selection panel-icon-button ti ti-menu-2"></span>
+				<div class="panel-bar--tabs">
+				<div class="panel-tab">
+				<div class="panel-tab--hist"><span class="tooltip ti ti-arrow-left panel-bar--crumbnav-icon"></span><span class="tooltip ti ti-arrow-right panel-hist--forward panel-bar--crumbnav-icon-disabled"></span></div>
+				<div class="panel-tab--title-wrapper">
+					<div class="panel-tab--thumb" style="gap: 5px">
+						<div class="panel-tab--type" style="display: contents"><span class="ti ti-code"></span></div>
+						<div class="panel-tab--collection-name visible">Notes</div>
+						<div class="panel-tab--title">Field Notes</div>
+						<span class="panel-tab--more-options id--more-options ti ti-dots" style="display: block;"></span>
+						<div class="panel-tab--crumb-path"></div>
+						<!-- <span class='panel-tab--thumbicon ti ti-chevron-down'></span> -->
+					</div>
+				</div>
+				<div class="panel-tab--iconbtns"></div>
+		</div></div>
+				<div class="panel-bar--icons"><span class="panel-shortcut-hint panel-inactive-hover-only" style="margin-right: 10px; opacity: var(--shortcut-opacity)"><span class="kbd kbd-small panel-inactive-hover-only"><span class="kbdmod kbdmod-mac">⌘</span>1</span></span><span style="position: relative" class="tooltip no-selection panel-icon-button ti ti-dots panel-bar--more-options-mobile"></span><span style="position: relative;" class="tooltip no-selection panel-icon-button ti ti-photo focusmode-hide panel-change-banner-icon"></span><span class="tooltip no-selection panel-icon-button ti ti-lock dontspy-btn"></span><span style="position: relative" class="tooltip no-selection panel-icon-button ti ti-layout-columns focusmode-hide panel-options-icon"></span><span style="position: relative" class="tooltip no-selection panel-icon-button ti ti-photo-circle focusedmode-only"></span><span style="position: relative" class="tooltip no-selection panel-icon-button ti ti-maximize-off focusedmode-only"></span><span class="panel-stack-indicator no-selection panel-icon-button" style=""><i class="ti ti-layout-columns"></i><span class="panel-stack-indicator-count" style="display: none;"></span></span><span style="position: relative" class="tooltip no-selection panel-icon-button ti ti-x focusmode-hide panel-close-icon"></span></div>
+			</div><div class="panel-heading banner-is-empty ab-on">
+				<div class="banner-outer">
+					<div class="banner-container banner-empty"><div class="ab-wrap"></div>
+						<div class="panel-header-scrim"></div>
+					</div>
+				</div>
+				<div class="layout-margin" style="position: relative;">
+					<div class="heading-title-area">
+						<div class="id--menubar-slot"><div class="panel-context-row panel-menubar-buttons">
+				<button type="button" class="button-minimal button-small button-group-collection-name panel-context-pill id--context-pill">
+			<span class="ti ti-code"></span>
+			<span>Notes</span>
+			<span class="panel-context-pill-settings ti ti-settings tooltip"></span></button>
+			</div></div>
+						<div class="id--h1-area">
+							<div class="panel-heading-title-row">
+								<div class="id--panel-title-slot"><div class="id--panel-title" style="width: 100%; min-width: 0px; height: 56px;">
+				<h1 class="title id--h1" style="cursor: pointer;">Field Notes</h1>
+			</div></div>
+								<span class="panel-tab--more-options no-selection panel-icon-button ti ti-dots dim-06-no-hover" style="flex-shrink: 0; font-size: var(--text-size-larger); width: 25px; height: 25px; line-height: unset;"></span>
+							</div>
+							<div class="id--crumb-path crumb-path" style="display: none;"></div>
+						</div>
+					</div>
+				</div>
+			</div><div class="panel-plugin-bar hidden">
+				<div class="layout-margin">
+					<div class="id--button-group-container panel-plugin-bar-inner" style="display: flex;">
+						<div class="id--button-group id--buttons panel-plugin-bar-buttons panel-menubar-buttons"></div>
+					</div>
+				</div>
+			</div></div><div class="id--versions-area versions-area no-select" style="display: none;">
+				<div class="layout-margin">
+					<div class="version-title" style="color: var(--panel-title-fg);">
+						<div class="version-heading-row" style="margin-top: 5px; display: flex; align-items: center; gap: 10px;">
+							<h1 class="ids--title title for-version" style="display: inline">Field Notes</h1>
+							<span class="version-indicator id--version-label"></span>
+						</div>
+						<span class="id--timeline-container" style="display: flex; max-width: 100%; align-items: center; justify-content: space-between; gap: 10px">
+							<span class="id--timeline-status" style="display:none;"><!-- Loading versions...--></span>
+							<button class="timeline-mobile-nav button-none button-minimal-hover tooltip"><span class="ti ti-chevron-left"></span></button>
+							<div class="id--timeline" style="display: none;max-width: calc(100% - 50px);"></div>
+							<button class="timeline-mobile-nav button-none button-minimal-hover tooltip"><span class="ti ti-chevron-right"></span></button>
+							<div class="id--timeline-close button-none button-minimal-hover tooltip" style="max-width: 50px"><span class="ti ti-x"></span></div>
+						</span>
+					</div>
+				</div>
+			</div><div class="panel-body" style="">
+				<div class="layout-margin">
+				<div class="editor-panel focused-component" style="padding-bottom: max(435.5px, var(--mobile-editor-scroll-padding, 0px));"> <!-- style='overflow-y: scroll'>-->
+				<div class="content-container">
+					<div class="id--propscn page-props-editor-container"><div class="page-props-editor page-props-pills-mode">
+			<div class="page-props-pills" role="group" style="display: flex;"><span class="page-prop-pill-choice-group"><button type="button" class="page-prop-pill tooltip page-prop-pill-choice-property page-prop-pill-choice page-prop-pill-choice-flow">
+					<span class="page-prop-pill-choice-leading"><span class="page-prop-pill-icon ti ti-list"></span><span class="prop-status prop-status-choice" style="background-color: var(--enum-blue-bg); color: var(--enum-blue-fg);">Draft</span></span><span class="page-prop-pill-value"><span class="prop-multi-values"></span></span>
+				</button></span><button type="button" class="page-props-inline-button button-none button-small button-minimal-hover tooltip"><span class="ti ti-plus"></span></button><button type="button" class="id--props-mode-trigger page-props-view-trigger button-none button-small button-minimal-hover is-default tooltip">
+				<span class="ti ti-adjustments-horizontal"></span>
+			</button></div><div class="id--props" style="margin-left: -7px; display: none;"><div class="page-props-row id-prop-row" data-field-type="choice"><div class="page-props-cell page-prop-type page-props-cell-fixed-width "><span style="margin-right: 8px" class="ti ti-list"></span><span class="prop-label-text">Tür</span><span class="id--prop-settings-btn prop-settings-btn ti ti-settings"></span></div><div class="page-props-cell page-prop-val"><value></value></div></div></div><div class="page-props-table-footer" style="display: none;"></div><div class="page-props-set-chips" style="display: none;"></div><div class="page-props-row-bottom"></div></div></div>
+				<div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><span class="lineitem-text">Started the day with a </span><span class="lineitem-bold">long walk</span><span class="lineitem-text"> along the river; the fog sat low over the water until nine, and the town was still quiet.</span></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><br></div></div><div class="listitem listitem-heading listitem-with-caret"><span class="line-fold-chevron tooltip ti ti-chevron-down is-zoomable" aria-expanded="true" style="--line-fold-chevron-indent-px: 0px;"></span><div class="line-div heading-h2" style="margin-left: 0px;"><span class="lineitem-text">Morning pages</span></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><span class="lineitem-text">Set </span><span class="lineitem-code">timeout = 30</span><span class="lineitem-text"> before the retry loop, then try the import again. </span><span class="lineitem-hashtag">#garden</span><span class="lineitem-text"> </span><span class="lineitem-hashtag">#ideas</span></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><br></div></div><div class="listitem listitem-heading"><span class="line-fold-chevron tooltip ti ti-chevron-down is-zoomable" aria-expanded="true" style="--line-fold-chevron-indent-px: 0px;"></span><div class="line-div heading-h3" style="margin-left: 0px;"><span class="lineitem-text">Things to try</span></div></div><div class="listitem listitem-ulist"><div class="line-chrome-ulist ulist-depth-1" style="margin-left: 0px;"><span class="line-chrome-ulist-dot"></span></div><div class="line-div"><span class="lineitem-text">Re-pot the basil before the first frost</span></div></div><div class="listitem listitem-ulist"><div class="line-chrome-ulist ulist-depth-1" style="margin-left: 0px;"><span class="line-chrome-ulist-dot"></span></div><div class="line-div"><span class="lineitem-text">Ask about the </span><span class="lineitem-code">--dry-run</span><span class="lineitem-text"> flag</span></div></div><div class="listitem listitem-ulist"><div class="line-chrome-ulist ulist-depth-1" style="margin-left: 0px;"><span class="line-chrome-ulist-dot"></span></div><div class="line-div"><span class="lineitem-text">Finish chapter four of the novel</span></div></div><div class="listitem listitem-olist"><div class="line-chrome-olist list-depth-1" style="margin-left: 0px; counter-set: list-depth-1 0;"></div><div class="line-div"><span class="lineitem-text">Sketch the layout on paper</span></div></div><div class="listitem listitem-olist"><div class="line-chrome-olist list-depth-1" style="margin-left: 0px; counter-set: list-depth-1 0;"></div><div class="line-div"><span class="lineitem-text">Build it, then take the photographs</span></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><br></div></div><div class="listitem listitem-quote"><div class="line-div" style="margin-left: 0px;"><span class="lineitem-bold">Note:</span><span class="lineitem-text"> a garden is a grand teacher. It teaches patience and careful watchfulness.</span></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><br></div></div><div class="listitem listitem-hr"><div class="line-div hr-divider" style="margin-left: 0px;"><hr></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><br></div></div><div class="listitem listitem-heading listitem-with-caret"><span class="line-fold-chevron tooltip ti ti-chevron-down is-zoomable" aria-expanded="true" style="--line-fold-chevron-indent-px: 0px;"></span><div class="line-div heading-h2" style="margin-left: 0px;"><span class="lineitem-text">A small helper</span></div></div><div class="listitem listitem-block"><span class="line-fold-chevron tooltip ti ti-chevron-down" aria-expanded="true" style="--line-fold-chevron-indent-px: 0px;"></span><div class="block-container-div container-border block-codelang block-lang-c block-style-plain" ns-type="c" style="margin-left: 0px;"><span class="block-nstype-button tooltip">c</span><div class="block-content"><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><span class="lineitem-text"><span class="hljs-comment">/* greet: say hello, politely */</span></span></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><span class="lineitem-text"><span class="hljs-type">int</span> <span class="hljs-title function_">greet</span>(<span class="hljs-params"><span class="hljs-type">const char</span> *name</span>) {</span></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><span class="lineitem-text">    <span class="hljs-built_in">printf</span>(<span class="hljs-string">"Hello, %s!\n"</span>, name);</span></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><span class="lineitem-text">    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;</span></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><span class="lineitem-text">}</span></div></div></div></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><br></div></div><div class="listitem listitem-heading"><span class="line-fold-chevron tooltip ti ti-chevron-down is-zoomable" aria-expanded="true" style="--line-fold-chevron-indent-px: 0px;"></span><div class="line-div heading-h4" style="margin-left: 0px;"><span class="lineitem-text">Later</span></div></div><div class="listitem listitem-text"><div class="line-div" style="margin-left: 0px;"><span class="lineitem-text">Write up the results on Friday and send them round before the weekend.</span></div></div></div>
+			<div class="backrefs-footer"></div></div></div>
+			</div></div>
+		<div class="vscrollbar scrollbar has-thumb" style="z-index: 2; position: absolute; right: 0px; top: 0px; bottom: 0px; width: 15px; user-select: none;">
+			<div class="vscrollbar-thumb scrollbar-thumb clickable" style="opacity: 0; transform: translateY(0px); height: 25px;">&nbsp;</div>
+			</div></div>
+			</div>
+			<div class="panel-h-sizer clickable" style="position: relative; grid-column: 2;">
+				<div class="panel-h-sizer-handle clickable sidebar-h-sizer sb_sizer" style="position: absolute; top: 0; left: -2px; bottom: 0; width: 4px; background: transparent; z-index: 8;"></div>
+			</div></div><div class="statusbar--status-bar">
+				<div class="statusbar--left id--keys"><span data-index="0" class="statusbar-item   statusbar--item-hoverable"><span class="statusbar--kbd"><span class="kbdmod kbdmod-mac">⌘</span>P</span> <span class="statusbar--kbd-label">Commands</span></span><span data-index="1" class="statusbar-item   statusbar--item-hoverable"><span class="statusbar--kbd"><span class="kbdmod kbdmod-mac">⌘</span>K</span> <span class="statusbar--kbd-label">Jump To</span></span><span data-index="2" class="statusbar-item tooltip  statusbar--item-hoverable"><span class="statusbar--kbd"><span class="kbdmod kbdmod-mac">⌃</span>N</span> <span class="statusbar--kbd-label">New page...</span></span><span data-index="3" class="statusbar-item   statusbar--item-hoverable"><span class="statusbar--kbd"><span class="kbdmod kbdmod-mac">⌘</span><span class="kbdmod kbdmod-mac">⇧</span>F</span> <span class="statusbar--kbd-label">Search…</span></span><span data-index="4" class="statusbar-item  xxx-statusbar-emphasize statusbar--item-hoverable"><span class="statusbar--kbd">@</span> <span class="statusbar--kbd-label">Insert…</span></span><span data-index="5" class="statusbar-item tooltip statusbar--item-nopadding statusbar--item-hoverable"><span class="statusbar--kbd">Aa</span> <span class="statusbar--kbd-label"></span></span></div>
+				<div class="statusbar--right"><div class="statusbar-item statusbar--item-hoverable statusbar--markdown-mirror hidden">
+				<span class="statusbar-item--icon ti ti-folder-bolt"></span>
+				<span class="statusbar-item--label"></span>
+			</div><div class="statusbar-item statusbar--item-hoverable statusbar--mcp-bridge hidden">
+				<span class="statusbar-item--icon ti ti-plug"></span>
+				<span class="statusbar-item--label"></span>
+			</div><div class="statusbar-item statusbar--item-hoverable statusbar--hotreload hidden">
+				<span class="statusbar-item--icon ti ti-progress-bolt"></span>
+				<span class="statusbar-item--label">Hot Reload</span>
+			</div><div class="statusbar-item hidden">
+				<span class="statusbar-item--icon"></span>
+				<span class="statusbar-item--label"></span>
+			</div><div class="statusbar-item hidden">
+				<span class="statusbar-item--icon"></span>
+				<span class="statusbar-item--label"></span>
+			</div><div class="statusbar-item">
+				<span class="statusbar-item--icon"></span>
+				<span class="statusbar-item--label">Ln 1, Col 1</span>
+			</div>
+					<span class="statusbar-item statusbar--item-hoverable">
+						<span class="tooltip ti ti-users-plus id--users-button button-none"></span>
+						<span style="display: none; align-items: center" class="id--approve-badge no-select button-primary button-primary-hover button-small">
+							<span class="ti ti-users-plus" style="margin-right: 5px"></span>
+							<span>Approve <span class="id--approve-nr"></span> users...</span>
+						</span>
+					</span>
+					<style>
+				.statusbar--logo.welcome { filter: none !important; opacity: 1 !important; }
+				.mirror-pending {
+					opacity: 0.5;
+				}
+				</style>
+					<span class="statusbar-item tooltip" style="cursor: pointer; position: relative; align-items: center">
+						<span class="id--logo statusbar--logo" style="transform: scale(0.20); margin-top: -0px; margin-left: -30px; margin-right: -25px"><div class="logo-header logo-hover-effect">
+				<div class="logo-border" style="display: flex;align-items: center;width: 30px;height: 30px;border-radius: 8px;border-width: 8px;width: 58px;height: 80px;width: 80px; ">
+					<div class="logo logo-animation logo-animation-finished" style="margin-left: 25px; margin-top: -5px; ">
+					</div>
+				</div>
+			</div></span>
+					</span>
+					<span class="statusbar-item statusbar--safe-mode id--safe-mode tooltip" style="display: none">
+						Safe Mode
+					</span>
+					<span class="statusbar-item statusbar--item-hoverable id--sync" style="margin-right: 0px; flex-shrink: 0">
+					<span class="syncstatusbar tooltip" style="display: flex; height: 100%; align-items: center; gap: 7px">
+				<style>
+				.status--rotate {
+					animation: rotation 700ms infinite linear;
+				}
+				@keyframes rotation {
+					from {
+						rotate: 359deg;
+					}
+					to {
+						rotate: 0deg;
+					}
+				}
+				.syncstatusbar--paused-label {
+					font-size: var(--text-size-smaller);
+					color: var(--text-muted);
+					white-space: nowrap;
+				}
+				</style>
+				<span class="syncstatusbar--paused-label id--paused-label" style="display: none">Syncing paused</span>
+				<span>
+					<span class="info" style="font-size: 16px;">
+			<span>
+				<div style="display: flex;">
+					<span class="ti ti-circle-check" style="display: inline-block; color: var(--text-status-online); font-weight: bold !important"></span>
+				</div>
+			</span>
+		</span>
+				</span>
+			</span></span>
+				</div>
+			</div><div></div><div class="id--toaster-area" style="top: 20px;">
+			</div></div><div id="editor-meta"><div id="virtualinput-wrapper" style="position: absolute; left: 0px; top: 0px; width: 0px; height: 0px; contain: strict; overflow: hidden; pointer-events: none; will-change: transform; transform: translate(330.453px, 221.75px);"></div>
+	<div id="dom-parked" style="display: none;"></div>
+	<div id="measurements"></div></div></div>

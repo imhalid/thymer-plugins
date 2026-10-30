@@ -1,0 +1,18 @@
+/* What Thymer sets on <html> at run time: the editor's icon glyphs. */
+html {
+  --ed-check-started-icon: "";
+  --ed-check-blocked-icon: "";
+  --ed-check-dollar-icon: "";
+  --ed-check-exclaim-icon: "";
+  --ed-check-question-icon: "";
+  --ed-check-alert-icon: "";
+  --ed-check-starred-icon: "";
+  --ed-check-canceled-icon: "";
+  --ed-check-done-icon: "";
+  --ed-check-ref-icon: "";
+  --ed-check-backlink-icon: "";
+  --ed-drag-handle-grip-icon: "";
+  --ed-drag-handle-blank-icon: "";
+  --ed-fold-chevron-icon: "";
+  --ed-fold-chevron-zoom-icon: "";
+}

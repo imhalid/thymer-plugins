@@ -1,0 +1,54 @@
+{
+  "name": "Leather",
+  "description": "Light Sans as an old Apple app, drawn in CSS and SVG alone: the window on dark blue linen, the sidebar's open page in a debossed well, the page a stack of white paper in a stitched leather case with its header on the leather, a red margin and blue ruled lines, the corner turned up; glossy blue selections, popovers in a navy frame, the date picker as a calendar of tiles",
+  "scheme": "light",
+  "accent": "#2a6ad6",
+  "paper": "#fcfcfa",
+  "ground": "#2f3d52",
+  "text": "#2b2f36",
+  "sidebar": "#2f3d52",
+  "veil": {
+    "direction": "to bottom",
+    "stops": [[0, "0%"], [0, "100%"]]
+  },
+  "selected": "soft",
+  "title": "upright",
+  "syntax": {
+    "meta": "#8a3fa6", "keyword": "#b0247a", "type": "#2a63b8", "title": "#1f5a8c",
+    "string": "#c4321e", "number": "#2235c9", "comment": "#3a8a3e"
+  },
+  "code_alpha": 0.04,
+  "images": {
+    "--lt-linen": "linen.svg",
+    "--lt-leather": "leather.svg",
+    "--lt-curl": "curl.svg"
+  },
+  "tokens": {
+    "--radius-normal": "6px",
+    "--radius-larger": "8px",
+    "--radius-xlarge": "10px",
+    "--modal-radius": "10px",
+    "--prop-status-radius": "5px",
+    "--selection-bg": "#b5d3ff",
+    "--selection-fg": "#1d2430",
+    "--ed-selection-self-bg": "#b5d3ffb3",
+    "--ed-caret-self-fg": "#2a6ad6",
+    "--side-fg-color": "#d3dae5",
+    "--side-icon-color": "#9fadc2",
+    "--sidebar-heading": "#9fadc2",
+    "--sidebar-fg-hover": "#ffffff",
+    "--sidebar-bg-hover": "#00000024",
+    "--side-bg-focus": "transparent",
+    "--side-bg-active-focus": "transparent",
+    "--side-fg-focus": "#ffffff",
+    "--side-fg-active-focus": "#ffffff",
+    "--sidebar-toggler-color": "#9fadc2",
+    "--cmdpal-selected-bg-color": "#1a6fe6",
+    "--cmdpal-selected-fg-color": "#ffffff",
+    "--cmdpal-inline-selected-bg": "#1a6fe6",
+    "--cmdpal-inline-selected-fg": "#ffffff",
+    "--link-color": "#2a6ad6",
+    "--ed-link-color": "#2a6ad6",
+    "--link-hover-color": "#1a4fa8"
+  }
+}

@@ -11,10 +11,11 @@
  * They are off until chosen on the "Caret FX: open settings" page: Motion smear is a switch there (with the block
  * cursor), and so is Bracket tether; Fresh ink and Back-man are special presets, like Lightning and the falling petals.
  *
- * Five special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
+ * Six special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
  * (tiny star glints that twinkle on the caret, like a gem), Prism (two crescents of spectrum flanking the caret, light
  * through a lens), Health (tiny pluses rising out of the caret as you write, each with a trail of light, as if you were gaining health) and Zephyr (an anime-style wind skill: speed lines and leaves swept up round the caret) and Tide
- * (a stylized water skill: sprays of teardrops and drifting bubbles). Pick them on the "Caret FX: open settings" page under Special.
+ * (a stylized water skill: sprays of teardrops and drifting bubbles), and Stitch (a running stitch sewn under the line
+ * as you write, in the thread of the theme). Pick them on the "Caret FX: open settings" page under Special.
  *
  * Two more are switches like Motion smear: Sleepy caret (the caret dozes off when you stop writing, z's floating up,
  * and wakes with a stretch) and Confetti (a task ticked off bursts into confetti from its checkbox). Both start off.
@@ -157,9 +158,12 @@ const lightVariant = (hex) => {
 	return hsvToHex({ h: c.h, s: Math.min(1, c.s * 1.15 + 0.1), v: c.v * 0.62 });
 };
 
-/** Thymer marks the theme on <html>/<body>; fall back to the body background luminance. */
+/** Thymer marks the theme on <html> (is-dark / is-light; theme-dark / theme-light on older builds); fall back to the
+ * body background luminance. (A custom theme may leave the body transparent, so the classes come first.) */
 function isDarkTheme() {
 	const h = document.documentElement.classList, b = document.body.classList;
+	if (h.contains('is-dark')) return true;
+	if (h.contains('is-light')) return false;
 	if (h.contains('theme-dark') || b.contains('theme-dark')) return true;
 	if (h.contains('theme-light') || b.contains('theme-light')) return false;
 	const m = (getComputedStyle(document.body).backgroundColor || '').match(/[\d.]+/g);
@@ -2156,7 +2160,7 @@ EFFECTS.backman = {
 };
 
 // =====================================================================================
-// SPECIAL PRESETS ORIGINAL TO CARET FX: Holy, Prism, Health, Zephyr, Tide
+// SPECIAL PRESETS ORIGINAL TO CARET FX: Holy, Prism, Health, Zephyr, Tide, Stitch
 //
 // Written for this plugin, not ported. They are special presets like Sakura and Lightning: each brings its own colors and
 // is picked in the settings page's Special grid (or by "next preset"), one at a time. Like the falling petals they
@@ -2893,6 +2897,167 @@ EFFECTS.tide = {
 		if (now < (pv.tideNext || 0)) return;
 		pv.tideNext = now + 800;
 		callTide(pv, caret, false, now);
+	},
+};
+
+
+// ---- Effect: Stitch ------------------------------------------------------------------------------------------------
+// A running stitch sewn along the line as you write, as if the words were being stitched down: each letter puts the
+// thread under itself, the newest stitch pulled through as you watch, a needle-hole at either end of each. The stitches
+// hold a moment, then the thread is drawn out and they fade, the oldest first; Backspace unpicks the ones it passes
+// back over, and a new line ties a small cross-stitch knot where the last one ended. The thread is the theme's - saddle
+// tan on Leather's paper, jeans gold on Folder's, red on Desk's, the binder's tan, Notebook's ballpoint blue, Herbarium's
+// sepia, Blueprint's line blue - and on any other theme the caret's own color. It lies just under the letters, above the
+// line's own rule.
+// Settings: stitchSize (1 is normal).
+const STITCH_HOLD_MS = 1500;    // how long a stitch stays whole after it is sewn
+const STITCH_FADE_MS = 700;     // how long the thread takes to draw out
+const STITCH_SEW_MS = 130;      // how long the newest stitch takes to pull through
+const STITCH_MAX = 160;         // the most lengths of thread kept at once
+const STITCH_KNOT_MS = 2200;    // how long a knot stays before it fades with the thread
+// The thread for each theme, by Thymer's data-theme; themes not here use the caret's color.
+const STITCH_THREADS = {
+	'thymer-leather': '#b06c33',
+	'thymer-folder': '#cf8a1f',
+	'thymer-desk': '#c0372f',
+	'thymer-binder': '#9a6634',
+	'thymer-notebook': '#3563c9',
+	'thymer-herbarium': '#8a6526',
+	'thymer-blueprint': '#9bd8ff',
+	'thymer-sakura': '#ff8fb3',
+	'thymer-meadow': '#9fcc5f',
+};
+
+/** The thread's color: the theme's own, or the caret's. */
+const stitchThread = (plugin) => STITCH_THREADS[document.documentElement.dataset.theme] || plugin.col();
+
+/** The item that holds the thread of `host` (the plugin, or a preview host). */
+function stitchOf(host) {
+	const item = host.ensureItem('stitch');
+	if (!item.runs) { item.runs = []; item.knots = []; }
+	return item;
+}
+
+/** Where the thread lies under a caret `rect`: just below its foot, between the letters and the line's rule. */
+const stitchY = (rect) => rect.y + rect.h + 1.5;
+
+/** Sews thread from `x0` to `x1` along the line at `y`. */
+function sewStitch(host, x0, x1, y, now) {
+	const item = stitchOf(host);
+	if (x1 - x0 < 0.5) return;
+	item.runs.push({ x0, x1, y, t0: now });
+	if (item.runs.length > STITCH_MAX) item.runs.splice(0, item.runs.length - STITCH_MAX);
+}
+
+function drawStitch(plugin, ctx, item, now, k) {
+	const life = STITCH_HOLD_MS + STITCH_FADE_MS;
+	item.runs = item.runs.filter((r) => now - r.t0 < life);
+	item.knots = item.knots.filter((q) => now - q.t0 < STITCH_KNOT_MS + STITCH_FADE_MS);
+	if (!item.runs.length && !item.knots.length) { item.done = true; return; }
+	const rect = plugin.last, h = Math.max(rect ? rect.h : 20, 14), u = h / 20 * (plugin.cfg.stitchSize ?? 1);
+	const dash = 5 * u, gap = 3.4 * u, period = dash + gap, width = Math.max(1.1, 1.3 * u);
+	const thread = stitchThread(plugin), hi = lighten(thread, 0.5), dark = plugin.dark;
+	const shadow = dark ? 'rgba(0,0,0,0.5)' : 'rgba(40,24,10,0.22)', hole = dark ? 'rgba(0,0,0,0.55)' : 'rgba(30,18,8,0.3)';
+	const power = Math.min(1, 0.75 + 0.25 * k);
+	const fade = (t0, hold) => { const age = now - t0; return age < hold ? 1 : Math.max(0, 1 - (age - hold) / STITCH_FADE_MS); };
+	// How far each line has been sewn so far (the newest length still being pulled through), so a stitch begun under one
+	// letter runs on under the next one as it is written.
+	const reach = new Map();
+	for (const r of item.runs) {
+		const key = Math.round(r.y), x1 = r.x0 + (r.x1 - r.x0) * Math.min(1, (now - r.t0) / STITCH_SEW_MS);
+		reach.set(key, Math.max(reach.get(key) ?? -Infinity, x1));
+	}
+	ctx.save();
+	ctx.lineCap = 'round';
+	for (const r of item.runs) {
+		const a = fade(r.t0, STITCH_HOLD_MS) * power;
+		if (a <= 0.01) continue;
+		const end = reach.get(Math.round(r.y));
+		ctx.globalAlpha = a;
+		// The stitches that begin under this length of thread, on the seam's one pattern: each stitch is drawn once, by
+		// the length it begins in, and runs on as far as the line has been sewn.
+		for (let s = Math.ceil(r.x0 / period) * period; s < r.x1; s += period) {
+			const a1 = Math.min(s + dash, end);
+			if (a1 - s < 0.6) continue;
+			const y = r.y + Math.sin(s * 0.9) * 0.25;   // a hand-sewn seam is never quite straight
+			ctx.lineWidth = width;
+			ctx.beginPath();   // its shadow on the page
+			ctx.moveTo(s, y + 0.7); ctx.lineTo(a1, y + 0.7);
+			ctx.strokeStyle = shadow;
+			ctx.stroke();
+			ctx.beginPath();   // the thread
+			ctx.moveTo(s, y); ctx.lineTo(a1, y);
+			ctx.strokeStyle = thread;
+			ctx.stroke();
+			if (a1 - s > width * 1.6) {   // the light along its twist
+				ctx.beginPath();
+				ctx.moveTo(s + width * 0.5, y - width * 0.2); ctx.lineTo(a1 - width * 0.5, y - width * 0.2);
+				ctx.strokeStyle = rgba(hi, 0.6);
+				ctx.lineWidth = width * 0.34;
+				ctx.stroke();
+			}
+			ctx.fillStyle = hole;   // the needle-holes it goes in and out of
+			for (const hx of a1 >= s + dash ? [s - width * 0.6, s + dash + width * 0.6] : [s - width * 0.6]) {
+				ctx.beginPath();
+				ctx.arc(hx, y, Math.max(0.45, 0.45 * u), 0, Math.PI * 2);
+				ctx.fill();
+			}
+		}
+	}
+	ctx.lineWidth = width;
+	for (const q of item.knots) {   // a knot: a small cross-stitch where a line of stitching was tied off
+		const a = fade(q.t0, STITCH_KNOT_MS) * power;
+		if (a <= 0.01) continue;
+		const s = 2.6 * u;
+		ctx.globalAlpha = a;
+		for (const [off, col] of [[0.7, shadow], [0, thread]]) {
+			ctx.beginPath();
+			ctx.moveTo(q.x - s, q.y - s + off); ctx.lineTo(q.x + s, q.y + s + off);
+			ctx.moveTo(q.x + s, q.y - s + off); ctx.lineTo(q.x - s, q.y + s + off);
+			ctx.strokeStyle = col;
+			ctx.lineWidth = width;
+			ctx.stroke();
+		}
+	}
+	ctx.restore();
+}
+
+EFFECTS.stitch = {
+	id: 'stitch', label: 'Stitch', mode: 'signature', keepsState: true, blend: 'source-over',
+	preset: { name: 'Stitch', color: '#e3a33a', accent: '#8a5a2b' },
+	defaults: { stitchSize: 1 },
+	onMove(plugin, prev, cur, info) {
+		if (!prev) return;
+		const now = info.now;
+		if (isWriting(info)) { sewStitch(plugin, prev.x, cur.x, stitchY(cur), now); return; }
+		if (!info.typed) return;
+		const item = stitchOf(plugin);
+		if (info.dx < -0.5 && Math.abs(info.dy) < 1) {   // Backspace: the stitches it passes back over are unpicked
+			const y = stitchY(cur);
+			item.runs = item.runs.filter((r) => Math.abs(r.y - y) > 1 || r.x0 < cur.x - 0.5);
+			for (const r of item.runs) if (Math.abs(r.y - y) <= 1 && r.x1 > cur.x) r.x1 = cur.x;
+		} else if (info.dy >= cur.h * 0.8) {   // a new line: a knot where the stitching ended
+			if (item.runs.some((r) => now - r.t0 < STITCH_HOLD_MS)) item.knots.push({ x: prev.x + 3, y: stitchY(prev), t0: now });
+		}
+	},
+	onShift(plugin, dx, dy) {   // the page scrolled: the seam goes with the text
+		const item = plugin.items.find((it) => it.effect === 'stitch' && !it.done);
+		if (!item) return;
+		for (const r of item.runs || []) { r.x0 += dx; r.x1 += dx; r.y += dy; }
+		for (const q of item.knots || []) { q.x += dx; q.y += dy; }
+	},
+	onSample(plugin, cur) {   // the caret gone (another page): nothing may stay drawn where it was
+		if (cur) return;
+		const item = plugin.items.find((it) => it.effect === 'stitch' && !it.done);
+		if (item) { item.runs = []; item.knots = []; item.done = true; }
+	},
+	draw(plugin, ctx, item, p, k, now) { drawStitch(plugin, ctx, item, now, k); },
+	preview(plugin, pv, caret, now) {
+		if (now < (pv.stitchNext || 0)) return;
+		pv.stitchNext = now + 160;
+		const x = pv.stitchX ?? caret.x;
+		sewStitch(pv, x, x + 9, stitchY(caret), now);
+		pv.stitchX = x + 9 > caret.x + 140 ? caret.x : x + 9;
 	},
 };
 

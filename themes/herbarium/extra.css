@@ -111,10 +111,7 @@ html[data-theme="thymer-herbarium"] .ach-card .ach-por {
 
 /* The page is a leaf of parchment on the cloth, ruled as a register: its
    skin mottled and stained, a few faint fibres, browned towards
-   its edges, with a fine double rule in sepia ink just inside them. Where
-   the sheet is wide enough to keep them clear of the text, a sprig of
-   pressed flowers sits at the top right, faded under a wash of the
-   parchment, and the entry's printed label at the bottom right. */
+   its edges, with a fine double rule in sepia ink just inside them. */
 html:not([data-device=mobile])[data-theme="thymer-herbarium"] .panels-grid > .panel {
   padding: 14px;
   background: transparent;
@@ -146,17 +143,6 @@ html:not([data-device=mobile])[data-theme="thymer-herbarium"] .panels-grid > .pa
   outline: 1px solid #8a643a33;
   outline-offset: 3px;
   pointer-events: none;
-}
-@media (min-width: 1400px) {
-  html:not([data-device=mobile])[data-theme="thymer-herbarium"] .panels-grid > .panel::before {
-    background:
-      var(--hb-label) right 46px bottom 44px / 250px 128px no-repeat,
-      linear-gradient(#f3e7cb80, #f3e7cb80) right 50px top 80px / 150px 215px no-repeat,
-      var(--hb-flowers) right 50px top 80px / 150px 215px no-repeat,
-      var(--hb-parchment) 0 0 / 800px 800px,
-      radial-gradient(ellipse 120% 100% at 30% 20%, #fff8e6 0, #0000 60%),
-      var(--hb-sheet);
-  }
 }
 html:not([data-device=mobile])[data-theme="thymer-herbarium"] .panels-grid > .panel > .vscrollbar {
   top: 14px !important;
@@ -403,4 +389,23 @@ html[data-theme="thymer-herbarium"] .cp-today:hover {
 /* The Home plugin's cards sit on the parchment. */
 html[data-theme="thymer-herbarium"] .home {
   --home-bg: var(--hb-sheet) !important;
+}
+
+/* --- Fixes from the review of 2026-10-30 ------------------------------- */
+
+/* The status bar's avatar: Thymer draws the initial in the bar's own
+   lettering, which on a light disc with the bar's text-shadow was a smudge. */
+html[data-theme="thymer-herbarium"] .default-avatar {
+  color: #3a3a3a;
+  text-shadow: none;
+}
+/* A choice chip being edited: Thymer lays a translucent pill under it,
+   which showed as a halo round the chip's own box; a ring on the chip marks
+   the editing instead. */
+html[data-theme="thymer-herbarium"] .page-prop-pill.page-prop-pill-choice.is-editing {
+  background: transparent;
+}
+html[data-theme="thymer-herbarium"] .page-props-pills .prop-status.prop-is-editing {
+  outline: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  outline-offset: 1px;
 }

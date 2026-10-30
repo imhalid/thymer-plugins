@@ -71,6 +71,9 @@ html[data-theme="thymer-binder"] .sidebar--toggler {
   color: #f0e2cf;
   text-shadow: 0 -1px 0 #0009;
 }
+html[data-theme="thymer-binder"] .sidebar--toggler .js--sb-toggler-icon {
+  color: inherit;  /* Thymer gives the glyph its own grey, lost on the wood */
+}
 
 /* Rows are separated by hairlines, a dark one with a light one under it;
    the open page is a grey bar pressed into the card. */
@@ -86,6 +89,8 @@ html:not([data-device=mobile])[data-theme="thymer-binder"] .sidebar:not(.sidebar
 }
 html:not([data-device=mobile])[data-theme="thymer-binder"] .sidebar:not(.sidebar-collapsed) .sidebar--top {
   padding-left: 0;
+  padding-right: 0;  /* the two cells need all the card's width: at 10px "Tasks" was cut to "Tas…" */
+  --row-px: 6px;
 }
 html:not([data-device=mobile])[data-theme="thymer-binder"] .sidebar:not(.sidebar-collapsed) .sidebar--icons {
   padding-left: 0;
@@ -155,7 +160,7 @@ html[data-theme="thymer-binder"] .sidebar--top .sidebar-item-hoverable:nth-child
 
 /* Achievements' character is a photo slipped into the card, clear of the
    spine. */
-html:not([data-device=mobile])[data-theme="thymer-binder"] .ach-card {
+html:not([data-device=mobile])[data-theme="thymer-binder"] .ach-card:not(.ach-mini) {
   left: 52px !important;
   width: calc(var(--sidebar-width, 250px) - 62px) !important;
 }
@@ -256,6 +261,12 @@ html[data-theme="thymer-binder"] .panel-bar--tabsbar :is(.panel-icon-button, .pa
 }
 html[data-theme="thymer-binder"] .panel-bar--tabsbar :is(.panel-bar--crumbnav-icon, .panel-bar--crumbnav-icon-disabled) {
   display: inline-block;  /* back and forward are always shown; inline, they would take no size */
+}
+/* Their box keeps its width: squeezed by a long title it would fold the
+   forward block under the back one, leaving a stub of it showing. */
+html[data-theme="thymer-binder"] .panel-tab--hist {
+  flex: none;
+  white-space: nowrap;
 }
 html[data-theme="thymer-binder"] .panel-bar--tabsbar .panel-bar--crumbnav-icon-disabled {
   color: #fff8ee6b !important;
@@ -518,14 +529,22 @@ html[data-theme="thymer-binder"] .cmdpal--dialog::before {
   text-align: center;
   text-shadow: 0 -1px 0 #0009;
 }
+/* The same popover is the command palette when its field asks for a
+   command (the only mark of it in the markup is the placeholder). */
+html[data-theme="thymer-binder"] .cmdpal--dialog:has(.cmdpal--input[placeholder^="Search a command"])::before {
+  content: "Commands";
+}
+/* A form in the popover (Set Theme and the like) is neither: Thymer keeps
+   its search field in the markup but hides it inline, and the title bar is
+   then a bare strip. */
+html[data-theme="thymer-binder"] .cmdpal--dialog:has(> .cmdpal--input-container[style*="display: none"])::before {
+  content: "";
+  padding: 6px 0 0;
+}
 html[data-theme="thymer-binder"] .cmdpal--dialog::after {
   content: "";
   display: block;
-  height: 26px;
-  background:
-    linear-gradient(#fff, #fff) left 6px center / 11px 2px no-repeat,
-    linear-gradient(#fff, #fff) left 10.5px center / 2px 11px no-repeat;
-  opacity: .9;
+  height: 9px;
 }
 /* Thymer fixes the inline popover's height, so its frame is a ring drawn
    outside it rather than padding inside it. */
@@ -701,4 +720,73 @@ html[data-theme="thymer-binder"] :is(.cmdpal--dialog, .cmdpal--inline) .vscroll-
 }
 html[data-theme="thymer-binder"] :is(.cmdpal--dialog, .cmdpal--inline) .vscroll-node .autocomplete--option.is-indented {
   padding-left: 22px;
+}
+
+/* --- Fixes from the review of 2026-10-30 ------------------------------- */
+
+/* The status bar's avatar: Thymer draws the initial in the bar's own
+   lettering, which on a light disc with the bar's text-shadow was a smudge. */
+html[data-theme="thymer-binder"] .default-avatar {
+  color: #3a3a3a;
+  text-shadow: none;
+}
+/* A choice chip being edited: Thymer lays a translucent pill under it,
+   which showed as a halo round the chip's own box; a ring on the chip marks
+   the editing instead. */
+html[data-theme="thymer-binder"] .page-prop-pill.page-prop-pill-choice.is-editing {
+  background: transparent;
+}
+html[data-theme="thymer-binder"] .page-props-pills .prop-status.prop-is-editing {
+  outline: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  outline-offset: 1px;
+}
+/* The matched letters in the chosen row: the tint they are written in
+   vanished on the row's gloss. */
+html[data-theme="thymer-binder"] .autocomplete--option-selected .autocomplete--hilite {
+  color: #fff;
+}
+/* A form's foot in the popover (Set Theme's Cancel, the ⌃↵ key, Apply) sits
+   on the frame, so its lettering follows the frame. */
+html[data-theme="thymer-binder"] .cmdpal--dialog .cmdpal--status {
+  color: #e8edf5;
+}
+html[data-theme="thymer-binder"] .cmdpal--dialog .cmdpal--status .button-minimal {
+  color: #e8edf5;
+}
+html[data-theme="thymer-binder"] .cmdpal--dialog .cmdpal--status .button-minimal:hover {
+  background: #ffffff26;
+  color: #fff;
+}
+html[data-theme="thymer-binder"] .cmdpal--dialog .cmdpal--status .kbd {
+  background: #ffffff26;
+  color: #fff;
+}
+/* A toast's title and its plain button: Thymer's ink for them is dark. */
+html[data-theme="thymer-binder"] .toaster .toaster-title {
+  color: #fff;
+}
+html[data-theme="thymer-binder"] .toaster .button.button-xsmall:not(.button-primary) {
+  background: #ffffff1f;
+  color: #fff;
+}
+/* Achievements' Search and Jump To buttons are rows of the grouped list
+   like Tasks and Home under them: hairlines between, and the glyph on a
+   coloured square (the two colours the top block does not use). */
+html[data-theme="thymer-binder"] .ach-btn {
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 #c9ccd1, inset 0 1px 0 #ffffffb3;
+}
+html[data-theme="thymer-binder"] .ach-btn svg {
+  --bd-icon: #4f86d8;
+  box-sizing: border-box;
+  padding: 2.5px;
+  border-radius: 3.5px;
+  background: linear-gradient(color-mix(in srgb, var(--bd-icon) 70%, #fff), var(--bd-icon) 55%, color-mix(in srgb, var(--bd-icon) 85%, #000));
+  box-shadow: inset 0 1px 0 #ffffff66, 0 0 0 1px color-mix(in srgb, var(--bd-icon) 70%, #000), 0 1px 0 #ffffffb3;
+  color: #fff;
+  opacity: 1;
+  stroke-width: 2.5;
+}
+html[data-theme="thymer-binder"] .ach-btn:last-child svg {
+  --bd-icon: #6fa64a;
 }

@@ -1070,6 +1070,11 @@ html:not([data-device=mobile])[data-theme="thymer-notebook"] .panels-grid > .pan
   transform: rotate(4deg);
   pointer-events: none;
 }
+/* The title bar's text stops short of the clip (in a narrow panel the
+   clip stood on the end of the title). */
+html:not([data-device=mobile])[data-theme="thymer-notebook"] .panel-bar--tabsbar .panel-bar--tabs {
+  padding-right: 34px;
+}
 
 /* The page is dotted paper that moves with the writing, with a red margin
    rule down the left of the text. */
@@ -1405,5 +1410,24 @@ html[data-theme="thymer-notebook"] .cp-today:hover {
    paper (it sets its own, for a dark page, unless told). */
 html[data-theme="thymer-notebook"] .home {
   --home-bg: var(--nb-paper-colour) !important;
+}
+
+/* --- Fixes from the review of 2026-10-30 ------------------------------- */
+
+/* The status bar's avatar: Thymer draws the initial in the bar's own
+   lettering, which on a light disc with the bar's text-shadow was a smudge. */
+html[data-theme="thymer-notebook"] .default-avatar {
+  color: #3a3a3a;
+  text-shadow: none;
+}
+/* A choice chip being edited: Thymer lays a translucent pill under it,
+   which showed as a halo round the chip's own box; a ring on the chip marks
+   the editing instead. */
+html[data-theme="thymer-notebook"] .page-prop-pill.page-prop-pill-choice.is-editing {
+  background: transparent;
+}
+html[data-theme="thymer-notebook"] .page-props-pills .prop-status.prop-is-editing {
+  outline: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  outline-offset: 1px;
 }
 /* ===== Notebook theme end ===== */

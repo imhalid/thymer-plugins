@@ -248,10 +248,10 @@ html[data-theme="thymer-leather"] .panel-bar--tabsbar :is(.panel-icon-button, .p
 html[data-theme="thymer-leather"] :is(.panel-heading, .panel-body) > .layout-margin {
   position: relative;
 }
-html[data-theme="thymer-leather"] .panel-body > .layout-margin::before {
+html[data-theme="thymer-leather"] :is(.panel-heading, .panel-body) > .layout-margin::before {
   content: "";
   position: absolute;
-  top: -40px;
+  top: 0;
   bottom: 0;
   left: -26px;
   width: 3px;
@@ -603,4 +603,58 @@ html[data-theme="thymer-leather"] .cmdpal--inline {
 html[data-theme="thymer-leather"] .cmdpal--inline .autocomplete {
   box-sizing: content-box;  /* the room is added below the height Thymer gives the list */
   padding-bottom: 6px;
+}
+
+/* --- Fixes from the review of 2026-10-30 ------------------------------- */
+
+/* The status bar's avatar: Thymer draws the initial in the bar's own
+   lettering, which on a light disc with the bar's text-shadow was a smudge. */
+html[data-theme="thymer-leather"] .default-avatar {
+  color: #3a3a3a;
+  text-shadow: none;
+}
+/* A choice chip being edited: Thymer lays a translucent pill under it,
+   which showed as a halo round the chip's own box; a ring on the chip marks
+   the editing instead. */
+html[data-theme="thymer-leather"] .page-prop-pill.page-prop-pill-choice.is-editing {
+  background: transparent;
+}
+html[data-theme="thymer-leather"] .page-props-pills .prop-status.prop-is-editing {
+  outline: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  outline-offset: 1px;
+}
+/* The matched letters in the chosen row: the tint they are written in
+   vanished on the row's gloss. */
+html[data-theme="thymer-leather"] .autocomplete--option-selected .autocomplete--hilite {
+  color: #fff;
+}
+/* A form's foot in the popover (Set Theme's Cancel, the ⌃↵ key, Apply) sits
+   on the frame, so its lettering follows the frame. */
+html[data-theme="thymer-leather"] .cmdpal--dialog .cmdpal--status {
+  color: #dde3ec;
+}
+html[data-theme="thymer-leather"] .cmdpal--dialog .cmdpal--status .button-minimal {
+  color: #dde3ec;
+}
+html[data-theme="thymer-leather"] .cmdpal--dialog .cmdpal--status .button-minimal:hover {
+  background: #ffffff26;
+  color: #fff;
+}
+html[data-theme="thymer-leather"] .cmdpal--dialog .cmdpal--status .kbd {
+  background: #ffffff26;
+  color: #fff;
+}
+/* A toast's title and its plain button: Thymer's ink for them is dark. */
+html[data-theme="thymer-leather"] .toaster .toaster-title {
+  color: #fff;
+}
+html[data-theme="thymer-leather"] .toaster .button.button-xsmall:not(.button-primary) {
+  background: #ffffff1f;
+  color: #fff;
+}
+/* Back and forward keep their box: squeezed by a long title it would fold
+   the forward key under the back one, leaving a stub of it showing. */
+html[data-theme="thymer-leather"] .panel-tab--hist {
+  flex: none;
+  white-space: nowrap;
 }

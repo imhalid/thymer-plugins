@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Draws Herbarium's pressed plants as SVGs: a sprig of small flowers, a
-thyme sprig for h2, a leaf for bullets and a trailing stem for rules. They
-are built from curves and a few proportions rather than drawn by hand, so
-they can be redrawn.
+"""Draws Herbarium's pressed plants as SVGs: a thyme sprig for h2, a leaf
+for bullets and a trailing stem for rules. They are built from curves and a
+few proportions rather than drawn by hand, so they can be redrawn.
 
     python3 themes/herbarium/draw.py
 
-then build the theme with kit/build.py as usual. The cloth, the parchment
-and the label are plain SVG files beside this one.
+then build the theme with kit/build.py as usual. The cloth and the
+parchment are plain SVG files beside this one.
 """
 import math
 import os
@@ -45,33 +44,6 @@ def leaf(cx, cy, length, width, angle, fill, stroke, vein=True):
                 f"stroke='{stroke}' stroke-width='.45' stroke-opacity='.7'/>")
     return out
 
-
-# ---- a sprig of small flowers -------------------------------------------------
-
-parts = []
-stem = "M20 210C24 160 40 110 76 70C92 52 110 40 128 32"
-parts.append(f"<path d='{stem}' fill='none' stroke='#5f6d3c' stroke-width='1.6' stroke-linecap='round'/>")
-parts.append("<path d='M44 128C58 120 70 104 80 100M30 170C18 156 12 140 14 126' fill='none' "
-             "stroke='#5f6d3c' stroke-width='1.1' stroke-linecap='round'/>")
-for x, y, a, l in ((34, 150, -40, 26), (30, 172, 200, 24), (52, 112, -70, 22), (60, 100, 150, 20), (96, 52, -20, 18)):
-    parts.append(leaf(x, y, l, 6, a, '#7a8550', '#4b5530'))
-
-
-def flower(cx, cy, r, petal, centre):
-    out = []
-    for k in range(5):
-        a = math.radians(k * 72 + 10)
-        px, py = cx + math.cos(a) * r * .55, cy + math.sin(a) * r * .55
-        out.append(f"<ellipse cx='{px:.1f}' cy='{py:.1f}' rx='{r * .5:.1f}' ry='{r * .34:.1f}' "
-                   f"transform='rotate({k * 72 + 10} {px:.1f} {py:.1f})' fill='{petal}' stroke='#8a5a5a' stroke-width='.4'/>")
-    out.append(f"<circle cx='{cx}' cy='{cy}' r='{r * .22:.1f}' fill='{centre}'/>")
-    return ''.join(out)
-
-
-parts.append(flower(128, 32, 16, '#c9969a', '#c9a24a'))
-parts.append(flower(80, 100, 12, '#b9a3c6', '#c9a24a'))
-parts.append(flower(14, 124, 11, '#c9969a', '#c9a24a'))
-write('flowers.svg', "  <!-- A sprig of small pressed flowers, rose and lilac, faded. -->\n  " + '\n  '.join(parts), 150, 215)
 
 # ---- small pieces ------------------------------------------------------------
 

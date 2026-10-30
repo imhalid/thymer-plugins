@@ -1,6 +1,6 @@
 {
   "name": "Herbarium",
-  "description": "Light Sans as a herbarium sheet, drawn in CSS and SVG alone: a green linen folder with gold-stamped section heads for the sidebar, a page of parchment ruled as a register, softly mottled and browned at its edges, with a sprig of faded flowers and the entry's printed label, titles in Cormorant italic, a thyme sprig before h2, code in seed packets, quotes as collector's notes, a trailing stem for rules, and the date picker as a botanical calendar",
+  "description": "Light Sans as a herbarium sheet, drawn in CSS and SVG alone: a green linen folder with gold-stamped section heads for the sidebar, a page of parchment ruled as a register, softly mottled and browned at its edges, titles in Cormorant italic, a thyme sprig before h2, code in seed packets, quotes as collector's notes, a trailing stem for rules, and the date picker as a botanical calendar",
   "scheme": "light",
   "accent": "#4f7a45",
   "paper": "#f3e7cb",
@@ -22,8 +22,6 @@
     "--hb-linen": "linen.svg",
     "--hb-paper": "paper.svg",
     "--hb-parchment": "parchment.svg",
-    "--hb-flowers": "flowers.svg",
-    "--hb-label": "label.svg",
     "--hb-sprig": "sprig.svg",
     "--hb-leaf": "leaf.svg",
     "--hb-vine": "vine.svg"

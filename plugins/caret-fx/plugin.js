@@ -11,11 +11,13 @@
  * They are off until chosen on the "Caret FX: open settings" page: Motion smear is a switch there (with the block
  * cursor), and so is Bracket tether; Fresh ink and Back-man are special presets, like Lightning and the falling petals.
  *
- * Six special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
+ * Seven special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
  * (tiny star glints that twinkle on the caret, like a gem), Prism (two crescents of spectrum flanking the caret, light
  * through a lens), Health (tiny pluses rising out of the caret as you write, each with a trail of light, as if you were gaining health) and Zephyr (an anime-style wind skill: speed lines and leaves swept up round the caret) and Tide
  * (a stylized water skill: sprays of teardrops and drifting bubbles), and Stitch (a running stitch sewn under the line
- * as you write, in the thread of the theme). Pick them on the "Caret FX: open settings" page under Special.
+ * as you write, in the thread of the theme), and Mizan (for the Premium theme: a small Mizan Stat over the caret as you
+ * write - a live sparkline of your pace, words a minute and a change badge, a border beam running round it - and a
+ * raised pill gliding on a spring when the caret jumps). Pick them on the "Caret FX: open settings" page under Special.
  *
  * Two more are switches like Motion smear: Sleepy caret (the caret dozes off when you stop writing, z's floating up,
  * and wakes with a stretch) and Confetti (a task ticked off bursts into confetti from its checkbox). Both start off.
@@ -385,6 +387,8 @@ function lineEdit(before, after, caret) {
 //   - onTaskDone(plugin, box, now): a task was ticked off by a click or a key; box = { x, y, w, h } of its checkbox on screen.
 //   - onDrop(plugin): the effect is switched off or the plugin unloads (keepsState effects): clear timers it set.
 //   - onPulse(plugin, rect, now): optional; a gentle "show the current look" trigger (theme/config change).
+//   - caretCss(plugin): optional (signature); CSS for the line caret while the preset is on, added after its color
+//     (div.listview-caret-self is Thymer's caret, div.cfx-pcaret the settings page's). Not used with the block cursor.
 //   - onShift(plugin, dx, dy, now): optional; the page scrolled under a still caret, which moved by (dx, dy) on screen
 //     without moving in the text. An effect that keeps screen positions (the trail's path) moves them along; it is not a move.
 //   - draw(plugin, ctx, item, p, k, now, dt): p = progress 0..1, k = intensity, dt = ms since last frame.
@@ -3062,6 +3066,267 @@ EFFECTS.stitch = {
 };
 
 
+// ---- Effect: Mizan -------------------------------------------------------------------------------------------------
+// Writing as a dashboard, in the language of Mizan, the component library the Premium theme is drawn with (pano-ui):
+// while you write, a small Stat floats over the caret on Mizan's frosted glass - a live sparkline of your pace over
+// the last keys (Sparkline.tsx: a 1.6px line, the area under it in the series color fading down, a dot on the last
+// value), the pace in words per minute in tabular figures, and a change badge (Stat's: ▲ green when you speed up
+// against the start of the run, ▼ red when you slow down). A border beam (border-beam.css) runs round its edge,
+// quicker the faster you write. It follows the caret on Mizan's ease and fades when you stop. When the caret jumps
+// (a click, the arrows, a new line) a raised pill in the selection gradient glides there on Mizan's spring, the way
+// Segmented's pill slides to the option you pick.
+const MIZAN_POINTS = 28;         // the sparkline's length, in keys
+const MIZAN_HOLD_MS = 1100;      // the Stat staying up after the last key...
+const MIZAN_FADE_MS = 450;       // ...then fading out
+const MIZAN_IN_MS = 180;         // and opening, the first time
+const MIZAN_GLIDE_MS = 250;      // Segmented's pill: transform 0.25s var(--spring)
+const MIZAN_BEAM_MS = 4000;      // border-beam's --beam-duration; it runs up to four times as fast at speed
+
+/** CSS's cubic-bezier() as a function of time: x is solved for the curve's parameter (Newton), y is returned. */
+function cubicBezier(x1, y1, x2, y2) {
+	const bx = (t) => 3 * x1 * t * (1 - t) * (1 - t) + 3 * x2 * t * t * (1 - t) + t * t * t;
+	const by = (t) => 3 * y1 * t * (1 - t) * (1 - t) + 3 * y2 * t * t * (1 - t) + t * t * t;
+	const dbx = (t) => 3 * x1 * (1 - t) * (1 - t) + 6 * (x2 - x1) * t * (1 - t) + 3 * (1 - x2) * t * t;
+	return (x) => {
+		if (x <= 0) return 0;
+		if (x >= 1) return 1;
+		let t = x;
+		for (let i = 0; i < 8; i++) {
+			const d = dbx(t);
+			if (Math.abs(d) < 1e-6) break;
+			t = clamp01(t - (bx(t) - x) / d);
+		}
+		return by(t);
+	};
+}
+const mizanSpring = cubicBezier(0.3, 1.2, 0.4, 1);   // --spring: overshoots a little, then settles
+const mizanEase = cubicBezier(0.2, 0.8, 0.2, 1);     // --ease
+
+// Mizan's tokens for the Stat, per theme (tokens.css): the glass (--pop), its outline (--shadow-pop), text, muted text
+// and the change colors (--down is good, --up is bad; a faster pace is good)
+const MIZAN_TOKENS = {
+	dark: { pop: 'rgba(44,44,47,0.92)', ring: 'rgba(255,255,255,0.08)', edgeTop: 'rgba(255,255,255,0.16)', edgeBottom: 'rgba(255,255,255,0.03)',
+		text: '#f5f5f7', muted: '#a1a1a6', good: '#4cd97b', bad: '#ff6b5e', shadow: 'rgba(0,0,0,0.55)' },
+	light: { pop: 'rgba(255,255,255,0.94)', ring: 'rgba(0,0,0,0.06)', edgeTop: 'rgba(0,0,0,0.10)', edgeBottom: 'rgba(0,0,0,0.04)',
+		text: '#1d1d1f', muted: '#6e6e73', good: '#1d7d44', bad: '#c63527', shadow: 'rgba(0,0,0,0.16)' },
+};
+const MIZAN_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Inter, system-ui, sans-serif';
+
+/** The item that holds the Stat and the glide of `host` (the plugin, or a preview host). */
+function mizanOf(host) {
+	const item = host.ensureItem('mizan');
+	if (!item.pace) { item.pace = []; item.keys = []; item.lastAt = -1e9; item.openAt = -1e9; item.glide = null; item.x = null; item.y = null; item.beam = 0; }
+	return item;
+}
+
+/** A key was written at `now`: the pace (words a minute, five letters a word) over the last keys goes on the line. */
+function mizanKey(item, now) {
+	if (now - item.lastAt > MIZAN_HOLD_MS + MIZAN_FADE_MS) { item.openAt = now; item.pace = []; item.keys = []; item.base = null; }   // a new run
+	item.lastAt = now;
+	item.keys.push(now);
+	item.keys = item.keys.filter((t) => now - t < 3000);
+	if (item.keys.length < 3) return;   // two keys are no pace yet
+	const wpm = ((item.keys.length - 1) / 5) * (60000 / (now - item.keys[0]));
+	const prev = item.pace.length ? item.pace[item.pace.length - 1] : wpm;
+	item.pace.push(prev + (wpm - prev) * 0.35);   // smoothed, as a chart of it would be
+	if (item.pace.length > MIZAN_POINTS) item.pace.shift();
+	if (item.base == null && item.pace.length >= 4) item.base = item.pace[item.pace.length - 1];   // the run's opening pace, for the badge
+}
+
+function mizanPath(ctx, x, y, w, h, r) {
+	ctx.beginPath();
+	if (ctx.roundRect) ctx.roundRect(x, y, w, h, Math.max(0, Math.min(r, w / 2, h / 2))); else ctx.rect(x, y, w, h);
+}
+
+/** The Stat's sparkline in the box (x, y, w, h): the area, the line, the dot (Sparkline.tsx), the grid dots under it. */
+function mizanSpark(ctx, values, x, y, w, h, color, tk) {
+	ctx.fillStyle = tk.muted;
+	ctx.globalAlpha = 0.35;
+	for (let gx = x; gx <= x + w; gx += 4) { ctx.beginPath(); ctx.arc(gx, y + h + 0.5, 0.5, 0, Math.PI * 2); ctx.fill(); }   // --grid: round-capped dots
+	ctx.globalAlpha = 1;
+	if (values.length < 2) return;
+	const lo = Math.min(...values), hi = Math.max(...values), range = Math.max(hi - lo, 12);
+	const mid = (lo + hi) / 2;
+	const px = (i) => x + (i / (MIZAN_POINTS - 1)) * w + (MIZAN_POINTS - values.length) * (w / (MIZAN_POINTS - 1));
+	const py = (v) => y + h / 2 - ((v - mid) / range) * h * 0.9;
+	ctx.beginPath();
+	values.forEach((v, i) => (i ? ctx.lineTo(px(i), py(v)) : ctx.moveTo(px(i), py(v))));
+	const lastX = px(values.length - 1), lastY = py(values[values.length - 1]);
+	ctx.save();
+	ctx.lineTo(lastX, y + h); ctx.lineTo(px(0), y + h); ctx.closePath();
+	const area = ctx.createLinearGradient(0, y, 0, y + h);   // fill-opacity 0.3 under a white mask fading 0.9 to 0.05
+	area.addColorStop(0, rgba(color, 0.27));
+	area.addColorStop(1, rgba(color, 0.015));
+	ctx.fillStyle = area;
+	ctx.fill();
+	ctx.restore();
+	ctx.beginPath();
+	values.forEach((v, i) => (i ? ctx.lineTo(px(i), py(v)) : ctx.moveTo(px(i), py(v))));
+	ctx.strokeStyle = color;
+	ctx.lineWidth = 1.6;
+	ctx.lineJoin = 'round';
+	ctx.lineCap = 'round';
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.arc(lastX, lastY, 2.2, 0, Math.PI * 2);
+	ctx.fillStyle = color;
+	ctx.fill();
+}
+
+function drawMizan(plugin, ctx, item, now, k, dt) {
+	const since = now - item.lastAt, fade = (since - MIZAN_HOLD_MS) / MIZAN_FADE_MS;
+	const glide = item.glide ? (now - item.glide.t0) / MIZAN_GLIDE_MS : 1;
+	if (glide >= 1) item.glide = null;
+	if (fade >= 1 && !item.glide) { item.done = true; return; }
+	const rect = plugin.last;
+	if (!rect) return;
+	const dark = plugin.dark, tk = dark ? MIZAN_TOKENS.dark : MIZAN_TOKENS.light, top = plugin.col(), bottom = plugin.acc();
+	const power = Math.min(k, 1.5);
+	ctx.save();
+
+	if (item.glide) {   // the pill gliding from where the caret was, raised: the selection gradient, a sheen on top
+		const s = mizanSpring(glide), from = item.glide.from;
+		const w = Math.max(rect.w, 2.5), h = lerp(from.h, rect.h, s);
+		const x = lerp(from.x + from.w / 2, rect.x + rect.w / 2, s) - w / 2, y = lerp(from.y, rect.y, s);
+		ctx.globalAlpha = Math.min(1, power * (glide < 0.7 ? 1 : 1 - (glide - 0.7) / 0.3));
+		ctx.strokeStyle = rgba(top, dark ? 0.3 : 0.24);   // and the field's ring round it (--ring)
+		ctx.lineWidth = 4;
+		mizanPath(ctx, x - 3, y - 2, w + 6, h + 4, w / 2 + 3);
+		ctx.stroke();
+		const g = ctx.createLinearGradient(0, y, 0, y + h);
+		g.addColorStop(0, top);
+		g.addColorStop(1, bottom);
+		ctx.fillStyle = g;
+		mizanPath(ctx, x, y, w, h, w / 2);
+		ctx.fill();
+		ctx.fillStyle = 'rgba(255,255,255,0.28)';   // --sheen-accent
+		ctx.fillRect(x + w * 0.25, y + 1, w * 0.5, 1);
+		ctx.globalAlpha = 1;
+	}
+
+	if (fade < 1 && item.pace.length) {   // the Stat
+		const show = mizanEase((now - item.openAt) / MIZAN_IN_MS) * (1 - easeInOutSine(clamp01(fade)));
+		const wpm = Math.round(item.pace[item.pace.length - 1]);
+		const change = item.base ? (wpm - item.base) / item.base : 0;
+		const tone = Math.abs(change) < 0.03 ? null : change > 0 ? 'good' : 'bad';
+		const badge = item.base == null ? '' : tone ? `${change > 0 ? '▲' : '▼'} ${Math.round(Math.abs(change) * 100)}%` : '■ 0%';
+		ctx.font = `600 12px ${MIZAN_FONT}`;
+		const numW = ctx.measureText(String(wpm)).width;
+		ctx.font = `500 11px ${MIZAN_FONT}`;
+		const unitW = ctx.measureText('wpm').width;
+		ctx.font = `600 10.5px ${MIZAN_FONT}`;
+		const badgeW = badge ? ctx.measureText(badge).width + 12 : 0;
+		const H = 26, sparkW = 46, pad = 9, gap = 7;
+		const W = pad + sparkW + gap + numW + 3 + unitW + (badge ? gap + badgeW + 5 : pad);
+		// over the caret, a little to its left; under it when there is no room above; inside the editor
+		const clip = plugin.clipRect ? plugin.clipRect() : null;
+		let tx = rect.x - W * 0.35, ty = rect.y - H - 8;
+		if (clip) {
+			if (ty < clip.y + 4) ty = rect.y + rect.h + 8;
+			tx = clamp(tx, clip.x + 6, clip.x + clip.w - W - 6);
+		}
+		if (item.x === null || now - item.openAt < 20) { item.x = tx; item.y = ty; }   // a new run starts where it is wanted
+		const follow = 1 - Math.pow(1 - 0.22, (dt || 16) / 16);   // Mizan's ease, a frame at a time
+		item.x += (tx - item.x) * follow;
+		item.y += (ty - item.y) * follow;
+		const x = Math.round(item.x), y = Math.round(item.y + (1 - show) * 4);   // it rises 4px as it opens, like a tooltip
+		ctx.globalAlpha = show * Math.min(1, power);
+
+		ctx.save();   // the glass and its elevation
+		ctx.shadowColor = tk.shadow;
+		ctx.shadowBlur = 18;
+		ctx.shadowOffsetY = 6;
+		ctx.fillStyle = tk.pop;
+		mizanPath(ctx, x, y, W, H, H / 2);
+		ctx.fill();
+		ctx.restore();
+		ctx.lineWidth = 1;   // the edge, brighter on top (the light comes from above)
+		const edge = ctx.createLinearGradient(0, y, 0, y + H);
+		edge.addColorStop(0, tk.edgeTop);
+		edge.addColorStop(1, tk.edgeBottom);
+		ctx.strokeStyle = edge;
+		mizanPath(ctx, x + 0.5, y + 0.5, W - 1, H - 1, H / 2);
+		ctx.stroke();
+
+		// the border beam: a lit stretch of the edge running round it, faster with the pace
+		item.beam = (item.beam + ((dt || 16) / MIZAN_BEAM_MS) * (1 + Math.min(3, wpm / 40))) % 1;
+		if (ctx.createConicGradient) {
+			const beam = ctx.createConicGradient(item.beam * Math.PI * 2, x + W / 2, y + H / 2);
+			const head = dark ? lighten(top, 0.55) : top;
+			beam.addColorStop(0, rgba(top, 0));
+			beam.addColorStop(0.06, rgba(top, 0.45));
+			beam.addColorStop(0.1, rgba(head, 0.95));
+			beam.addColorStop(0.14, rgba(top, 0.45));
+			beam.addColorStop(0.2, rgba(top, 0));
+			beam.addColorStop(1, rgba(top, 0));
+			ctx.strokeStyle = beam;
+			ctx.lineWidth = 1.2;
+			mizanPath(ctx, x + 0.5, y + 0.5, W - 1, H - 1, H / 2);
+			ctx.stroke();
+		}
+
+		let cx = x + pad;
+		mizanSpark(ctx, item.pace, cx, y + 7, sparkW, H - 15, top, tk);
+		cx += sparkW + gap;
+		ctx.textBaseline = 'middle';
+		ctx.font = `600 12px ${MIZAN_FONT}`;
+		ctx.fillStyle = tk.text;
+		ctx.fillText(String(wpm), cx, y + H / 2 + 0.5);
+		cx += numW + 3;
+		ctx.font = `500 11px ${MIZAN_FONT}`;
+		ctx.fillStyle = tk.muted;
+		ctx.fillText('wpm', cx, y + H / 2 + 0.5);
+		cx += unitW + gap;
+		if (!badge) { ctx.restore(); return; }
+		const toneColor = tone ? tk[tone] : tk.muted;   // Badge: its color at 10-12% under it, a pill
+		ctx.fillStyle = rgba(toneColor, dark ? 0.16 : 0.12);
+		mizanPath(ctx, cx, y + 5, badgeW, H - 10, (H - 10) / 2);
+		ctx.fill();
+		ctx.font = `600 10.5px ${MIZAN_FONT}`;
+		ctx.fillStyle = toneColor;
+		ctx.fillText(badge, cx + 6, y + H / 2 + 0.5);
+	}
+	ctx.restore();
+}
+
+EFFECTS.mizan = {
+	id: 'mizan', label: 'Mizan', mode: 'signature', keepsState: true, blend: 'source-over',
+	preset: { name: 'Mizan', color: '#2d8afc', accent: '#0371e0' },
+	defaults: {},
+	onMove(plugin, prev, cur, info) {
+		const item = mizanOf(plugin), now = info.now;
+		if (prev && isWriting(info)) { mizanKey(item, now); return; }
+		if (info.typed) { item.lastAt = now; return; }   // Backspace, Enter: still writing, the Stat stays up
+		if (prev && info.dist > cur.h * 0.5) item.glide = { from: { x: prev.x, y: prev.y, w: prev.w, h: prev.h }, t0: now };
+	},
+	onShift(plugin, dx, dy) {   // the page scrolled: the glide goes with where it began, the Stat with the caret
+		const item = plugin.items.find((it) => it.effect === 'mizan' && !it.done);
+		if (!item) return;
+		if (item.glide) { item.glide.from.x += dx; item.glide.from.y += dy; }
+		if (item.x !== null) { item.x += dx; item.y += dy; }
+	},
+	onSample(plugin, cur) {   // the caret gone (another page): nothing may stay drawn where it was
+		if (cur) return;
+		const item = plugin.items.find((it) => it.effect === 'mizan' && !it.done);
+		if (item) { item.pace = []; item.glide = null; item.lastAt = -1e9; item.done = true; }
+	},
+	// The caret itself is a matte raised control in the selection gradient, as button.css draws .btn.solid: lit from
+	// above, a sheen along its top, a contact shadow in its own color under it, and no glow. Thymer's caret is a
+	// left border; its width goes to nothing and the caret's own box takes the fill.
+	caretCss(plugin) {
+		const top = plugin.col(), bottom = plugin.acc();
+		const look = `width: 3px !important; border-radius: 1.5px !important; background: linear-gradient(180deg, ${top}, ${bottom}) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 1px 2px ${rgba(bottom, 0.45)} !important;`;
+		return `div.listview-caret-self { --ed-caret-self-border-width: 0px; ${look} }
+div.cfx-pcaret { border-left-width: 0 !important; ${look} }`;
+	},
+	draw(plugin, ctx, item, p, k, now, dt) { drawMizan(plugin, ctx, item, now, k, dt); },
+	preview(plugin, pv, caret, now) {
+		if (now < (pv.mizanNext || 0)) return;
+		pv.mizanNext = now + 120 + Math.random() * 120;
+		mizanKey(mizanOf(pv), now);
+	},
+};
+
 // ---- Effect: Slime (jelly rectangle caret) -------------------------------------------------------------------------
 // The caret is always a rectangle - the box of the letter it stands on - made of jelly: its base stays put and its body
 // is a little chain of springs, so the top lags behind and rocks like a bone in a rig. Standing still it sways gently
@@ -3908,7 +4173,8 @@ class Plugin extends AppPlugin {
 		this.caretStyle.textContent = block
 			? `div.listview-caret-self, div.cfx-pcaret { opacity: 0 !important; animation: none !important; transition: none !important; }
 .app-chrome-panels .panel .listitem, .app-chrome-panels .panel .listitem [contenteditable="true"] { caret-color: transparent !important; }`
-			: `body, div.listview-caret-self, div.cfx-pcaret { --ed-caret-self-fg: ${col} !important; }`;
+			: `body, div.listview-caret-self, div.cfx-pcaret { --ed-caret-self-fg: ${col} !important; }
+${EFFECTS[this.cfg.fx]?.caretCss?.(this) || ''}`;   // a special preset may draw the line caret its own way
 		if (block) {
 			if (!this.block) { this.block = document.createElement('div'); this.block.className = 'cfx-block'; this.block.style.display = 'none'; document.body.appendChild(this.block); }
 			this.block.style.background = rgba(col, 0.42);

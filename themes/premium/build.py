@@ -7,11 +7,16 @@ label is the id without its first word ("thymer-premium" -> "Premium") and
 built-in themes' rules, so this script copies every rule of Dark Sans and
 Light Sans into the new ids, turns their neutral greys into the Pano design
 system's greys and their teal into its blue, and puts the Pano tokens and
-material (raised controls, frosted popovers, gradient-edged panels) on top.
+material (gradient-edged panels, scrollbars) on top. Thymer's controls are
+then drawn as Mizan, Pano's component library (pano-ui), draws them: its
+tokens are read from its checkout as --mz-* variables, and components.css
+gives Thymer's buttons, fields, menus, tooltips, sidebar and dialogs Mizan's
+look.
 
     python3 themes/premium/build.py [app.css]
 
 Without an argument it reads app.css from the Thymer desktop app's cache.
+Mizan's checkout is ~/nijen/pano-ui, or the path in $MIZAN.
 """
 import glob
 import json
@@ -185,6 +190,50 @@ def build(rules, theme, base, tokens):
     return css
 
 
+# ---- Mizan (pano-ui) -------------------------------------------------------
+
+# Mizan's checkout; components.css draws Thymer's controls with its tokens
+MIZAN = os.path.expanduser(os.environ.get('MIZAN', '~/nijen/pano-ui'))
+SCOPE = ':is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"])'
+# Mizan's names (--bg, --text, --accent, --shadow…) would meet Thymer's own
+PREFIXED = re.compile(r'--(?!mz-)([a-zA-Z][\w-]*)')
+
+
+def mizan_tokens():
+    """Mizan's tokens, as --mz-* variables of both Premium themes.
+
+    From tokens.css: the colours and measures (:root), the md density step and
+    the default material (data-skin mizan, where --control and the card edge's
+    gradient are worked out). From base.css: its own :root variables (the
+    selection gradient, easing curves) and the hover brightness, which is not a
+    colour and so is given per theme instead of with light-dark().
+    """
+    def read(name):
+        return re.sub(r'/\*.*?\*/', '', open(os.path.join(MIZAN, 'src/styles', name)).read(), flags=re.S)
+
+    def blocks(text, selector):
+        return [m.group(1) for m in re.finditer(re.escape(selector) + r'\s*\{([^{}]*)\}', text)]
+
+    tokens, base = read('tokens.css'), read('base.css')
+    found = blocks(tokens, ':root')[:1] + blocks(tokens, "[data-size='md']") + blocks(tokens, "[data-skin='mizan']")
+    found += blocks(base, ':root')
+    if len(found) < 4:
+        sys.exit('Mizan tokens not found under %s; set MIZAN to its checkout' % MIZAN)
+    shared = {}
+    for body in found:
+        shared.update(decls(PREFIXED.sub(r'--mz-\1', body)))
+    for skip in ('color-scheme', 'interpolate-size'):
+        shared.pop(skip, None)
+    per_theme = {theme: decls(PREFIXED.sub(r'--mz-\1', blocks(base, "[data-theme='%s']" % scheme)[0]))
+                 for theme, scheme in (('thymer-premium', 'dark'), ('thymer-premium-light', 'light'))}
+    css = '/* --- Mizan tokens (pano-ui src/styles/tokens.css and base.css), as --mz-* --- */\n'
+    css += SCOPE + '{\n' + ''.join('  %s: %s;\n' % kv for kv in shared.items() if kv[0].startswith('--')) + '}\n'
+    for theme, values in per_theme.items():
+        values.pop('color-scheme', None)
+        css += 'html[data-theme="%s"]{%s}\n' % (theme, ' '.join('%s: %s;' % kv for kv in values.items()))
+    return css
+
+
 def main():
     rules, _ = parse(re.sub(r'/\*.*?\*/', '', read_app_css(), flags=re.S))
     tokens = json.load(open(os.path.join(HERE, 'tokens.json')))
@@ -192,6 +241,8 @@ def main():
     for theme, base in BASES.items():
         css += '\n' + build(rules, theme, base, tokens[theme])
     css += '\n' + open(os.path.join(HERE, 'material.css')).read()
+    css += '\n' + mizan_tokens()
+    css += '\n' + open(os.path.join(HERE, 'components.css')).read()
     css += '/* ===== Premium theme end ===== */\n'
     open(os.path.join(HERE, 'premium.css'), 'w').write(css)
     print('premium.css: %d bytes' % len(css))

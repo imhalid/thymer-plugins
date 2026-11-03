@@ -1,4 +1,5 @@
-/* --- Material: what Pano draws beyond its colours, for both themes --- */
+/* --- Material: the page's layout in Pano's language (panels as edged cards, the
+   sidebar toggle, scrollbars); the controls are in components.css --- */
 
 :is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) {
   --pm-ease: cubic-bezier(.2, .8, .2, 1);
@@ -53,20 +54,6 @@ html:not([data-device=mobile]):is([data-theme="thymer-premium"], [data-theme="th
   color: var(--color-text-100);
 }
 
-/* The page open in the sidebar: a stronger fill than hover, edged like
-   Pano's sunken separator (a half-pixel dark line above, a lit line under
-   it), white (black) text in a heavier weight and a blue icon. */
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) {
-  --sidebar-focused-shadow: 0 -0.5px 0 var(--pm-sep-dark), 0 1px 0 var(--pm-sep-light);
-  --sidebar-active-focused-shadow: var(--sidebar-focused-shadow);
-}
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .sidebar .sidebar-item.is-focused {
-  font-weight: 600;
-}
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .sidebar .sidebar-item.is-focused .sidebar-item-icon {
-  color: var(--pm-accent);
-}
-
 /* Scrollbars: a slim plain pill instead of Thymer's hatched thumb. */
 html[data-theme="thymer-premium"] {
   --pm-thumb: #ffffff26;
@@ -92,72 +79,7 @@ html[data-theme="thymer-premium-light"] {
   background-color: transparent;
 }
 
-/* Raised: buttons are a pill with a top-lit gradient, a hairline and a
-   contact shadow. Primary is not a blue fill; it is the same control,
-   in a heavier weight. */
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.button, .button-normal, .button-primary):not(.button-minimal):not(.button-none):not(.button-link) {
-  background: linear-gradient(180deg, var(--pm-control-top), var(--pm-control-bottom));
-  border-color: var(--pm-control-border);
-  box-shadow: var(--pm-control-shadow);
-  color: var(--pm-text);
-  transition: filter .2s var(--pm-ease), transform .15s var(--pm-ease), box-shadow .2s var(--pm-ease);
-}
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .button-primary:not(.button-minimal) {
-  font-weight: 600;
-}
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.button, .button-normal, .button-primary):not(.button-minimal):not(.button-none):not(.button-link):hover {
-  background: linear-gradient(180deg, var(--pm-control-top), var(--pm-control-bottom));
-  filter: brightness(var(--pm-control-hover));
-}
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.button, .button-normal, .button-primary):not(.button-minimal):not(.button-none):not(.button-link):active {
-  transform: scale(.97);
-}
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.button, .button-normal, .button-primary):focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--pm-bg), 0 0 0 5px var(--focus-outline-color);
-}
-
-/* Inset: inputs are a flat fill; focused, they take the surface, the blue
-   edge and the soft ring. */
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(input.form-input, textarea.form-input) {
-  border-radius: 12px;
-  transition: background-color .2s var(--pm-ease), border-color .2s var(--pm-ease), box-shadow .2s var(--pm-ease);
-}
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(input.form-input, textarea.form-input):focus {
-  background: var(--pm-surface);
-  border-color: var(--pm-accent-500);
-  box-shadow: var(--pm-ring);
-}
-
-/* Glass: everything that floats is frosted. */
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.cmdpal--dialog, .cmdpal--inline, .inline-view-editor-popover, .modal-dialog.modal-popout, .toaster, .page-details-popover) {
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  backdrop-filter: saturate(180%) blur(24px);
-  box-shadow: var(--pm-shadow-pop);
-}
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .tooltip-element {
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
-  border-radius: 12px;
-  box-shadow: var(--pm-shadow);
-}
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .modal-background {
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-}
-
-/* Selected options in lists are the blue gradient, with white text. */
-:is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) .autocomplete--option-selected {
-  border-radius: 8px;
-}
-
 /* Numbers line up in tables and do not jump while they change. */
 :is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.table-view, .statusbar) {
   font-variant-numeric: tabular-nums;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :is(html[data-theme="thymer-premium"], html[data-theme="thymer-premium-light"]) :is(.button, .button-normal, .button-primary, input.form-input, textarea.form-input) {
-    transition: none;
-  }
 }

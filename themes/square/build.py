@@ -27,6 +27,47 @@ THEME = 'thymer-dark-square'
 NAME = 'Square'  # the block's name in the custom CSS (push.py's markers)
 
 
+# Plugins' circles that turn read as a spinning square here, so they get a square motion instead.
+# BetterTask's started ring becomes a stroke that runs along the square's edge: an SVG rect whose dash pattern
+# moves (stroke-dashoffset, SMIL), with pathLength 100 so it runs at one speed along the whole perimeter. A long
+# dim dash and a short bright one end at the same point: a head with a fading tail.
+STROKE_SVG = (
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'>"
+    "<g fill='none' stroke='#67e8f9' stroke-width='1.6' stroke-linecap='square'>"
+    "<rect x='.8' y='.8' width='22.4' height='22.4' pathLength='100' stroke-opacity='.18' stroke-dasharray='0 0 40 60'>"
+    "<animate attributeName='stroke-dashoffset' from='0' to='-100' dur='1.8s' repeatCount='indefinite'/></rect>"
+    "<rect x='.8' y='.8' width='22.4' height='22.4' pathLength='100' stroke-opacity='.45' stroke-dasharray='0 16 24 60'>"
+    "<animate attributeName='stroke-dashoffset' from='0' to='-100' dur='1.8s' repeatCount='indefinite'/></rect>"
+    "<rect x='.8' y='.8' width='22.4' height='22.4' pathLength='100' stroke-dasharray='0 30 10 60'>"
+    "<animate attributeName='stroke-dashoffset' from='0' to='-100' dur='1.8s' repeatCount='indefinite'/></rect>"
+    "</g></svg>"
+)
+
+
+def data_uri(svg):
+    return "url(\"data:image/svg+xml,%s\")" % svg.replace('#', '%23').replace('<', '%3C').replace('>', '%3E')
+
+
+EXTRA = """
+/* BetterTask's started status: its ring turned (a turning square shows its corners going round); here the
+   square stays still and a stroke runs along its edge, a bright head with a fading tail (an SVG dash).
+   :root lifts it above BetterTask's own rule, which has the same weight and loads after the custom CSS. */
+ROOT:root body.bt-on.bt-anim .listitem-task.state-started > .line-check-div::after {
+	transform: none;
+	border: 0;
+	background: STROKE center / 100% 100% no-repeat;
+	filter: drop-shadow(0 0 2px rgba(103, 232, 249, 0.7));
+	animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	ROOT:root body.bt-on.bt-anim .listitem-task.state-started > .line-check-div::after {
+		background: none;
+		filter: none;
+	}
+}
+""".replace('STROKE', data_uri(STROKE_SVG))
+
+
 def main():
     app = pb.read_app_css()
     rules, _ = pb.parse(app)
@@ -66,6 +107,7 @@ def main():
             '%(r)s ::-webkit-scrollbar,%(r)s ::-webkit-scrollbar-thumb,%(r)s ::-webkit-scrollbar-track,'
             '%(r)s ::-webkit-scrollbar-corner,%(r)s ::-webkit-resizer'
             '{border-radius:0!important}\n' % {'r': root})
+    css += EXTRA.replace('ROOT', root)
     css += '/* ===== %s theme end ===== */\n' % NAME
     out = os.path.join(HERE, NAME.lower() + '.css')
     open(out, 'w').write(css)

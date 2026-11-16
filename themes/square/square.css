@@ -836,4 +836,21 @@ html[data-theme="thymer-dark-square"] .cmdpal--inline.dropdown .autocomplete--op
 
 /* Every corner square: the ones Thymer and plugins write as plain values or inline styles too */
 html[data-theme="thymer-dark-square"],html[data-theme="thymer-dark-square"] *,html[data-theme="thymer-dark-square"] *::before,html[data-theme="thymer-dark-square"] *::after,html[data-theme="thymer-dark-square"] ::-webkit-scrollbar,html[data-theme="thymer-dark-square"] ::-webkit-scrollbar-thumb,html[data-theme="thymer-dark-square"] ::-webkit-scrollbar-track,html[data-theme="thymer-dark-square"] ::-webkit-scrollbar-corner,html[data-theme="thymer-dark-square"] ::-webkit-resizer{border-radius:0!important}
+
+/* BetterTask's started status: its ring turned (a turning square shows its corners going round); here the
+   square stays still and a stroke runs along its edge, a bright head with a fading tail (an SVG dash).
+   :root lifts it above BetterTask's own rule, which has the same weight and loads after the custom CSS. */
+html[data-theme="thymer-dark-square"]:root body.bt-on.bt-anim .listitem-task.state-started > .line-check-div::after {
+	transform: none;
+	border: 0;
+	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%2367e8f9' stroke-width='1.6' stroke-linecap='square'%3E%3Crect x='.8' y='.8' width='22.4' height='22.4' pathLength='100' stroke-opacity='.18' stroke-dasharray='0 0 40 60'%3E%3Canimate attributeName='stroke-dashoffset' from='0' to='-100' dur='1.8s' repeatCount='indefinite'/%3E%3C/rect%3E%3Crect x='.8' y='.8' width='22.4' height='22.4' pathLength='100' stroke-opacity='.45' stroke-dasharray='0 16 24 60'%3E%3Canimate attributeName='stroke-dashoffset' from='0' to='-100' dur='1.8s' repeatCount='indefinite'/%3E%3C/rect%3E%3Crect x='.8' y='.8' width='22.4' height='22.4' pathLength='100' stroke-dasharray='0 30 10 60'%3E%3Canimate attributeName='stroke-dashoffset' from='0' to='-100' dur='1.8s' repeatCount='indefinite'/%3E%3C/rect%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
+	filter: drop-shadow(0 0 2px rgba(103, 232, 249, 0.7));
+	animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	html[data-theme="thymer-dark-square"]:root body.bt-on.bt-anim .listitem-task.state-started > .line-check-div::after {
+		background: none;
+		filter: none;
+	}
+}
 /* ===== Square theme end ===== */

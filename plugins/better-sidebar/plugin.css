@@ -1,0 +1,121 @@
+/* BetterSidebar - tinted icon chips, a glowing line on the open page, softer hover, quieter headings.
+   The chip is the 16px icon box with 3px of padding and -3px of margin: a real 22px square, so its corners and
+   the row's stay concentric, and the row's height does not change. The collapsed sidebar is left to Thymer. */
+
+body.bsb-on {
+	--bsb-accent: var(--color-primary-500, #60a5fa);
+	--bsb-hover: rgba(255, 255, 255, 0.045);
+	--bsb-focus: rgba(255, 255, 255, 0.06);
+	--bsb-line: rgba(255, 255, 255, 0.06);
+	--bsb-chip: 13%;
+	--bsb-chip-focus: 20%;
+	--bsb-row-radius: 9px;
+}
+body.bsb-on.bsb-light {
+	--bsb-hover: rgba(0, 0, 0, 0.04);
+	--bsb-focus: rgba(0, 0, 0, 0.05);
+	--bsb-line: rgba(0, 0, 0, 0.07);
+	--bsb-chip: 12%;
+	--bsb-chip-focus: 18%;
+}
+
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item {
+	position: relative;
+	gap: 9px;
+	border-radius: var(--bsb-row-radius);
+	transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* ---- Icon chips -------------------------------------------------------------------------- */
+
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item-icon {
+	box-sizing: content-box;
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	padding: 3px;
+	margin: -3px 0;
+	border-radius: 6px; /* the row's 9px less its 3px inset: concentric */
+	background: color-mix(in srgb, currentColor var(--bsb-chip), transparent);
+	transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item-icon > .ti {
+	display: block;
+	font-size: 16px;
+	line-height: 16px;
+}
+/* The fixed items get their own hues (colored items keep the color set in Thymer). */
+body.bsb-on .sidebar :is([data-guid="id-search-collapsed"], [data-guid="id-jump"]) .sidebar-item-icon { color: #a78bfa; }
+body.bsb-on .sidebar [data-guid="id-quick-add"] .sidebar-item-icon { color: #34d399; }
+body.bsb-on .sidebar [data-guid="id-tasks"] .sidebar-item-icon { color: #fbbf24; }
+body.bsb-on.bsb-light .sidebar :is([data-guid="id-search-collapsed"], [data-guid="id-jump"]) .sidebar-item-icon { color: #7c3aed; }
+body.bsb-on.bsb-light .sidebar [data-guid="id-quick-add"] .sidebar-item-icon { color: #059669; }
+body.bsb-on.bsb-light .sidebar [data-guid="id-tasks"] .sidebar-item-icon { color: #d97706; }
+
+/* ---- Hover and the open page --------------------------------------------------------------- */
+
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item-hoverable:hover:not(.is-focused) {
+	background: var(--bsb-hover);
+	box-shadow: none;
+}
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item.is-focused,
+body.bsb-on .sidebar.has-focus:not(.sidebar-collapsed) .sidebar-item.is-focused {
+	background:
+		linear-gradient(90deg, color-mix(in srgb, var(--bsb-accent) 14%, transparent), transparent 85%),
+		var(--bsb-focus);
+	box-shadow: none;
+}
+/* The open page's line, outside the row on the left */
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item.is-focused::before {
+	content: "";
+	position: absolute;
+	left: -7px;
+	top: 50%;
+	width: 3px;
+	height: 16px;
+	margin-top: -8px;
+	border-radius: 3px;
+	background: var(--bsb-accent);
+	box-shadow: 0 0 8px var(--bsb-accent), 0 0 16px color-mix(in srgb, var(--bsb-accent) 50%, transparent);
+	pointer-events: none;
+}
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item.is-focused .sidebar-item-icon {
+	background: color-mix(in srgb, color-mix(in srgb, currentColor 50%, var(--bsb-accent)) var(--bsb-chip-focus), transparent);
+	box-shadow: 0 0 12px -2px color-mix(in srgb, var(--bsb-accent) 45%, transparent);
+}
+
+/* ---- Section headings and dividers ----------------------------------------------------------- */
+
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item-heading {
+	font-size: var(--text-size-xsmall);
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	opacity: 0.75;
+}
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item-heading:hover {
+	opacity: 1;
+}
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item-heading .sidebar-item-icon {
+	padding: 0;
+	margin: 0;
+	background: none;
+	box-shadow: none;
+}
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item-toggler {
+	opacity: 0.55;
+	transition: opacity 0.15s ease;
+}
+body.bsb-on .sidebar:not(.sidebar-collapsed) .sidebar-item:hover .sidebar-item-toggler {
+	opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	body.bsb-on .sidebar .sidebar-item,
+	body.bsb-on .sidebar .sidebar-item-icon {
+		transition: none;
+	}
+}

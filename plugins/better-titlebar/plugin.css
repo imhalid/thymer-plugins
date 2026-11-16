@@ -1,0 +1,84 @@
+/* BetterTitlebar - the page's word count and reading time at the right of the title bar (before the icons), and
+   softer rounded-square icon buttons with a tinted hover. The bar's own height, scroll-driven background and
+   title are left to Thymer. */
+
+body.btb-on {
+	--btb-accent: var(--color-primary-500, #60a5fa);
+	--btb-chip: rgba(255, 255, 255, 0.04);
+	--btb-line: rgba(255, 255, 255, 0.07);
+	--btb-muted: #7c7c86;
+}
+body.btb-on.btb-light {
+	--btb-chip: rgba(0, 0, 0, 0.035);
+	--btb-line: rgba(0, 0, 0, 0.08);
+	--btb-muted: #8a8a93;
+}
+
+/* ---- Word count and reading time ------------------------------------------------------------ */
+
+body.btb-on .panel-bar--tabsbar[data-btb-stats]::after {
+	content: attr(data-btb-stats);
+	order: 2;
+	flex: none;
+	align-self: center;
+	margin-left: 8px;
+	padding: 1px 9px;
+	border-radius: 999px;
+	background: var(--btb-chip);
+	box-shadow: inset 0 0 0 1px var(--btb-line);
+	color: var(--btb-muted);
+	font-size: var(--text-size-xsmall, 11px);
+	font-variant-numeric: tabular-nums;
+	line-height: 18px;
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.2s ease, color 0.2s ease;
+}
+/* Shown on the panel you are in, or the one under the mouse */
+body.btb-on .panel:hover .panel-bar--tabsbar[data-btb-stats]::after,
+body.btb-on .panel-bar.has-focus .panel-bar--tabsbar[data-btb-stats]::after {
+	opacity: 1;
+}
+body.btb-on .panel:hover .panel-bar--tabsbar[data-btb-stats]:hover::after {
+	color: var(--text-default);
+}
+/* Not in focus mode, where Thymer fades the bar out */
+body.btb-on.focusmode .panel-bar--tabsbar[data-btb-stats]::after {
+	display: none;
+}
+html[data-device=mobile] body.btb-on .panel-bar--tabsbar[data-btb-stats]::after {
+	display: none;
+}
+
+/* ---- Icon buttons ------------------------------------------------------------------------- */
+
+body.btb-on .panel-bar .panel-icon-button,
+body.btb-on .panel-bar .panel-bar--crumbnav-icon {
+	border-radius: 8px;
+	transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.2s ease;
+}
+body.btb-on .panel-bar .panel-icon-button:hover,
+body.btb-on .panel-bar .panel-bar--crumbnav-icon:hover {
+	background: color-mix(in srgb, var(--btb-accent) 12%, transparent);
+	color: var(--text-default);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--btb-accent) 26%, transparent);
+}
+body.btb-on .panel-bar .panel-close-icon:hover {
+	background: color-mix(in srgb, #f43f5e 14%, transparent);
+	color: #fb7185;
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, #f43f5e 30%, transparent);
+}
+body.btb-on .panel-bar .panel-tab--more-options {
+	border-radius: 8px;
+}
+
+/* The breadcrumb Thymer shows when zoomed into a line: crumbs as soft chips */
+body.btb-on .panel-tab--crumb-path .crumb-path-crumb:not(.crumb-path-crumb-chevron) {
+	padding: 0 6px;
+	border-radius: 6px;
+	transition: background-color 0.15s ease;
+}
+body.btb-on .panel-tab--crumb-path .crumb-path-crumb:not(.crumb-path-crumb-chevron):hover {
+	background: var(--btb-chip);
+}

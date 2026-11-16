@@ -120,6 +120,137 @@ const NAME_TO_KEY = {
 	done: 'done', canceled: 'canceled',
 };
 
+/**
+ * Custom statuses live in the task's own text as a hashtag (e.g. `#bug`), on top of one of Thymer's
+ * ten built-in statuses (`base`, an SDK status name). Thymer therefore still knows about them: the tag
+ * is searchable and filterable, it syncs, and people without the plugin still see it. BetterTask only
+ * reads the tag to draw the checkbox, and the picker writes tag + base status together.
+ */
+const TAG_SPECS = [
+	{
+		key: 'kawaii', tag: 'kawaii', base: 'starred', pick: '1', name: 'Kawaii',
+		fxLabel: 'Blushing bounce + hearts & pastel stars',
+		colors: ['#f9a8d4', '#f472b6', '#c4b5fd'],
+		sampleText: 'Send a cute thank-you note to the team',
+	},
+	{
+		key: 'bug', tag: 'bug', base: 'important', pick: '2', name: 'Bug',
+		fxLabel: 'Antenna wiggle + scattering beetles',
+		colors: ['#a3e635', '#65a30d', '#d9f99d'],
+		sampleText: 'Login button freezes after a failed attempt',
+	},
+	{
+		key: 'draft', tag: 'draft', base: 'started', pick: '3', name: 'Draft',
+		fxLabel: 'Pencil scribble + falling ink drops',
+		colors: ['#93c5fd', '#3b82f6', '#dbeafe'],
+		sampleText: 'Write the first pass of the release notes',
+	},
+	{
+		key: 'deadline', tag: 'deadline', base: 'alert', pick: '4', name: 'Deadline',
+		fxLabel: 'Hourglass flip + ticking clock ring',
+		colors: ['#fb923c', '#f97316', '#fed7aa'],
+		sampleText: 'Submit the grant application by Friday',
+	},
+	{
+		key: 'flower', tag: 'flower', base: 'discuss', pick: '5', name: 'Flower',
+		fxLabel: 'Gentle sway + drifting petals',
+		colors: ['#f0abfc', '#e879f9', '#fde68a'],
+		sampleText: 'Water the plants and repot the basil',
+	},
+	{
+		key: 'sun', tag: 'sun', base: 'started', pick: '6', name: 'Sun',
+		fxLabel: 'Turning rays + warm light burst',
+		colors: ['#fde047', '#fb923c', '#fef3c7'],
+		sampleText: 'Morning walk before opening the laptop',
+	},
+	{
+		key: 'moon', tag: 'moon', base: 'waiting', pick: '7', name: 'Moon',
+		fxLabel: 'Crescent rock + twinkling night stars',
+		colors: ['#c7d2fe', '#a5b4fc', '#e0e7ff'],
+		sampleText: 'Read a chapter before bed',
+	},
+];
+const TAG_MAP = new Map(TAG_SPECS.map((s) => [s.key, s]));
+const DEFAULT_TAG_NAMES = Object.fromEntries(TAG_SPECS.map((s) => [s.key, s.tag]));
+const TAG_NAME_RE = /^[\p{L}\p{N}_-]{1,40}$/u;
+const URGENT_TAGS = new Set(['bug', 'deadline']);
+
+function normalizeTagNames(raw) {
+	const out = { ...DEFAULT_TAG_NAMES };
+	if (raw && typeof raw === 'object') {
+		for (const s of TAG_SPECS) {
+			const v = typeof raw[s.key] === 'string' ? raw[s.key].trim().replace(/^#/, '').toLowerCase() : '';
+			if (TAG_NAME_RE.test(v)) out[s.key] = v;
+		}
+	}
+	return out;
+}
+
+/** Map from lowercased tag text (without `#`) to custom status key. */
+function buildTagLookup(tagNames) {
+	const m = new Map();
+	for (const s of TAG_SPECS) {
+		const name = tagNames?.[s.key];
+		if (name && !m.has(name)) m.set(name, s.key);
+	}
+	return m;
+}
+
+function tagKeyFromText(text, lookup) {
+	if (typeof text !== 'string' || !lookup) return null;
+	return lookup.get(text.trim().replace(/^#/, '').toLowerCase()) || null;
+}
+
+function tagKeyFromSegments(segments, lookup) {
+	if (!Array.isArray(segments)) return null;
+	for (const seg of segments) {
+		if (seg?.type !== 'hashtag') continue;
+		const key = tagKeyFromText(seg.text, lookup);
+		if (key) return key;
+	}
+	return null;
+}
+
+/**
+ * Returns new segments with every custom-status hashtag removed and, when `newTag` is given
+ * (e.g. "#bug"), that tag appended. Spacing around a removed tag is tidied; other text is untouched.
+ */
+function rewriteTagSegments(segments, lookup, newTag) {
+	const out = [];
+	let removedBefore = false;
+	let removedAny = false;
+	for (const seg of Array.isArray(segments) ? segments : []) {
+		if (!seg || !seg.type) continue;
+		if (seg.type === 'hashtag' && tagKeyFromText(seg.text, lookup)) {
+			removedBefore = true;
+			removedAny = true;
+			continue;
+		}
+		const copy = { type: seg.type, text: seg.text };
+		if (removedBefore && copy.type === 'text' && typeof copy.text === 'string') {
+			const prev = out[out.length - 1];
+			if (!prev || (prev.type === 'text' && /\s$/.test(prev.text))) copy.text = copy.text.replace(/^\s+/, '');
+		}
+		removedBefore = false;
+		if (copy.type === 'text' && copy.text === '') continue;
+		out.push(copy);
+	}
+	if (removedAny || newTag) {
+		while (out.length) {
+			const last = out[out.length - 1];
+			if (last.type !== 'text' || typeof last.text !== 'string') break;
+			last.text = last.text.replace(/\s+$/, '');
+			if (last.text) break;
+			out.pop();
+		}
+	}
+	if (newTag) {
+		if (out.length) out.push({ type: 'text', text: ' ' });
+		out.push({ type: 'hashtag', text: newTag });
+	}
+	return out;
+}
+
 function statusFromCodeOrString(v) {
 	if (v == null) return null;
 	if (typeof v === 'number' && CODE_TO_KEY[v] !== undefined) return CODE_TO_KEY[v];
@@ -133,7 +264,15 @@ function loadUndoneMap() {
 		const raw = localStorage.getItem(BT_UNDONE_KEY);
 		if (!raw) return new Map();
 		const entries = JSON.parse(raw);
-		return Array.isArray(entries) ? new Map(entries.slice(-400)) : new Map();
+		if (!Array.isArray(entries)) return new Map();
+		// Older builds could store SDK names ('waiting', 'billable', ...): normalize on the way in.
+		const out = new Map();
+		for (const e of entries.slice(-400)) {
+			if (!Array.isArray(e) || typeof e[0] !== 'string') continue;
+			const st = statusFromCodeOrString(e[1]);
+			if (st && st !== 'open' && st !== 'done') out.set(e[0], st);
+		}
+		return out;
 	} catch (e) {
 		return new Map();
 	}
@@ -148,7 +287,31 @@ function saveUndoneMap(map) {
 	}
 }
 
-function computeSubtaskStats(items) {
+/** A Map that forgets its oldest entries past `max`, so per-guid caches stay bounded in long sessions. */
+class CappedMap extends Map {
+	constructor(max = 2000) {
+		super();
+		this.max = max;
+	}
+
+	set(key, value) {
+		if (this.has(key)) super.delete(key);
+		super.set(key, value);
+		if (this.size > this.max) super.delete(this.keys().next().value);
+		return this;
+	}
+}
+
+function prefersReducedMotion() {
+	try {
+		return Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+	} catch (e) {
+		return false;
+	}
+}
+
+/** `tagOf(item)` (optional) returns an item's custom status key; bug/deadline subtasks count as urgent. */
+function computeSubtaskStats(items, tagOf = null) {
 	const byGuid = new Map();
 	const childrenByParent = new Map();
 	const queue = Array.isArray(items) ? [...items] : [];
@@ -189,7 +352,7 @@ function computeSubtaskStats(items) {
 				if (st === 'done') acc.done += 1;
 				else if (st === 'canceled') acc.canceled += 1;
 				else if (st === 'started') acc.started += 1;
-				else if (st === 'alert' || st === 'exclaim') acc.urgent += 1;
+				else if (st === 'alert' || st === 'exclaim' || URGENT_TAGS.has(tagOf?.(c))) acc.urgent += 1;
 			}
 		}
 		visiting.delete(guid);
@@ -492,6 +655,18 @@ function saveChoices(patch) {
 	}
 }
 
+/** Drops local choices that the plugin configuration now holds (only those still equal to what was saved). */
+function forgetSavedChoices(saved) {
+	try {
+		const cur = loadChoices();
+		for (const [k, v] of Object.entries(saved)) if (JSON.stringify(cur[k]) === JSON.stringify(v)) delete cur[k];
+		if (Object.keys(cur).length) localStorage.setItem(BT_STORAGE_KEY, JSON.stringify(cur));
+		else localStorage.removeItem(BT_STORAGE_KEY);
+	} catch (e) {
+		/* ignore */
+	}
+}
+
 function detectDarkTheme() {
 	const root = document.documentElement;
 	if (root.classList.contains('basic-dark')) return true;
@@ -580,8 +755,12 @@ class TaskBurstSystem {
 	emit(status, x, y, size = 18, originStatus = null) {
 		if (!Number.isFinite(x) || !Number.isFinite(y)) return;
 		if (!this.canvas) this.mount();
-		const spec = STATUS_MAP.get(status) || STATUS_MAP.get('open');
-		const originSpec = originStatus && originStatus !== 'open' && originStatus !== 'done' ? STATUS_MAP.get(originStatus) : null;
+		// Moving the window to another monitor changes the DPR without a resize event.
+		else if (!this.active() && Math.min(2, window.devicePixelRatio || 1) !== this.dpr) this.resize();
+		const spec = STATUS_MAP.get(status) || TAG_MAP.get(status) || STATUS_MAP.get('open');
+		const originSpec = originStatus && originStatus !== 'open' && originStatus !== 'done'
+			? STATUS_MAP.get(originStatus) || TAG_MAP.get(originStatus) || null
+			: null;
 		const cols = originSpec && status === 'done'
 			? [originSpec.colors[0], originSpec.colors[1] || spec.colors[0], spec.colors[0]]
 			: spec.colors;
@@ -590,17 +769,18 @@ class TaskBurstSystem {
 		const rand = Math.random;
 
 		// Primary wave ring(s)
+		const bigRing = status === 'alert' || status === 'sun' || status === 'deadline';
 		this.rings.push({
 			x, y, t0: now,
-			dur: status === 'alert' ? 520 : status === 'blocked' ? 560 : 380,
+			dur: status === 'alert' || status === 'sun' ? 520 : status === 'blocked' || status === 'deadline' || status === 'moon' ? 560 : 380,
 			r0: 5 * u,
-			r1: (status === 'alert' ? 28 : status === 'starred' ? 26 : 22) * u,
-			width: (status === 'alert' ? 2.4 : 2.0) * u,
+			r1: (bigRing ? 28 : status === 'starred' || status === 'kawaii' ? 26 : 22) * u,
+			width: (bigRing ? 2.4 : 2.0) * u,
 			col: cols[0],
-			dashed: status === 'blocked',
+			dashed: status === 'blocked' || status === 'deadline',
 		});
 
-		if (status === 'alert' || status === 'exclaim' || status === 'done') {
+		if (status === 'alert' || status === 'exclaim' || status === 'done' || status === 'sun' || status === 'kawaii') {
 			this.rings.push({
 				x, y, t0: now + 70,
 				dur: 420,
@@ -751,6 +931,124 @@ class TaskBurstSystem {
 					col: cols[i % cols.length],
 				});
 			}
+		} else if (status === 'kawaii') {
+			for (let i = 0; i < 10; i++) {
+				const a = -Math.PI / 2 + (rand() - 0.5) * 2.2;
+				const spd = (60 + rand() * 90) * u;
+				pushMote({
+					kind: i % 2 === 0 ? 'heart' : 'star',
+					vx: Math.cos(a) * spd,
+					vy: Math.sin(a) * spd - 15 * u,
+					grav: 40 * u, drag: 2.6,
+					size: (i % 2 === 0 ? 3.4 + rand() * 1.6 : 2.6 + rand() * 1.4) * u,
+					rot: (rand() - 0.5) * 0.6, vRot: (rand() - 0.5) * 3,
+					sway: rand() * Math.PI * 2,
+					life: 560 + rand() * 220,
+					col: cols[i % cols.length],
+				});
+			}
+		} else if (status === 'bug') {
+			for (let i = 0; i < 7; i++) {
+				const a = (i / 7) * Math.PI * 2 + rand() * 0.5;
+				const spd = (70 + rand() * 70) * u;
+				pushMote({
+					kind: 'beetle',
+					vx: Math.cos(a) * spd,
+					vy: Math.sin(a) * spd,
+					grav: 0, drag: 3.2,
+					size: (2.6 + rand() * 1.2) * u,
+					rot: a + Math.PI / 2, vRot: 0,
+					wiggle: rand() * Math.PI * 2,
+					life: 460 + rand() * 160,
+					col: cols[i % 2],
+				});
+			}
+		} else if (status === 'draft') {
+			for (let i = 0; i < 8; i++) {
+				const a = -Math.PI / 2 + (rand() - 0.5) * 1.6;
+				const spd = (50 + rand() * 80) * u;
+				pushMote({
+					kind: i < 5 ? 'drop' : 'spark',
+					vx: Math.cos(a) * spd,
+					vy: Math.sin(a) * spd,
+					grav: 260 * u, drag: 1.8,
+					size: (i < 5 ? 2.6 + rand() * 1.2 : 1.6) * u,
+					life: 480 + rand() * 160,
+					col: cols[i % cols.length],
+				});
+			}
+		} else if (status === 'deadline') {
+			for (let i = 0; i < 12; i++) {
+				const a = (i / 12) * Math.PI * 2;
+				pushMote({
+					kind: 'spike',
+					vx: Math.cos(a) * 55 * u,
+					vy: Math.sin(a) * 55 * u,
+					grav: 0, drag: 6,
+					size: (i % 3 === 0 ? 4.6 : 3.0) * u,
+					rot: a, vRot: 0,
+					life: 380 + (i % 3 === 0 ? 120 : 0),
+					col: cols[i % 3 === 0 ? 0 : 2],
+				});
+			}
+			for (let i = 0; i < 6; i++) {
+				pushMote({
+					kind: 'spark',
+					vx: (rand() - 0.5) * 40 * u,
+					vy: (10 + rand() * 30) * u,
+					grav: 220 * u, drag: 1.5,
+					size: (1.1 + rand() * 0.8) * u,
+					life: 520 + rand() * 160,
+					col: cols[1],
+				});
+			}
+		} else if (status === 'flower') {
+			for (let i = 0; i < 9; i++) {
+				const a = (i / 9) * Math.PI * 2 + rand() * 0.4;
+				const spd = (45 + rand() * 70) * u;
+				pushMote({
+					kind: i < 7 ? 'petal' : 'spark',
+					vx: Math.cos(a) * spd,
+					vy: Math.sin(a) * spd - 10 * u,
+					grav: 70 * u, drag: 2.4,
+					size: (i < 7 ? 3.4 + rand() * 1.4 : 1.8) * u,
+					rot: rand() * Math.PI, vRot: (rand() - 0.5) * 6,
+					sway: rand() * Math.PI * 2,
+					life: 620 + rand() * 240,
+					col: i < 7 ? cols[i % 2] : cols[2],
+				});
+			}
+		} else if (status === 'sun') {
+			for (let i = 0; i < 12; i++) {
+				const a = (i / 12) * Math.PI * 2 + rand() * 0.1;
+				const spd = (110 + rand() * 60) * u;
+				pushMote({
+					kind: i % 2 === 0 ? 'spike' : 'spark',
+					vx: Math.cos(a) * spd,
+					vy: Math.sin(a) * spd,
+					grav: 0, drag: 5.4,
+					size: (i % 2 === 0 ? 5.2 : 2.0) * u,
+					rot: a, vRot: 0,
+					life: 380 + rand() * 120,
+					col: cols[i % cols.length],
+				});
+			}
+		} else if (status === 'moon') {
+			for (let i = 0; i < 9; i++) {
+				const a = -Math.PI / 2 + (rand() - 0.5) * 2.6;
+				const spd = (30 + rand() * 55) * u;
+				pushMote({
+					kind: i % 3 === 0 ? 'star' : 'spark',
+					vx: Math.cos(a) * spd,
+					vy: Math.sin(a) * spd - 12 * u,
+					grav: -18 * u, drag: 2.2,
+					size: (i % 3 === 0 ? 3.0 + rand() * 1.4 : 1.2 + rand() * 0.8) * u,
+					rot: rand() * Math.PI, vRot: (rand() - 0.5) * 2,
+					twinkle: rand() * Math.PI * 2,
+					life: 700 + rand() * 260,
+					col: cols[i % cols.length],
+				});
+			}
 		}
 
 		this.kick();
@@ -809,8 +1107,10 @@ class TaskBurstSystem {
 			m.y += m.vy * dt;
 			if (m.vRot) m.rot = (m.rot || 0) + m.vRot * dt;
 
-			const alpha = 1 - f * f;
+			let alpha = 1 - f * f;
+			if (m.twinkle !== undefined) alpha *= 0.55 + 0.45 * Math.sin(now * 0.025 + m.twinkle);
 			const s = m.size * (m.kind === 'bubble' ? 0.65 + 0.55 * f : 1 - 0.35 * f);
+			if (m.wiggle !== undefined) m.rot = Math.atan2(m.vy, m.vx) + Math.PI / 2 + Math.sin(now * 0.05 + m.wiggle) * 0.35;
 			ctx.save();
 			ctx.translate(m.x, m.y);
 			if (m.rot) ctx.rotate(m.rot);
@@ -854,6 +1154,42 @@ class TaskBurstSystem {
 				ctx.lineCap = 'round';
 				ctx.strokeStyle = hexToRgba(m.col, alpha);
 				ctx.stroke();
+			} else if (m.kind === 'heart') {
+				ctx.beginPath();
+				ctx.moveTo(0, s * 0.8);
+				ctx.bezierCurveTo(-s * 1.25, 0, -s * 0.6, -s * 1.05, 0, -s * 0.35);
+				ctx.bezierCurveTo(s * 0.6, -s * 1.05, s * 1.25, 0, 0, s * 0.8);
+				ctx.closePath();
+				ctx.fillStyle = hexToRgba(m.col, alpha);
+				ctx.fill();
+			} else if (m.kind === 'beetle') {
+				ctx.fillStyle = hexToRgba(m.col, alpha);
+				ctx.beginPath();
+				ctx.ellipse(0, s * 0.15, s * 0.55, s * 0.75, 0, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.beginPath();
+				ctx.arc(0, -s * 0.78, s * 0.32, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.strokeStyle = hexToRgba(m.col, alpha * 0.85);
+				ctx.lineWidth = Math.max(0.6, s * 0.14);
+				ctx.lineCap = 'round';
+				ctx.beginPath();
+				ctx.moveTo(-s * 0.15, -s * 1.0); ctx.lineTo(-s * 0.5, -s * 1.45);
+				ctx.moveTo(s * 0.15, -s * 1.0); ctx.lineTo(s * 0.5, -s * 1.45);
+				ctx.stroke();
+			} else if (m.kind === 'drop') {
+				ctx.beginPath();
+				ctx.moveTo(0, -s);
+				ctx.bezierCurveTo(s * 0.6, -s * 0.2, s * 0.7, s * 0.6, 0, s * 0.65);
+				ctx.bezierCurveTo(-s * 0.7, s * 0.6, -s * 0.6, -s * 0.2, 0, -s);
+				ctx.closePath();
+				ctx.fillStyle = hexToRgba(m.col, alpha);
+				ctx.fill();
+			} else if (m.kind === 'petal') {
+				ctx.beginPath();
+				ctx.ellipse(0, 0, s * 0.42, s * 0.9, 0, 0, Math.PI * 2);
+				ctx.fillStyle = hexToRgba(m.col, alpha * 0.9);
+				ctx.fill();
 			} else if (m.kind === 'bar') {
 				ctx.fillStyle = hexToRgba(m.col, alpha);
 				ctx.fillRect(-s * 0.35, -s * 0.8, s * 0.7, s * 1.6);
@@ -885,24 +1221,44 @@ class Plugin extends AppPlugin {
 		this.eventIds = [];
 		this.page = null;
 		this.dark = true;
-		this.cfg = { preset: 'neon-glass', anim: true, bursts: true, rowTint: true, subCounters: true, smartPaste: true };
+		this.cfg = { preset: 'neon-glass', anim: true, bursts: true, rowTint: true, subCounters: true, smartPaste: true, customStatuses: true, tagNames: { ...DEFAULT_TAG_NAMES } };
+		this.tagLookup = buildTagLookup(DEFAULT_TAG_NAMES);
+		this.picker = null;
 		this.bursts = new TaskBurstSystem();
 		this.undoneByGuid = loadUndoneMap();
-		this.prevStatusByGuid = new Map();
+		this.prevStatusByGuid = new CappedMap(2000);
 		this.subStatsByGuid = new Map();
 		this.syncTimer = 0;
+		this.syncGen = 0;
+		this.syncWantsSearch = false;
+		this.reducedMotion = prefersReducedMotion();
+		this.pendingCfgPatch = null;
+		this.cfgSaveTimer = 0;
 
 		this.readConfig();
 		this.updatePolarity(true);
 		this.bursts.mount();
 
+		// Older builds kept settings only in localStorage, where they silently overrode the plugin
+		// configuration. Move them into the configuration once.
+		const legacy = loadChoices();
+		if (Object.keys(legacy).length) this.queueConfigSave(legacy);
+
 		const onResize = () => this.bursts.resize();
 		window.addEventListener('resize', onResize);
 		this.cleanup.push(() => window.removeEventListener('resize', onResize));
 
+		const rmq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+		if (rmq && rmq.addEventListener) {
+			const onRm = () => { this.reducedMotion = rmq.matches; };
+			rmq.addEventListener('change', onRm);
+			this.cleanup.push(() => rmq.removeEventListener('change', onRm));
+		}
+
 		this.installThemeObserver();
 		this.installTaskObserver();
 		this.installSmartTaskPaste();
+		this.installStatusPicker();
 
 		this.ui.registerCustomPanelType(BT_PAGE_TYPE, (panel) => this.renderPage(panel));
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: open settings', icon: 'ti-checks', onSelected: () => this.openPage() });
@@ -912,20 +1268,30 @@ class Plugin extends AppPlugin {
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle row tint', icon: 'ti-highlight', onSelected: () => this.update({ rowTint: !this.cfg.rowTint }, true) });
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle subtask counts', icon: 'ti-list-numbers', onSelected: () => this.update({ subCounters: !this.cfg.subCounters }, true) });
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle smart task paste', icon: 'ti-clipboard-check', onSelected: () => this.update({ smartPaste: !this.cfg.smartPaste }, true) });
+		this.ui.addCommandPaletteCommand({ label: 'BetterTask: set custom status (kawaii, bug, draft…)', icon: 'ti-mood-happy', onSelected: () => this.openPickerAtCaret() });
+		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle custom statuses', icon: 'ti-hash', onSelected: () => this.update({ customStatuses: !this.cfg.customStatuses }, true) });
 
 		this.eventIds.push(this.events.on('global-plugin.updated', () => this.readConfig()));
-		this.eventIds.push(this.events.on('panel.navigated', () => this.scheduleSyncDoneOrigins()));
+		this.eventIds.push(this.events.on('panel.navigated', () => this.scheduleSyncDoneOrigins(true)));
+		this.eventIds.push(this.events.on('reload', () => this.scheduleSyncDoneOrigins(true)));
 		this.eventIds.push(this.events.on('panel.focused', () => this.scheduleSyncDoneOrigins()));
 		this.eventIds.push(this.events.on('record.updated', () => this.scheduleSyncDoneOrigins()));
 		this.eventIds.push(this.events.on('lineitem.created', () => this.scheduleSyncDoneOrigins(), { collection: '*' }));
 		this.eventIds.push(this.events.on('lineitem.moved', () => this.scheduleSyncDoneOrigins(), { collection: '*' }));
 		this.eventIds.push(this.events.on('lineitem.deleted', () => this.scheduleSyncDoneOrigins(), { collection: '*' }));
 		this.eventIds.push(this.events.on('lineitem.undeleted', () => this.scheduleSyncDoneOrigins(), { collection: '*' }));
-		this.scheduleSyncDoneOrigins();
+		this.scheduleSyncDoneOrigins(true);
 	}
 
 	onUnload() {
+		this.unloaded = true;
 		clearTimeout(this.syncTimer);
+		this.syncGen += 1;
+		if (this.cfgSaveTimer) {
+			clearTimeout(this.cfgSaveTimer);
+			this.cfgSaveTimer = 0;
+			this.flushConfigSave();
+		}
 		for (const fn of this.cleanup) {
 			try { fn(); } catch (e) { /* ignore */ }
 		}
@@ -934,8 +1300,11 @@ class Plugin extends AppPlugin {
 			try { this.events.off(id); } catch (e) { /* ignore */ }
 		}
 		this.eventIds = [];
+		this.closePicker();
 		this.bursts.destroy();
 		this.clearBodyClasses();
+		document.querySelectorAll('.listitem-task[data-bt-tag]').forEach((el) => el.removeAttribute('data-bt-tag'));
+		document.querySelectorAll('.lineitem-hashtag[data-bt-tagchip]').forEach((el) => el.removeAttribute('data-bt-tagchip'));
 		document.querySelectorAll('.listitem-task[data-bt-was]').forEach((el) => el.removeAttribute('data-bt-was'));
 		document.querySelectorAll('.listitem-task[data-bt-sub]').forEach((el) => {
 			el.removeAttribute('data-bt-sub');
@@ -946,10 +1315,18 @@ class Plugin extends AppPlugin {
 		this.page = null;
 	}
 
+	/**
+	 * Settings live in the plugin configuration (`custom`), so they sync across devices and edits
+	 * made in Thymer's plugin editor take effect. localStorage only bridges the gap until a save
+	 * lands (or stands in when saving is not possible), which is why it is merged last.
+	 */
 	readConfig() {
 		let custom = {};
 		try { custom = this.getConfiguration()?.custom || {}; } catch (e) { custom = {}; }
-		const merged = { preset: 'neon-glass', anim: true, bursts: true, rowTint: true, subCounters: true, smartPaste: true, ...custom, ...loadChoices() };
+		const local = loadChoices();
+		const merged = { preset: 'neon-glass', anim: true, bursts: true, rowTint: true, subCounters: true, smartPaste: true, customStatuses: true, ...custom, ...local };
+		// tagNames is an object: merge per key so a local edit of one name keeps the others from config.
+		merged.tagNames = { ...(custom.tagNames || {}), ...(local.tagNames || {}) };
 		this.cfg = {
 			preset: PRESETS.some((p) => p.id === merged.preset) ? merged.preset : 'neon-glass',
 			anim: merged.anim !== false,
@@ -957,7 +1334,10 @@ class Plugin extends AppPlugin {
 			rowTint: merged.rowTint !== false,
 			subCounters: merged.subCounters !== false,
 			smartPaste: merged.smartPaste !== false,
+			customStatuses: merged.customStatuses !== false,
+			tagNames: normalizeTagNames(merged.tagNames),
 		};
+		this.tagLookup = buildTagLookup(this.cfg.tagNames);
 		this.applyBodyClasses();
 		this.applyDoneAttrsToRoot();
 		this.refreshPage();
@@ -967,8 +1347,11 @@ class Plugin extends AppPlugin {
 		this.cfg = { ...this.cfg, ...patch };
 		if (!PRESETS.some((p) => p.id === this.cfg.preset)) this.cfg.preset = 'neon-glass';
 		saveChoices(patch);
+		this.queueConfigSave(patch);
 		this.applyBodyClasses();
-		if ('subCounters' in patch) {
+		if ('tagNames' in patch) this.cfg.tagNames = normalizeTagNames(this.cfg.tagNames);
+		this.tagLookup = buildTagLookup(this.cfg.tagNames);
+		if ('subCounters' in patch || 'customStatuses' in patch || 'tagNames' in patch) {
 			this.applyDoneAttrsToRoot();
 			if (this.cfg.subCounters) this.scheduleSyncDoneOrigins();
 		}
@@ -976,8 +1359,32 @@ class Plugin extends AppPlugin {
 		if (toast) {
 			const msg = patch.preset
 				? `Style: ${PRESETS.find((p) => p.id === this.cfg.preset)?.label}`
-				: Object.entries(patch).map(([k, v]) => `${k}: ${v ? 'On' : 'Off'}`).join(', ');
+				: Object.entries(patch).filter(([, v]) => typeof v === 'boolean').map(([k, v]) => `${k}: ${v ? 'On' : 'Off'}`).join(', ');
 			this.ui.addToaster({ title: 'BetterTask', message: msg, dismissible: true, autoDestroyTime: 1400 });
+		}
+	}
+
+	queueConfigSave(patch) {
+		this.pendingCfgPatch = { ...(this.pendingCfgPatch || {}), ...patch };
+		clearTimeout(this.cfgSaveTimer);
+		this.cfgSaveTimer = setTimeout(() => {
+			this.cfgSaveTimer = 0;
+			this.flushConfigSave();
+		}, 600);
+	}
+
+	async flushConfigSave() {
+		const patch = this.pendingCfgPatch;
+		this.pendingCfgPatch = null;
+		if (!patch || !Object.keys(patch).length) return;
+		try {
+			const api = this.data?.getPluginByGuid?.(this.getGuid());
+			if (!api || typeof api.saveConfiguration !== 'function') return;
+			const conf = api.getConfiguration?.() || this.getConfiguration?.() || {};
+			const ok = await api.saveConfiguration({ ...conf, custom: { ...(conf.custom || {}), ...patch } });
+			if (ok) forgetSavedChoices(patch);
+		} catch (e) {
+			/* keep the localStorage copy */
 		}
 	}
 
@@ -1090,11 +1497,45 @@ class Plugin extends AppPlugin {
 		if (root instanceof Element && root.classList.contains('listitem-task')) {
 			this.applyDoneAttrToEl(root);
 			this.applySubStatToEl(root);
+			this.applyTagToEl(root);
 		}
 		root.querySelectorAll('.listitem-task[data-guid]').forEach((el) => {
 			this.applyDoneAttrToEl(el);
 			this.applySubStatToEl(el);
+			this.applyTagToEl(el);
 		});
+	}
+
+	/**
+	 * Reads the custom-status hashtag from a task row's own text (`.line-div > .lineitem-hashtag`,
+	 * not its children's) and mirrors it as `data-bt-tag`; the matching chip gets `data-bt-tagchip`
+	 * so CSS can tone it down. Returns true when the row's status tag changed.
+	 */
+	applyTagToEl(el) {
+		if (!(el instanceof Element) || !el.classList.contains('listitem-task') || !el.hasAttribute('data-guid')) return false;
+		if (el.closest('.bt-settings, .autocomplete--option-icon, .autocomplete--option')) return false;
+		let key = null;
+		let chip = null;
+		const lineDiv = el.querySelector(':scope > .line-div');
+		if (this.cfg.customStatuses && lineDiv) {
+			for (const h of lineDiv.querySelectorAll('.lineitem-hashtag')) {
+				const k = tagKeyFromText(h.textContent || '', this.tagLookup);
+				if (k) { key = k; chip = h; break; }
+			}
+		}
+		if (lineDiv) {
+			for (const h of lineDiv.querySelectorAll('.lineitem-hashtag[data-bt-tagchip]')) {
+				if (h !== chip) h.removeAttribute('data-bt-tagchip');
+			}
+		}
+		if (chip && chip.getAttribute('data-bt-tagchip') !== key) chip.setAttribute('data-bt-tagchip', key);
+		const prev = el.getAttribute('data-bt-tag');
+		if (key) {
+			if (prev !== key) el.setAttribute('data-bt-tag', key);
+		} else if (prev !== null) {
+			el.removeAttribute('data-bt-tag');
+		}
+		return prev !== key && !(prev === null && key === null);
 	}
 
 	applySubStatToEl(el) {
@@ -1104,12 +1545,28 @@ class Plugin extends AppPlugin {
 		applySubStatAttrs(el, st, this.dark);
 	}
 
-	scheduleSyncDoneOrigins() {
+	/**
+	 * Debounced resync of subtask counts and done-origins from the open panels' records.
+	 * `withSearch` adds a workspace-wide `@done` search, which is only worth its cost when the
+	 * visible pages change (load, navigation, reload), not on every status flip.
+	 */
+	scheduleSyncDoneOrigins(withSearch = false) {
+		if (withSearch) this.syncWantsSearch = true;
 		clearTimeout(this.syncTimer);
 		this.syncTimer = setTimeout(() => { this.syncDoneOrigins(); }, 90);
 	}
 
 	async syncDoneOrigins() {
+		const gen = ++this.syncGen;
+		const withSearch = this.syncWantsSearch;
+		this.syncWantsSearch = false;
+		// A newer sync started while this one awaited: drop this run's (now stale) results,
+		// handing the search request on so it is not lost.
+		const superseded = () => {
+			if (gen === this.syncGen) return false;
+			if (withSearch && !this.unloaded) this.scheduleSyncDoneOrigins(true);
+			return true;
+		};
 		try {
 			const seenItems = [];
 			const nextSubStats = new Map();
@@ -1122,22 +1579,26 @@ class Plugin extends AppPlugin {
 					if (Array.isArray(items)) {
 						seenItems.push(...items);
 						if (this.cfg.subCounters) {
-							for (const [k, v] of computeSubtaskStats(items)) nextSubStats.set(k, v);
+							const tagOf = this.cfg.customStatuses ? (it) => tagKeyFromSegments(it?.segments, this.tagLookup) : null;
+							for (const [k, v] of computeSubtaskStats(items, tagOf)) nextSubStats.set(k, v);
 						}
 					}
 				} catch (e) { /* ignore */ }
 			}
-			if (this.data?.searchByQuery) {
+			if (withSearch && this.data?.searchByQuery) {
 				try {
 					const res = await this.data.searchByQuery('@done', 150);
 					if (Array.isArray(res?.lines)) seenItems.push(...res.lines);
 				} catch (e) { /* ignore */ }
 			}
+			if (superseded()) return;
 			this.subStatsByGuid = nextSubStats;
 			let dirty = false;
 			for (const item of seenItems) {
 				if (!item?.guid) continue;
-				const st = item.getTaskStatus?.();
+				// getTaskStatus() speaks the SDK's names ('waiting', 'billable', 'important', 'discuss');
+				// everything stored here must use this plugin's keys ('blocked', 'dollar', ...).
+				const st = statusFromCodeOrString(item.getTaskStatus?.());
 				if (st === 'done') {
 					const was = statusFromCodeOrString(item.props?.undone);
 					if (was && was !== 'open' && was !== 'done') {
@@ -1148,7 +1609,7 @@ class Plugin extends AppPlugin {
 						}
 					}
 				} else if (st) {
-					if (st === 'open' || st === 'none') this.prevStatusByGuid.delete(item.guid);
+					if (st === 'open') this.prevStatusByGuid.delete(item.guid);
 					else this.prevStatusByGuid.set(item.guid, st);
 					if (this.undoneByGuid.delete(item.guid)) dirty = true;
 				}
@@ -1158,20 +1619,26 @@ class Plugin extends AppPlugin {
 		} catch (e) { /* ignore */ }
 	}
 
-	emitAtTaskEl(el, status, originStatus = null) {
-		if (!this.cfg.bursts) return;
+	/** `preview` marks an explicit click on the settings page, which plays even under reduced motion. */
+	emitAtTaskEl(el, status, originStatus = null, preview = false) {
+		if (!this.cfg.bursts || (this.reducedMotion && !preview)) return;
 		const r = this.taskBoxRect(el);
 		if (!r) return;
-		const origin = originStatus || el.getAttribute?.('data-bt-was') || null;
+		// A tagged task bursts as its custom status, and finishes in that status's colors.
+		const tag = el.getAttribute?.('data-bt-tag');
+		const tagged = tag && TAG_MAP.has(tag) ? tag : null;
+		if (tagged && status !== 'done' && status !== 'canceled') status = tagged;
+		const origin = tagged || originStatus || el.getAttribute?.('data-bt-was') || null;
 		this.bursts.emit(status, r.left + r.width / 2, r.top + r.height / 2, Math.max(r.width, r.height), origin);
 	}
 
 	installTaskObserver() {
 		let gestureAt = -1e9;
 		let lastX = NaN, lastY = NaN;
-		const knownStatusByGuid = new Map();
-		const lastBurstByGuid = new Map();
+		const knownStatusByGuid = new CappedMap(2000);
+		const lastBurstByGuid = new CappedMap(400);
 		const lastElStamp = new WeakMap();
+		const tagBurstMutedUntil = new CappedMap(200);
 
 		const mark = (e) => {
 			gestureAt = performance.now();
@@ -1179,8 +1646,15 @@ class Plugin extends AppPlugin {
 				lastX = e.clientX;
 				lastY = e.clientY;
 			}
+			// Finding the caret row costs a forced layout, so plain typing skips it: the row's status
+			// is already tracked from DOM inserts and class mutations. Only keys that can flip a status
+			// (shortcuts, Enter, or a pick from the status autocomplete) look it up.
+			const wantsCaretRow = e.type === 'keydown' && (
+				e.ctrlKey || e.metaKey || e.altKey || e.key === 'Enter' ||
+				Boolean(document.querySelector('.autocomplete--option-icon .listitem-task'))
+			);
 			const row = e.target?.closest?.('.listitem-task[data-guid]')
-				|| (e.type === 'keydown' ? findRowForCaret(findActiveCaretEl(document), null) : null);
+				|| (wantsCaretRow ? findRowForCaret(findActiveCaretEl(document), null) : null);
 			if (row && !row.closest?.('.bt-settings, .autocomplete--option-icon')) {
 				const rg = row.getAttribute('data-guid');
 				const rst = statusFromClassName(row.className);
@@ -1255,6 +1729,9 @@ class Plugin extends AppPlugin {
 			}
 
 			if (!ev.source?.isLocal || !nextStatus) {
+				// Remember remote changes too, or the next local flip back to an older status would
+				// look like "no change" and skip its burst.
+				if (nextStatus) knownStatusByGuid.set(guid, nextStatus);
 				if (ev.status !== null && ev.status !== undefined) this.scheduleSyncDoneOrigins();
 				return;
 			}
@@ -1270,7 +1747,17 @@ class Plugin extends AppPlugin {
 			const lineDiv = row.querySelector(':scope > .line-div');
 			if (!lineDiv) return;
 			const lr = lineDiv.getBoundingClientRect();
-			if (e.clientX >= lr.right && e.clientX <= lr.right + 110 && e.clientY >= lr.top - 4 && e.clientY <= lr.top + 32) {
+			// Hit-test the badge's real width (the ::after pseudo), not a fixed guess.
+			let badgeW = 110, badgeH = 19, badgeGap = 5;
+			try {
+				const ps = getComputedStyle(row, '::after');
+				badgeW = parseFloat(ps.width) || badgeW;
+				badgeH = parseFloat(ps.height) || badgeH;
+				badgeGap = parseFloat(ps.marginLeft) || 0;
+			} catch (err) { /* keep defaults */ }
+			const x0 = lr.right;
+			const x1 = lr.right + badgeGap + badgeW + 2;
+			if (e.clientX >= x0 && e.clientX <= x1 && e.clientY >= lr.top - 4 && e.clientY <= lr.top + Math.max(32, badgeH + 8)) {
 				const ctrl = row.querySelector(':scope > .lineitem-btn-unfold, :scope > .line-fold-chevron');
 				if (ctrl) {
 					e.preventDefault();
@@ -1281,13 +1768,30 @@ class Plugin extends AppPlugin {
 		};
 		document.addEventListener('click', onFoldBadgeClick, true);
 
+		// The task row whose own text (`:scope > .line-div`) contains `node`, if any.
+		const rowOfTextNode = (node) => {
+			const start = node instanceof Element ? node : node?.parentElement;
+			const lineDiv = start?.closest?.('.line-div');
+			const row = lineDiv?.parentElement;
+			return row instanceof Element && row.classList.contains('listitem-task') && isRealTask(row) ? row : null;
+		};
+
 		const mo = new MutationObserver((muts) => {
 			const now = performance.now();
+			const textRows = new Set();
 			for (const m of muts) {
+				if (m.type === 'characterData') {
+					const row = rowOfTextNode(m.target);
+					if (row) textRows.add(row);
+					continue;
+				}
 				if (m.type === 'childList') {
 					for (const n of m.addedNodes) {
 						if (n instanceof Element) this.applyDoneAttrsToRoot(n);
 					}
+					const row = rowOfTextNode(m.target)
+						|| (m.target instanceof Element && m.target.classList.contains('listitem-task') && isRealTask(m.target) ? m.target : null);
+					if (row) textRows.add(row);
 					continue;
 				}
 				if (m.type !== 'attributes') continue;
@@ -1313,6 +1817,7 @@ class Plugin extends AppPlugin {
 					this.applyDoneAttrToEl(el);
 					this.scheduleSyncDoneOrigins();
 					if (now - gestureAt <= 750) tryEmitGuid(guid, next, el);
+					else knownStatusByGuid.set(guid, next);
 				} else if (now - gestureAt <= 750) {
 					if (next === 'done' && prev !== 'open' && prev !== 'done') el.setAttribute('data-bt-was', prev);
 					else if (next !== 'done') el.removeAttribute('data-bt-was');
@@ -1323,15 +1828,37 @@ class Plugin extends AppPlugin {
 					}
 				}
 			}
+			// Text edits can add or remove a custom-status hashtag. Typing one in plays its burst.
+			for (const row of textRows) {
+				if (!row.isConnected || !this.applyTagToEl(row)) continue;
+				const tag = row.getAttribute('data-bt-tag');
+				const guid = row.getAttribute('data-guid');
+				const mutedUntil = guid ? tagBurstMutedUntil.get(guid) || 0 : 0;
+				if (tag && now - gestureAt <= 750 && now > mutedUntil && !row.classList.contains('state-done') && !row.classList.contains('state-canceled')) {
+					this.emitAtTaskEl(row, tag);
+				}
+			}
 		});
 
 		mo.observe(document.body, {
 			attributes: true,
 			attributeFilter: ['class'],
 			attributeOldValue: true,
+			characterData: true,
 			childList: true,
 			subtree: true,
 		});
+
+		// Lets the picker tell this observer about a status it is about to write, so the
+		// lineitem.updated / class mutation that follows does not play a second burst.
+		this.noteStatusChange = (guid, status) => {
+			const at = performance.now();
+			if (status) {
+				knownStatusByGuid.set(guid, status);
+				lastBurstByGuid.set(guid, { status, at });
+			}
+			tagBurstMutedUntil.set(guid, at + 2000);
+		};
 
 		this.cleanup.push(() => {
 			mo.disconnect();
@@ -1341,29 +1868,57 @@ class Plugin extends AppPlugin {
 		});
 	}
 
+	/**
+	 * Where pasted tasks go: right after the caret row, in whichever record owns that row.
+	 * A row that is a transclusion/reference target belongs to another record, so it is looked
+	 * up with expanded references and the paste lands in its own record. When the row cannot be
+	 * found at all (e.g. a backlink row), the tasks are appended to the active record with
+	 * `fallback: true`, so the paste is never swallowed.
+	 */
 	async resolvePasteTarget(record, rowEl) {
 		const items = await record.getLineItems?.(false);
 		const list = Array.isArray(items) ? items : [];
 		const byGuid = new Map(list.map((it) => [it.guid, it]));
 		const rowGuid = rowEl?.getAttribute?.('data-guid') || null;
+		const childCount = async (it) => {
+			const children = typeof it.getChildren === 'function' ? await it.getChildren() : (it.children || []);
+			return Array.isArray(children) ? children.length : 0;
+		};
 		if (rowGuid) {
-			const cur = byGuid.get(rowGuid);
-			if (!cur) return { skip: true };
-			const pGuid = cur.parent_guid;
-			const parentItem = pGuid && pGuid !== record.guid ? (byGuid.get(pGuid) || null) : null;
-			const children = typeof cur.getChildren === 'function' ? await cur.getChildren() : (cur.children || []);
-			const replaceEmptyItem = isLineItemEmpty(cur, Array.isArray(children) ? children.length : 0) ? cur : null;
-			return { parentItem, afterItem: cur, replaceEmptyItem, skip: false };
-		}
-		const topItems = list.filter((it) => !it.parent_guid || it.parent_guid === record.guid);
-		if (topItems.length === 1) {
-			const sole = topItems[0];
-			const children = typeof sole.getChildren === 'function' ? await sole.getChildren() : (sole.children || []);
-			if (isLineItemEmpty(sole, Array.isArray(children) ? children.length : 0)) {
-				return { parentItem: null, afterItem: sole, replaceEmptyItem: sole, skip: false };
+			let cur = byGuid.get(rowGuid) || null;
+			let owner = record;
+			if (!cur) {
+				try {
+					const expanded = await record.getLineItems?.(true);
+					cur = (Array.isArray(expanded) ? expanded : []).find((it) => it?.guid === rowGuid) || null;
+				} catch (e) { cur = null; }
+				if (cur?.record && typeof cur.record.insertFromMarkdown === 'function') owner = cur.record;
+				else cur = null;
+			}
+			if (cur) {
+				let parentItem = null;
+				const pGuid = cur.parent_guid;
+				if (pGuid && pGuid !== owner.guid) {
+					parentItem = byGuid.get(pGuid) || null;
+					if (!parentItem && typeof cur.getParent === 'function') {
+						try {
+							const p = await cur.getParent();
+							parentItem = p && p.guid !== owner.guid && 'parent_guid' in p ? p : null;
+						} catch (e) { parentItem = null; }
+					}
+				}
+				const replaceEmptyItem = isLineItemEmpty(cur, await childCount(cur)) ? cur : null;
+				return { owner, parentItem, afterItem: cur, replaceEmptyItem, fallback: false };
 			}
 		}
-		return { parentItem: null, afterItem: topItems[topItems.length - 1] || null, replaceEmptyItem: null, skip: false };
+		const topItems = list.filter((it) => !it.parent_guid || it.parent_guid === record.guid);
+		if (!rowGuid && topItems.length === 1) {
+			const sole = topItems[0];
+			if (isLineItemEmpty(sole, await childCount(sole))) {
+				return { owner: record, parentItem: null, afterItem: sole, replaceEmptyItem: sole, fallback: false };
+			}
+		}
+		return { owner: record, parentItem: null, afterItem: topItems[topItems.length - 1] || null, replaceEmptyItem: null, fallback: Boolean(rowGuid) };
 	}
 
 	installSmartTaskPaste() {
@@ -1400,11 +1955,14 @@ class Plugin extends AppPlugin {
 			(async () => {
 				try {
 					const target = await this.resolvePasteTarget(record, rowEl);
-					if (target.skip) return;
-					const ok = await record.insertFromMarkdown(md, target.parentItem, target.afterItem);
+					const ok = await target.owner.insertFromMarkdown(md, target.parentItem, target.afterItem);
 					if (ok && target.replaceEmptyItem) {
 						try { await target.replaceEmptyItem.delete?.(); } catch (err) { /* ignore */ }
 					}
+					if (ok && target.fallback) {
+						this.ui.addToaster?.({ title: 'BetterTask', message: 'Tasks were added at the end of the page', dismissible: true, autoDestroyTime: 2200 });
+					}
+					if (!ok) throw new Error('insertFromMarkdown failed');
 					this.scheduleSyncDoneOrigins();
 				} catch (err) {
 					this.ui.addToaster?.({ title: 'BetterTask', message: 'Task paste failed', dismissible: true, autoDestroyTime: 1800 });
@@ -1418,6 +1976,213 @@ class Plugin extends AppPlugin {
 			document.removeEventListener('keydown', onKeyDown, true);
 			document.removeEventListener('paste', onPaste, true);
 		});
+	}
+
+	// ---- Custom Status Picker (Alt+click a checkbox) -------------------------------------
+
+	installStatusPicker() {
+		// Thymer toggles a checkbox from a bubbling window `click`; a capturing document listener
+		// runs first, so Alt+click can open the picker instead of checking the task.
+		const isPickTarget = (e) => {
+			if (!e.altKey || e.button !== 0 || !(e.target instanceof Element)) return null;
+			const box = e.target.closest('.line-check-div');
+			const row = box?.parentElement;
+			if (!row || !row.classList.contains('listitem-task') || !row.hasAttribute('data-guid')) return null;
+			if (row.closest('.bt-settings, .autocomplete--option-icon, .autocomplete--option, .bt-picker')) return null;
+			return row;
+		};
+		const swallow = (e) => {
+			if (!this.cfg.customStatuses || !isPickTarget(e)) return;
+			e.preventDefault();
+			e.stopImmediatePropagation();
+		};
+		const onClick = (e) => {
+			if (!this.cfg.customStatuses) return;
+			const row = isPickTarget(e);
+			if (!row) return;
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			this.openPicker(row);
+		};
+		document.addEventListener('pointerdown', swallow, true);
+		document.addEventListener('mousedown', swallow, true);
+		document.addEventListener('click', onClick, true);
+		this.cleanup.push(() => {
+			document.removeEventListener('pointerdown', swallow, true);
+			document.removeEventListener('mousedown', swallow, true);
+			document.removeEventListener('click', onClick, true);
+		});
+	}
+
+	openPickerAtCaret() {
+		if (!this.cfg.customStatuses) {
+			this.ui.addToaster?.({ title: 'BetterTask', message: 'Custom statuses are turned off', dismissible: true, autoDestroyTime: 1800 });
+			return;
+		}
+		const panel = this.ui.getActivePanel?.();
+		const panelEl = panel?.getElement?.() || null;
+		const row = findRowForCaret(findActiveCaretEl(panelEl || document), panelEl);
+		if (!row || !row.classList.contains('listitem-task')) {
+			this.ui.addToaster?.({ title: 'BetterTask', message: 'Put the caret on a task first', dismissible: true, autoDestroyTime: 1800 });
+			return;
+		}
+		this.openPicker(row);
+	}
+
+	closePicker() {
+		const pk = this.picker;
+		this.picker = null;
+		if (!pk) return;
+		for (const fn of pk.off) {
+			try { fn(); } catch (e) { /* ignore */ }
+		}
+		pk.el.remove();
+	}
+
+	openPicker(row) {
+		this.closePicker();
+		const guid = row.getAttribute('data-guid');
+		const box = this.taskBoxRect(row);
+		if (!guid || !box) return;
+		const current = row.getAttribute('data-bt-tag');
+
+		const el = document.createElement('div');
+		el.className = 'bt-picker';
+		el.setAttribute('role', 'menu');
+		el.innerHTML = '<div class="bt-picker-head">Custom status</div><div class="bt-picker-list"></div><div class="bt-picker-foot">1–7 pick · 0 clear · Esc close</div>';
+		const list = el.querySelector('.bt-picker-list');
+		const items = [];
+		const addItem = (key) => {
+			const spec = key ? TAG_MAP.get(key) : null;
+			const b = document.createElement('button');
+			b.type = 'button';
+			b.className = 'bt-picker-item' + (key === current || (!key && !current) ? ' is-current' : '');
+			b.setAttribute('role', 'menuitem');
+			b.innerHTML = '<span class="bt-picker-icon"><span class="listitem-task"><span class="line-check-div"></span></span></span><span class="bt-picker-name"></span><span class="bt-picker-tag"></span><span class="bt-picker-key"></span>';
+			const fake = b.querySelector('.listitem-task');
+			if (spec) fake.setAttribute('data-bt-tag', key);
+			b.querySelector('.bt-picker-name').textContent = spec ? spec.name : 'None';
+			b.querySelector('.bt-picker-tag').textContent = spec ? `#${this.cfg.tagNames[key]}` : 'remove tag';
+			b.querySelector('.bt-picker-key').textContent = spec ? spec.pick : '0';
+			b.onclick = (ev) => {
+				ev.preventDefault();
+				ev.stopPropagation();
+				this.closePicker();
+				this.applyCustomStatus(guid, key || null);
+			};
+			list.appendChild(b);
+			items.push(b);
+		};
+		for (const s of TAG_SPECS) addItem(s.key);
+		addItem(null);
+		document.body.appendChild(el);
+
+		// Place next to the checkbox, flipped to stay inside the viewport.
+		const pr = el.getBoundingClientRect();
+		const vw = window.innerWidth || 1200;
+		const vh = window.innerHeight || 800;
+		let left = box.left - 6;
+		let top = box.bottom + 6;
+		if (left + pr.width > vw - 8) left = Math.max(8, vw - pr.width - 8);
+		if (top + pr.height > vh - 8) top = Math.max(8, box.top - pr.height - 6);
+		el.style.left = `${Math.round(left)}px`;
+		el.style.top = `${Math.round(top)}px`;
+
+		const off = [];
+		const onKey = (e) => {
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				e.stopPropagation();
+				this.closePicker();
+				return;
+			}
+			const idx = TAG_SPECS.findIndex((s) => s.pick === e.key);
+			if (idx >= 0 || e.key === '0') {
+				e.preventDefault();
+				e.stopPropagation();
+				(idx >= 0 ? items[idx] : items[items.length - 1]).click();
+				return;
+			}
+			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+				e.preventDefault();
+				e.stopPropagation();
+				const at = items.indexOf(document.activeElement);
+				const next = e.key === 'ArrowDown' ? (at + 1) % items.length : (at - 1 + items.length) % items.length;
+				items[at < 0 ? 0 : next].focus();
+			}
+		};
+		const onOutside = (e) => {
+			if (!el.contains(e.target)) this.closePicker();
+		};
+		const onScroll = (e) => {
+			if (!el.contains(e.target)) this.closePicker();
+		};
+		const onBlur = () => this.closePicker();
+		document.addEventListener('keydown', onKey, true);
+		document.addEventListener('pointerdown', onOutside, true);
+		document.addEventListener('scroll', onScroll, true);
+		window.addEventListener('blur', onBlur);
+		off.push(
+			() => document.removeEventListener('keydown', onKey, true),
+			() => document.removeEventListener('pointerdown', onOutside, true),
+			() => document.removeEventListener('scroll', onScroll, true),
+			() => window.removeEventListener('blur', onBlur),
+		);
+		this.picker = { el, off };
+		(items.find((b) => b.classList.contains('is-current')) || items[0]).focus({ preventScroll: true });
+	}
+
+	/** Finds a line item by guid in the open panels' records, including transcluded items. */
+	async findLineItem(guid) {
+		const active = this.ui.getActivePanel?.() || null;
+		const panels = this.ui.getPanels?.() || [];
+		const ordered = active ? [active, ...panels.filter((p) => p !== active)] : panels;
+		for (const p of ordered) {
+			const rec = p?.getActiveRecord?.();
+			if (!rec?.getLineItems) continue;
+			try {
+				const items = await rec.getLineItems(true);
+				const hit = Array.isArray(items) ? items.find((it) => it?.guid === guid) : null;
+				if (hit) return hit;
+			} catch (e) { /* try the next panel */ }
+		}
+		return null;
+	}
+
+	/**
+	 * Writes a custom status: swaps the task's custom-status hashtag for `#<tag>` (or removes it when
+	 * `key` is null) and sets the matching base Thymer status. Clearing a tag also clears the base
+	 * status if it is still the one the tag had set.
+	 */
+	async applyCustomStatus(guid, key) {
+		const spec = key ? TAG_MAP.get(key) : null;
+		try {
+			const item = await this.findLineItem(guid);
+			if (!item || typeof item.setSegments !== 'function') throw new Error('line item not found');
+			const oldKey = tagKeyFromSegments(item.segments, this.tagLookup);
+			const curStatus = item.getTaskStatus?.() || 'none';
+			const newTag = spec ? `#${this.cfg.tagNames[key]}` : null;
+			const nextSdkStatus = spec ? spec.base : (oldKey && curStatus === TAG_MAP.get(oldKey)?.base ? 'none' : null);
+			const nextStatus = nextSdkStatus ? statusFromCodeOrString(nextSdkStatus) : null;
+
+			this.noteStatusChange?.(guid, nextStatus && nextSdkStatus !== curStatus ? nextStatus : null);
+			const segs = rewriteTagSegments(item.segments, this.tagLookup, newTag);
+			const okSeg = await item.setSegments(segs);
+			if (!okSeg) throw new Error('setSegments failed');
+			if (nextSdkStatus && nextSdkStatus !== curStatus && typeof item.setTaskStatus === 'function') {
+				await item.setTaskStatus(nextSdkStatus);
+			}
+			if (spec) {
+				const row = this.findTaskElByGuid(guid);
+				if (row) {
+					row.setAttribute('data-bt-tag', key);
+					this.emitAtTaskEl(row, key);
+				}
+			}
+			this.scheduleSyncDoneOrigins();
+		} catch (err) {
+			this.ui.addToaster?.({ title: 'BetterTask', message: 'Could not set the custom status', dismissible: true, autoDestroyTime: 2000 });
+		}
 	}
 
 	// ---- Settings & Interactive Showcase Panel -----------------------------------------
@@ -1457,6 +2222,16 @@ class Plugin extends AppPlugin {
   </div>
   <div class="bt-panel-label">All Statuses (click to trigger effect)</div>
   <div class="bt-grid"></div>
+  <div class="bt-tags">
+    <div class="bt-panel-label">Custom Statuses</div>
+    <div class="bt-tags-note">Stored as a hashtag in the task text, on top of one of Thymer's statuses, so Thymer can search and filter them and they sync everywhere. <b>Alt+click</b> a checkbox (or run <i>BetterTask: set custom status</i>) to pick one, or just type the tag.</div>
+    <div class="bt-grid bt-tag-grid"></div>
+    <div class="bt-tag-play"></div>
+    <div class="bt-panel bt-tag-names">
+      <div class="bt-panel-label">Tag names</div>
+      <div class="bt-tag-name-list"></div>
+    </div>
+  </div>
   <div class="bt-playground">
     <div class="bt-panel-label">Interactive Task Playground (click checkbox to cycle)</div>
     <div class="bt-play-list"></div>
@@ -1485,6 +2260,7 @@ class Plugin extends AppPlugin {
 			['rowTint', 'Row mood tint'],
 			['subCounters', 'Subtask counts'],
 			['smartPaste', 'Smart task paste'],
+			['customStatuses', 'Custom statuses'],
 		]) {
 			const b = mk(`<button type="button" class="bt-toggle" data-key="${key}"><span class="bt-dot"></span><span></span></button>`);
 			b.querySelector('span:last-child').textContent = label;
@@ -1506,9 +2282,81 @@ class Plugin extends AppPlugin {
 </button>`);
 			card.querySelector('.bt-card-name').textContent = spec.name;
 			card.querySelector('.bt-card-fx').textContent = spec.fxLabel;
-			card.onclick = () => this.emitAtTaskEl(card.querySelector('.listitem-task'), spec.key);
+			card.onclick = () => this.emitAtTaskEl(card.querySelector('.listitem-task'), spec.key, null, true);
 			grid.appendChild(card);
 		}
+
+		// Custom statuses: cards, a done/undone playground, and tag name editing.
+		const baseName = (sdk) => STATUS_MAP.get(statusFromCodeOrString(sdk))?.name || sdk;
+		const tagGrid = root.querySelector('.bt-tag-grid');
+		const tagPlay = root.querySelector('.bt-tag-play');
+		const nameList = root.querySelector('.bt-tag-name-list');
+		const tagTextEls = [];
+		for (const spec of TAG_SPECS) {
+			const card = mk(`<button type="button" class="bt-card bt-tag-card">
+  <div class="bt-card-top">
+    <div class="listitem-task" data-bt-tag="${spec.key}"><div class="line-check-div"></div></div>
+    <span class="bt-kbd"></span>
+  </div>
+  <div>
+    <div class="bt-card-name"></div>
+    <div class="bt-card-fx"></div>
+    <div class="bt-card-base"></div>
+  </div>
+</button>`);
+			card.querySelector('.bt-card-name').textContent = spec.name;
+			card.querySelector('.bt-card-fx').textContent = spec.fxLabel;
+			card.querySelector('.bt-card-base').textContent = `on top of ${baseName(spec.base)}`;
+			tagTextEls.push([spec.key, card.querySelector('.bt-kbd')]);
+			card.onclick = () => this.emitAtTaskEl(card.querySelector('.listitem-task'), spec.key, null, true);
+			tagGrid.appendChild(card);
+
+			const row = mk(`<div class="listitem-task" data-bt-tag="${spec.key}"><div class="line-check-div"></div><div class="line-div"><span class="bt-tag-text"></span> <span class="lineitem-hashtag" data-bt-tagchip="${spec.key}"></span></div><button type="button" class="bt-done-btn"></button></div>`);
+			row.querySelector('.bt-tag-text').textContent = spec.sampleText;
+			tagTextEls.push([spec.key, row.querySelector('.lineitem-hashtag')]);
+			const doneBtn = row.querySelector('.bt-done-btn');
+			const toggleDone = () => {
+				const done = !row.classList.contains('state-done');
+				row.classList.toggle('state-done', done);
+				doneBtn.classList.toggle('is-done', done);
+				doneBtn.textContent = done ? 'Restore' : 'Complete';
+				this.emitAtTaskEl(row, done ? 'done' : spec.key, null, true);
+			};
+			doneBtn.textContent = 'Complete';
+			doneBtn.onclick = toggleDone;
+			row.querySelector('.line-check-div').onclick = toggleDone;
+			tagPlay.appendChild(row);
+
+			const field = mk(`<label class="bt-tag-name"><span class="bt-tag-name-label"></span><span class="bt-tag-name-input"><span>#</span><input type="text" spellcheck="false" autocomplete="off"></span></label>`);
+			field.querySelector('.bt-tag-name-label').textContent = spec.name;
+			const input = field.querySelector('input');
+			input.dataset.key = spec.key;
+			input.value = this.cfg.tagNames[spec.key];
+			const commit = () => {
+				const v = input.value.trim().replace(/^#/, '').toLowerCase();
+				const taken = TAG_SPECS.some((o) => o.key !== spec.key && this.cfg.tagNames[o.key] === v);
+				if (!TAG_NAME_RE.test(v) || taken) {
+					input.classList.add('is-bad');
+					input.value = this.cfg.tagNames[spec.key];
+					setTimeout(() => input.classList.remove('is-bad'), 900);
+					return;
+				}
+				if (v !== this.cfg.tagNames[spec.key]) this.update({ tagNames: { ...this.cfg.tagNames, [spec.key]: v } });
+			};
+			input.addEventListener('change', commit);
+			input.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+				e.stopPropagation();
+			});
+			nameList.appendChild(field);
+		}
+		this.page.refreshTags = () => {
+			for (const [key, el] of tagTextEls) el.textContent = `#${this.cfg.tagNames[key]}`;
+			for (const input of nameList.querySelectorAll('input')) {
+				if (document.activeElement !== input) input.value = this.cfg.tagNames[input.dataset.key];
+			}
+			root.querySelector('.bt-tags')?.classList.toggle('is-off', !this.cfg.customStatuses);
+		};
 
 		const playList = root.querySelector('.bt-play-list');
 		for (const spec of STATUS_SPECS) {
@@ -1536,7 +2384,7 @@ class Plugin extends AppPlugin {
 				}
 				row.dataset.status = next;
 				updateBtnLabel();
-				this.emitAtTaskEl(row, next, row.getAttribute('data-bt-was'));
+				this.emitAtTaskEl(row, next, row.getAttribute('data-bt-was'), true);
 			};
 			doneBtn.onclick = () => {
 				const cur = row.dataset.status || 'open';
@@ -1552,19 +2400,19 @@ class Plugin extends AppPlugin {
 				}
 				row.dataset.status = next;
 				updateBtnLabel();
-				this.emitAtTaskEl(row, next, row.getAttribute('data-bt-was'));
+				this.emitAtTaskEl(row, next, row.getAttribute('data-bt-was'), true);
 			};
 			playList.appendChild(row);
 		}
 
 		// Nested stack interactive preview
 		const stackItems = [
-			{ guid: 'demo-root', parent_guid: null, indent: 0, status: 'open', text: 'Toast animasyonu asiri hizli', foldBtn: true, folded: false },
-			{ guid: 'demo-p1', parent_guid: 'demo-root', indent: 1, status: 'started', text: 'ffas (active subtask)', foldBtn: true, folded: false },
-			{ guid: 'demo-c1', parent_guid: 'demo-p1', indent: 2, status: 'done', text: 'ffasf (completed)' },
-			{ guid: 'demo-c2', parent_guid: 'demo-p1', indent: 2, status: 'open', text: 'fasf (open)' },
-			{ guid: 'demo-c3', parent_guid: 'demo-p1', indent: 2, status: 'alert', text: 'hhhqw (urgent)', foldBtn: true, folded: false },
-			{ guid: 'demo-c4', parent_guid: 'demo-c3', indent: 3, status: 'open', text: 'asgh (leaf)' },
+			{ guid: 'demo-root', parent_guid: null, indent: 0, status: 'open', text: 'Launch the new onboarding flow', foldBtn: true, folded: false },
+			{ guid: 'demo-p1', parent_guid: 'demo-root', indent: 1, status: 'started', text: 'Polish the welcome screens (active subtask)', foldBtn: true, folded: false },
+			{ guid: 'demo-c1', parent_guid: 'demo-p1', indent: 2, status: 'done', text: 'Final copy for step one (completed)' },
+			{ guid: 'demo-c2', parent_guid: 'demo-p1', indent: 2, status: 'open', text: 'Illustrations for step two (open)' },
+			{ guid: 'demo-c3', parent_guid: 'demo-p1', indent: 2, status: 'alert', text: 'Fix the skip button on mobile (urgent)', foldBtn: true, folded: false },
+			{ guid: 'demo-c4', parent_guid: 'demo-c3', indent: 3, status: 'open', text: 'Reproduce on a small screen (leaf)' },
 			{ guid: 'demo-big', parent_guid: null, indent: 0, status: 'started', text: 'Sprint backlog (>10 uses smooth circle)', foldBtn: true, folded: true },
 			...Array.from({ length: 12 }, (_, idx) => ({
 				guid: `demo-b-${idx}`, parent_guid: 'demo-big', indent: 1,
@@ -1620,7 +2468,7 @@ class Plugin extends AppPlugin {
 				const ns = STATUS_MAP.get(item.status);
 				if (ns?.cls) el.classList.add(ns.cls);
 				refreshStack();
-				this.emitAtTaskEl(el, item.status, el.getAttribute('data-bt-was'));
+				this.emitAtTaskEl(el, item.status, el.getAttribute('data-bt-was'), true);
 			};
 			el.addEventListener('click', (e) => {
 				if (!item.folded || e.target !== el) return;
@@ -1641,6 +2489,7 @@ class Plugin extends AppPlugin {
 		if (!root.isConnected) { this.page = null; return; }
 		root.querySelectorAll('.bt-seg-btn').forEach((b) => b.classList.toggle('is-active', b.dataset.preset === this.cfg.preset));
 		root.querySelectorAll('.bt-toggle').forEach((b) => b.classList.toggle('is-on', !!this.cfg[b.dataset.key]));
+		this.page.refreshTags?.();
 		this.page.refreshStack?.();
 	}
 }

@@ -157,6 +157,53 @@ html:not([data-device=mobile]) .cmdpal--inline:has(.datepicker-calendar.cp-on) {
 	background: color-mix(in srgb, var(--cp-accent) 18%, transparent);
 }
 
+/* The time row under the days: the switch, its label or the time, and + End date stay on one line. Thymer lets each
+   piece wrap, and in the 280px popup the row broke in two and ran into the row below the calendar. While the time is on,
+   the field shows it, so the "Set time:" label gives its room to the field (the switch still toggles it). */
+.datepicker-calendar.cp-on .datepicker-time > div {
+	align-items: center;
+	gap: 6px;
+	padding: 4px 2px !important;
+}
+.datepicker-calendar.cp-on .datepicker-time > div > div:first-child {
+	min-width: 0;
+	gap: 8px !important;
+}
+.datepicker-calendar.cp-on .datepicker-time .id--time-toggle {
+	flex-wrap: nowrap !important;
+	gap: 6px;
+	white-space: nowrap;
+}
+.datepicker-calendar.cp-on .datepicker-time:has(.id--time-container:not(.hidden):not([style*="none"])) [event="onSetTimeLbl"] {
+	display: none;
+}
+.datepicker-calendar.cp-on .datepicker-time .id--time-container {
+	margin-right: 0 !important;
+}
+.datepicker-calendar.cp-on .datepicker-time .id--time {
+	box-sizing: border-box;
+	height: 26px;
+	padding: 0 8px;
+	border: 1px solid color-mix(in srgb, var(--text-default) 10%, transparent);
+	border-radius: 8px;
+	background: var(--cp-tile);
+	color: var(--text-default);
+	font: inherit;
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+	outline: none;
+	transition: border-color .15s ease, box-shadow .15s ease;
+}
+.datepicker-calendar.cp-on .datepicker-time .id--time:focus {
+	border-color: color-mix(in srgb, var(--cp-accent) 60%, transparent);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--cp-accent) 18%, transparent);
+}
+.datepicker-calendar.cp-on .datepicker-time .id--add-end {
+	flex: none;
+	margin-right: 0 !important;
+	white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.cp-today,
 	.datepicker-calendar.cp-on .datepicker-days .day .day-inner {

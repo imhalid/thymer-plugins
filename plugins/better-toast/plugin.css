@@ -1,0 +1,228 @@
+/* BetterToast - dark tinted cards, an inner glow, and a glowing accent line.
+   data-bto (error | warning | success | info | loading) is set by plugin.js from the text.
+   :is(.toaster, .bto-ghost) - .bto-ghost is the copy that slides away when Thymer removes
+   a toast, so the card's whole look lives here and never depends on Thymer's toast colors.
+   Desktop only: on mobile Thymer's own compact toasts stay. */
+
+@keyframes bto-in {
+	from { opacity: 0; transform: translateX(22px) scale(0.97); filter: blur(3px); }
+	60% { filter: blur(0); }
+	to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes bto-out {
+	from { opacity: 1; transform: none; filter: none; }
+	to { opacity: 0; transform: translateX(30px) scale(0.96); filter: blur(2px); }
+}
+@keyframes bto-bar-in {
+	from { transform: scaleY(0); opacity: 0; }
+	to { transform: scaleY(1); opacity: 1; }
+}
+@keyframes bto-glow-in {
+	0% { opacity: 0; }
+	35% { opacity: 1; }
+	100% { opacity: 0.62; }
+}
+@keyframes bto-loading {
+	from { background-position: 0 -120%; }
+	to { background-position: 0 220%; }
+}
+
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) {
+	--bto-c: #38bdf8;
+	--bto-tint: #0b2a4a;
+	--bto-card: #0f1116;
+	--bto-card2: #0b0c10;
+	--bto-title: #f4f4f5;
+	--bto-text: #a1a1aa;
+	--bto-x: #71717a;
+	box-sizing: border-box;
+	padding: 15px 42px 15px 36px;
+	border-radius: 14px;
+	border: 1px solid color-mix(in srgb, var(--bto-c) 26%, rgba(255, 255, 255, 0.06));
+	color: var(--bto-text);
+	background:
+		radial-gradient(130% 120% at 0% 0%, color-mix(in srgb, var(--bto-tint) 55%, transparent), transparent 60%),
+		linear-gradient(180deg, color-mix(in srgb, var(--bto-tint) 15%, var(--bto-card)), var(--bto-card2));
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.045),
+		0 22px 44px -18px rgba(0, 0, 0, 0.75),
+		0 2px 8px -2px rgba(0, 0, 0, 0.4);
+	font-family: var(--font-sans, Inter, system-ui, -apple-system, sans-serif);
+	font-size: 13.5px;
+	line-height: 1.62;
+	letter-spacing: 0.005em;
+	overflow: hidden;
+}
+html:not([data-device=mobile]) body.bto-on .toaster {
+	transition: top 0.4s cubic-bezier(0.16, 1, 0.3, 1), bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+	animation: bto-in 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Kinds */
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost)[data-bto="error"] { --bto-c: #f4512c; --bto-tint: #4a120a; }
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost)[data-bto="warning"] { --bto-c: #facc15; --bto-tint: #3d2d06; }
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost)[data-bto="success"] { --bto-c: #34d399; --bto-tint: #06392a; }
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost)[data-bto="info"] { --bto-c: #22d3ee; --bto-tint: #0b2f5c; }
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost)[data-bto="loading"] { --bto-c: #d4d4d8; --bto-tint: #26272c; }
+
+/* The accent line */
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost)::before {
+	content: "";
+	position: absolute;
+	left: 17px;
+	top: 16px;
+	bottom: 16px;
+	width: 2px;
+	border-radius: 2px;
+	background: var(--bto-c);
+	box-shadow: 0 0 6px color-mix(in srgb, var(--bto-c) 80%, transparent), 0 0 14px color-mix(in srgb, var(--bto-c) 45%, transparent);
+	transform-origin: center;
+}
+html:not([data-device=mobile]) body.bto-on .toaster::before {
+	animation: bto-bar-in 0.46s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
+}
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost)[data-bto="loading"]::before {
+	background:
+		linear-gradient(180deg, transparent 0%, #ffffff 50%, transparent 100%) 0 -120% / 100% 60% no-repeat,
+		color-mix(in srgb, var(--bto-c) 55%, transparent);
+	box-shadow: 0 0 6px rgba(212, 212, 216, 0.35);
+}
+html:not([data-device=mobile]) body.bto-on .toaster[data-bto="loading"]::before {
+	animation:
+		bto-bar-in 0.46s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both,
+		bto-loading 1.3s ease-in-out 0.5s infinite;
+}
+
+/* The inner glow, rising in on arrival and settling */
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost)::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	box-shadow:
+		inset 0 0 0 1px color-mix(in srgb, var(--bto-c) 10%, transparent),
+		inset 0 0 28px -6px color-mix(in srgb, var(--bto-c) 30%, transparent),
+		inset 22px 0 30px -26px color-mix(in srgb, var(--bto-c) 55%, transparent);
+	opacity: 0.62;
+}
+html:not([data-device=mobile]) body.bto-on .toaster::after {
+	animation: bto-glow-in 1.4s ease-out 0.1s both;
+}
+
+/* "Title: message" as one line of prose */
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) .toaster-title {
+	display: inline;
+	margin: 0;
+	font-size: inherit;
+	font-weight: 600;
+	color: var(--bto-title);
+	user-select: text;
+}
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) .toaster-title::after {
+	content: ":\00a0";
+	color: var(--bto-text);
+	font-weight: 400;
+}
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) .toaster-message {
+	display: inline;
+	margin: 0;
+	font-size: inherit;
+	line-height: inherit;
+	color: var(--bto-text);
+}
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) .toaster-title[style*="none"] + .toaster-message {
+	color: color-mix(in srgb, var(--bto-title) 88%, var(--bto-text));
+}
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) .toaster-message b,
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) .toaster-message strong {
+	color: var(--bto-title);
+	font-weight: 600;
+}
+
+/* Close */
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) .ti-x {
+	font-size: 14px !important;
+	color: var(--bto-x);
+	transition: color 0.15s ease;
+}
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) .ti-x:hover {
+	color: var(--bto-title);
+}
+
+/* Buttons, tinted with the kind's color */
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) .toaster-message ~ div:not([style*="display: none"]) {
+	margin-top: 12px !important;
+	gap: 6px !important;
+}
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) :is(.id--primary, .button-primary) {
+	border: 1px solid color-mix(in srgb, var(--bto-c) 42%, transparent);
+	border-radius: 8px;
+	padding: 4px 12px;
+	background: color-mix(in srgb, var(--bto-c) 15%, transparent);
+	color: color-mix(in srgb, var(--bto-c) 55%, #ffffff);
+	font-weight: 600;
+	box-shadow: inset 0 0 10px -4px color-mix(in srgb, var(--bto-c) 60%, transparent);
+	transition: background 0.15s ease, border-color 0.15s ease;
+}
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) :is(.id--primary, .button-primary):hover {
+	background: color-mix(in srgb, var(--bto-c) 24%, transparent);
+	border-color: color-mix(in srgb, var(--bto-c) 65%, transparent);
+}
+html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost) :is(.id--secondary, .button:not(.button-primary)) {
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 8px;
+	padding: 4px 12px;
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--bto-title);
+}
+
+/* Light themes: pale tinted paper, same structure */
+html:not([data-device=mobile]) body.bto-on.bto-light :is(.toaster, .bto-ghost) {
+	--bto-card: #ffffff;
+	--bto-card2: #fafafa;
+	--bto-title: #18181b;
+	--bto-text: #52525b;
+	--bto-x: #a1a1aa;
+	border-color: color-mix(in srgb, var(--bto-c) 32%, rgba(0, 0, 0, 0.06));
+	background:
+		radial-gradient(130% 120% at 0% 0%, color-mix(in srgb, var(--bto-c) 12%, transparent), transparent 62%),
+		linear-gradient(180deg, #ffffff, #fafafa);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.9),
+		0 18px 40px -20px rgba(15, 23, 42, 0.35),
+		0 2px 6px -2px rgba(15, 23, 42, 0.1);
+}
+html:not([data-device=mobile]) body.bto-on.bto-light :is(.toaster, .bto-ghost)[data-bto="warning"] { --bto-c: #eab308; }
+html:not([data-device=mobile]) body.bto-on.bto-light :is(.toaster, .bto-ghost)[data-bto="success"] { --bto-c: #10b981; }
+html:not([data-device=mobile]) body.bto-on.bto-light :is(.toaster, .bto-ghost)[data-bto="info"] { --bto-c: #0ea5e9; }
+html:not([data-device=mobile]) body.bto-on.bto-light :is(.toaster, .bto-ghost)[data-bto="loading"] { --bto-c: #71717a; }
+html:not([data-device=mobile]) body.bto-on.bto-light :is(.toaster, .bto-ghost) :is(.id--primary, .button-primary) {
+	color: color-mix(in srgb, var(--bto-c) 70%, #000000);
+}
+
+/* The leaving copy: slides out beneath the remaining toasts, which glide up over it */
+.bto-ghost {
+	position: fixed;
+	z-index: 9998;
+	margin: 0;
+	pointer-events: none;
+}
+html:not([data-device=mobile]) body.bto-on .bto-ghost {
+	animation: bto-out 0.32s cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+html:not([data-device=mobile]) body.bto-on .bto-ghost::before,
+html:not([data-device=mobile]) body.bto-on .bto-ghost::after {
+	animation: none;
+}
+body:not(.bto-on) .bto-ghost {
+	display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html:not([data-device=mobile]) body.bto-on .toaster,
+	html:not([data-device=mobile]) body.bto-on .toaster::before,
+	html:not([data-device=mobile]) body.bto-on .toaster::after {
+		animation: none !important;
+	}
+}

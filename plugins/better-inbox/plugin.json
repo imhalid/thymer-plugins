@@ -1,0 +1,22 @@
+{
+  "ver": 1,
+  "name": "BetterInbox",
+  "icon": "ti-bell",
+  "off": false,
+  "item_name": "Note",
+  "description": "Keeps every toast Thymer shows: a bell in the status bar with an unread count opens the history, so a vanished message can be read and copied again",
+  "show_sidebar_items": true,
+  "show_cmdpal_items": true,
+  "views": [],
+  "fields": [],
+  "page_field_ids": [],
+  "sidebar_record_sort_field_id": "updated_at",
+  "sidebar_record_sort_dir": "desc",
+  "managed": {
+    "fields": false,
+    "views": false,
+    "sidebar": false
+  },
+  "custom": {},
+  "home": false
+}

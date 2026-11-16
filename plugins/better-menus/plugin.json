@@ -1,0 +1,22 @@
+{
+  "ver": 1,
+  "name": "BetterMenus",
+  "icon": "ti-list-search",
+  "off": false,
+  "item_name": "Note",
+  "description": "Thymer's inline menus (/ and @ menus, dropdowns, context menus) as dark tinted cards with a glowing selection, and your recently used blocks first in the / menu",
+  "show_sidebar_items": true,
+  "show_cmdpal_items": true,
+  "views": [],
+  "fields": [],
+  "page_field_ids": [],
+  "sidebar_record_sort_field_id": "updated_at",
+  "sidebar_record_sort_dir": "desc",
+  "managed": {
+    "fields": false,
+    "views": false,
+    "sidebar": false
+  },
+  "custom": {},
+  "home": false
+}

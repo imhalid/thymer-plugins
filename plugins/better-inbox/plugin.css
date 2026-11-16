@@ -1,0 +1,274 @@
+/* BetterInbox - the notification history: a dark tinted panel above the status bar bell, with each
+   past toast as a small card tinted by kind (same colors as BetterToast). */
+
+@keyframes bib-item-in {
+	from { opacity: 0; transform: translateY(4px); }
+	to { opacity: 1; transform: none; }
+}
+
+/* The bell, while there are unread notifications */
+[data-bib-unread] {
+	color: var(--color-primary-500, #38bdf8);
+}
+[data-bib-unread] .ti {
+	text-shadow: 0 0 8px color-mix(in srgb, var(--color-primary-500, #38bdf8) 60%, transparent);
+}
+
+.bib-pop {
+	--bib-card: #121419;
+	--bib-card2: #0c0d11;
+	--bib-fg: #a1a1aa;
+	--bib-strong: #f4f4f5;
+	--bib-faint: #63636b;
+	--bib-line: rgba(255, 255, 255, 0.07);
+	--bib-item: rgba(255, 255, 255, 0.025);
+	--bib-item-line: rgba(255, 255, 255, 0.06);
+	position: fixed;
+	z-index: 9990;
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	border-radius: 16px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	background:
+		radial-gradient(120% 50% at 100% 100%, color-mix(in srgb, var(--color-primary-500, #38bdf8) 8%, transparent), transparent 60%),
+		linear-gradient(180deg, var(--bib-card), var(--bib-card2));
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.05),
+		0 0 0 1px rgba(0, 0, 0, 0.45),
+		0 30px 70px -24px rgba(0, 0, 0, 0.8),
+		0 10px 28px -12px rgba(0, 0, 0, 0.5);
+	color: var(--bib-fg);
+	font-family: var(--font-sans, Inter, system-ui, -apple-system, sans-serif);
+	font-size: 13px;
+	overflow: hidden;
+	opacity: 0;
+	transform: translateY(8px) scale(0.98);
+	transform-origin: bottom right;
+	transition: opacity 0.18s ease, transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.bib-pop.is-open {
+	opacity: 1;
+	transform: none;
+}
+.bib-pop.is-closing {
+	opacity: 0;
+	transform: translateY(6px) scale(0.98);
+	transition-duration: 0.16s;
+	pointer-events: none;
+}
+
+.bib-head {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 14px 14px 12px 18px;
+	flex: none;
+}
+.bib-head::after {
+	content: "";
+	position: absolute;
+	left: 14px;
+	right: 14px;
+	bottom: 0;
+	height: 1px;
+	background: linear-gradient(90deg, transparent, var(--bib-line) 18%, var(--bib-line) 82%, transparent);
+}
+.bib-title {
+	color: var(--bib-strong);
+	font-weight: 600;
+	font-size: 13.5px;
+}
+.bib-count {
+	color: var(--bib-faint);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+}
+.bib-clear {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	margin-left: auto;
+	padding: 4px 9px;
+	border: 1px solid var(--bib-item-line);
+	border-radius: 8px;
+	background: transparent;
+	color: var(--bib-fg);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+	transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.bib-clear:hover {
+	color: #f87171;
+	border-color: rgba(248, 113, 113, 0.35);
+	background: rgba(248, 113, 113, 0.08);
+}
+
+.bib-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 10px;
+	overflow-y: auto;
+	min-height: 0;
+}
+
+.bib-item {
+	--bib-c: #22d3ee;
+	position: relative;
+	display: flex;
+	gap: 10px;
+	padding: 10px 10px 10px 22px;
+	border-radius: 11px;
+	border: 1px solid var(--bib-item-line);
+	background:
+		linear-gradient(90deg, color-mix(in srgb, var(--bib-c) 7%, transparent), transparent 55%),
+		var(--bib-item);
+	line-height: 1.5;
+	animation: bib-item-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+	animation-delay: calc(var(--bib-i, 0) * 22ms);
+}
+.bib-item[data-kind="error"] { --bib-c: #f4512c; }
+.bib-item[data-kind="warning"] { --bib-c: #facc15; }
+.bib-item[data-kind="success"] { --bib-c: #34d399; }
+.bib-item[data-kind="info"] { --bib-c: #22d3ee; }
+.bib-item::before {
+	content: "";
+	position: absolute;
+	left: 10px;
+	top: 12px;
+	bottom: 12px;
+	width: 2px;
+	border-radius: 2px;
+	background: var(--bib-c);
+	box-shadow: 0 0 6px color-mix(in srgb, var(--bib-c) 70%, transparent);
+}
+.bib-item.is-new {
+	border-color: color-mix(in srgb, var(--bib-c) 30%, var(--bib-item-line));
+}
+.bib-item.is-new::before {
+	width: 3px;
+	left: 9px;
+	box-shadow: 0 0 8px var(--bib-c), 0 0 16px color-mix(in srgb, var(--bib-c) 55%, transparent);
+}
+
+.bib-text {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	display: -webkit-box;
+	-webkit-line-clamp: 4;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	user-select: text;
+}
+.bib-item-title {
+	color: var(--bib-strong);
+	font-weight: 600;
+}
+.bib-item-title + .bib-item-msg::before {
+	content: ":\00a0";
+	color: var(--bib-fg);
+}
+.bib-item-msg {
+	color: var(--bib-fg);
+}
+
+.bib-side {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 4px;
+	flex: none;
+	padding-right: 8px;
+}
+.bib-time {
+	color: var(--bib-faint);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+.bib-repeat {
+	padding: 0 6px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--bib-c) 14%, transparent);
+	color: color-mix(in srgb, var(--bib-c) 60%, #ffffff);
+	font-size: 10.5px;
+	font-weight: 600;
+}
+.bib-copy {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 22px;
+	padding: 0;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--bib-faint);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.bib-item:hover .bib-copy,
+.bib-copy:focus-visible,
+.bib-copy.is-done {
+	opacity: 1;
+}
+.bib-copy:hover {
+	color: var(--bib-strong);
+	background: rgba(255, 255, 255, 0.06);
+}
+.bib-copy.is-done {
+	color: #34d399;
+}
+
+.bib-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 34px 0 30px;
+	color: var(--bib-faint);
+}
+.bib-empty .ti {
+	font-size: 22px;
+	opacity: 0.7;
+}
+
+/* Light themes */
+body.bib-light .bib-pop {
+	--bib-card: #ffffff;
+	--bib-card2: #fbfbfc;
+	--bib-fg: #52525b;
+	--bib-strong: #18181b;
+	--bib-faint: #a1a1aa;
+	--bib-line: rgba(0, 0, 0, 0.07);
+	--bib-item: rgba(0, 0, 0, 0.015);
+	--bib-item-line: rgba(0, 0, 0, 0.07);
+	border-color: rgba(0, 0, 0, 0.08);
+	box-shadow:
+		inset 0 1px 0 #ffffff,
+		0 30px 70px -28px rgba(15, 23, 42, 0.35),
+		0 10px 28px -12px rgba(15, 23, 42, 0.16);
+}
+body.bib-light .bib-item[data-kind="warning"] { --bib-c: #eab308; }
+body.bib-light .bib-item[data-kind="success"] { --bib-c: #10b981; }
+body.bib-light .bib-item[data-kind="info"] { --bib-c: #0ea5e9; }
+body.bib-light .bib-repeat {
+	color: color-mix(in srgb, var(--bib-c) 75%, #000000);
+}
+body.bib-light .bib-copy:hover {
+	background: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bib-pop,
+	.bib-item {
+		transition: none;
+		animation: none;
+	}
+}

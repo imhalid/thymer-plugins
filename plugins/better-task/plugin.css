@@ -1378,7 +1378,7 @@ html:root body.bt-on.bt-anim .listitem-task[data-bt-tag="deadline"]:not(.state-d
 }
 html:root body.bt-on.bt-anim .listitem-task[data-bt-tag="deadline"]:not(.state-done):not(.state-canceled) > .line-check-div::after {
 	inset: -4px;
-	border-radius: 50%;
+	border-radius: 9px; /* the tile's 5px plus the 4px gap: the ring follows the rounded square */
 	border: 1.5px dashed rgba(251, 146, 60, 0.7);
 	opacity: 0.9;
 	animation: bt-spin 6s steps(12) infinite;
@@ -1534,6 +1534,16 @@ html:root body.bt-on .listitem-task.state-done[data-bt-tag="moon"] > .line-check
 	background: linear-gradient(145deg, #a5b4fc, #4338ca);
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 9px rgba(129, 140, 248, 0.4);
 }
+
+/* Hovering a done custom status lights it in the status's own color. Without these, a task that had another status
+   before it was done (data-bt-was, e.g. alert) took that status's hover color: a lime bug glowed orange. */
+html:root body.bt-on .listitem-task.state-done[data-bt-tag="kawaii"] > .line-check-div:hover { border-color: #f9a8d4; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 13px rgba(244, 114, 182, 0.55); }
+html:root body.bt-on .listitem-task.state-done[data-bt-tag="bug"] > .line-check-div:hover { border-color: #bef264; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 13px rgba(163, 230, 53, 0.55); }
+html:root body.bt-on .listitem-task.state-done[data-bt-tag="draft"] > .line-check-div:hover { border-color: #93c5fd; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 13px rgba(96, 165, 250, 0.55); }
+html:root body.bt-on .listitem-task.state-done[data-bt-tag="deadline"] > .line-check-div:hover { border-color: #fdba74; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 13px rgba(249, 115, 22, 0.55); }
+html:root body.bt-on .listitem-task.state-done[data-bt-tag="flower"] > .line-check-div:hover { border-color: #f0abfc; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 13px rgba(232, 121, 249, 0.55); }
+html:root body.bt-on .listitem-task.state-done[data-bt-tag="sun"] > .line-check-div:hover { border-color: #fde047; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 13px rgba(251, 191, 36, 0.55); }
+html:root body.bt-on .listitem-task.state-done[data-bt-tag="moon"] > .line-check-div:hover { border-color: #c7d2fe; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 13px rgba(165, 180, 252, 0.55); }
 
 /* -- Vivid Solid preset: filled tiles, white glyphs -- */
 

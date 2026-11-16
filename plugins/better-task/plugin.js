@@ -5,6 +5,7 @@
 
 const BT_PAGE_TYPE = 'better-task-settings';
 const BT_STORAGE_KEY = 'better-task:choices';
+const BT_UNDONE_KEY = 'better-task:undone';
 
 const PRESETS = [
 	{ id: 'neon-glass', label: 'Neon Glass' },
@@ -107,6 +108,45 @@ const STATUS_SPECS = [
 
 const STATUS_MAP = new Map(STATUS_SPECS.map((s) => [s.key, s]));
 const CYCLE_ORDER = ['open', 'started', 'blocked', 'dollar', 'exclaim', 'question', 'alert', 'starred', 'canceled', 'done'];
+const CODE_TO_KEY = { 0: 'open', 1: 'started', 2: 'blocked', 3: 'dollar', 4: 'exclaim', 5: 'question', 6: 'alert', 7: 'starred', 8: 'done', 9: 'canceled' };
+const NAME_TO_KEY = {
+	none: 'open', open: 'open', '': 'open',
+	started: 'started', inprogress: 'started',
+	waiting: 'blocked', blocked: 'blocked',
+	billable: 'dollar', dollar: 'dollar',
+	important: 'exclaim', exclaim: 'exclaim',
+	discuss: 'question', question: 'question',
+	alert: 'alert', starred: 'starred',
+	done: 'done', canceled: 'canceled',
+};
+
+function statusFromCodeOrString(v) {
+	if (v == null) return null;
+	if (typeof v === 'number' && CODE_TO_KEY[v] !== undefined) return CODE_TO_KEY[v];
+	const s = String(v).trim().toLowerCase();
+	if (/^\d+$/.test(s) && CODE_TO_KEY[Number(s)] !== undefined) return CODE_TO_KEY[Number(s)];
+	return NAME_TO_KEY[s] || null;
+}
+
+function loadUndoneMap() {
+	try {
+		const raw = localStorage.getItem(BT_UNDONE_KEY);
+		if (!raw) return new Map();
+		const entries = JSON.parse(raw);
+		return Array.isArray(entries) ? new Map(entries.slice(-400)) : new Map();
+	} catch (e) {
+		return new Map();
+	}
+}
+
+function saveUndoneMap(map) {
+	try {
+		const arr = [...map.entries()].slice(-400);
+		localStorage.setItem(BT_UNDONE_KEY, JSON.stringify(arr));
+	} catch (e) {
+		/* ignore */
+	}
+}
 
 function statusFromClassName(cls) {
 	if (!cls) return 'open';
@@ -219,11 +259,14 @@ class TaskBurstSystem {
 		this.ctx = null;
 	}
 
-	emit(status, x, y, size = 18) {
+	emit(status, x, y, size = 18, originStatus = null) {
 		if (!Number.isFinite(x) || !Number.isFinite(y)) return;
 		if (!this.canvas) this.mount();
 		const spec = STATUS_MAP.get(status) || STATUS_MAP.get('open');
-		const cols = spec.colors;
+		const originSpec = originStatus && originStatus !== 'open' && originStatus !== 'done' ? STATUS_MAP.get(originStatus) : null;
+		const cols = originSpec && status === 'done'
+			? [originSpec.colors[0], originSpec.colors[1] || spec.colors[0], spec.colors[0]]
+			: spec.colors;
 		const u = Math.max(0.75, Math.min(1.6, size / 18));
 		const now = performance.now();
 		const rand = Math.random;
@@ -526,6 +569,8 @@ class Plugin extends AppPlugin {
 		this.dark = true;
 		this.cfg = { preset: 'neon-glass', anim: true, bursts: true, rowTint: true };
 		this.bursts = new TaskBurstSystem();
+		this.undoneByGuid = loadUndoneMap();
+		this.syncTimer = 0;
 
 		this.readConfig();
 		this.updatePolarity(true);
@@ -546,9 +591,14 @@ class Plugin extends AppPlugin {
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle row tint', icon: 'ti-highlight', onSelected: () => this.update({ rowTint: !this.cfg.rowTint }, true) });
 
 		this.eventIds.push(this.events.on('global-plugin.updated', () => this.readConfig()));
+		this.eventIds.push(this.events.on('panel.navigated', () => this.scheduleSyncDoneOrigins()));
+		this.eventIds.push(this.events.on('panel.focused', () => this.scheduleSyncDoneOrigins()));
+		this.eventIds.push(this.events.on('record.updated', () => this.scheduleSyncDoneOrigins()));
+		this.scheduleSyncDoneOrigins();
 	}
 
 	onUnload() {
+		clearTimeout(this.syncTimer);
 		for (const fn of this.cleanup) {
 			try { fn(); } catch (e) { /* ignore */ }
 		}
@@ -559,6 +609,7 @@ class Plugin extends AppPlugin {
 		this.eventIds = [];
 		this.bursts.destroy();
 		this.clearBodyClasses();
+		document.querySelectorAll('.listitem-task[data-bt-was]').forEach((el) => el.removeAttribute('data-bt-was'));
 		this.page = null;
 	}
 
@@ -637,29 +688,119 @@ class Plugin extends AppPlugin {
 		}
 	}
 
-	emitAtTaskEl(el, status) {
-		if (!this.cfg.bursts) return;
-		const boxEl = el.querySelector?.(':scope > .line-check-div') || el;
+	taskBoxRect(el) {
+		if (!(el instanceof Element)) return null;
+		const boxEl = el.querySelector?.(':scope > .line-check-div, .line-check-div') || el;
 		const r = boxEl.getBoundingClientRect();
-		if (!(r.width > 0) || !(r.height > 0)) return;
-		this.bursts.emit(status, r.left + r.width / 2, r.top + r.height / 2, Math.max(r.width, r.height));
+		if (!(r.width > 0) || !(r.height > 0)) return null;
+		return r;
+	}
+
+	findTaskElByGuid(guid, cx, cy) {
+		if (!guid || typeof CSS === 'undefined' || !CSS.escape) return null;
+		const candidates = [...document.querySelectorAll(`.listitem-task[data-guid="${CSS.escape(guid)}"]`)]
+			.filter((el) => !el.closest('.autocomplete--option-icon, .autocomplete--option, .bt-settings'));
+		if (!candidates.length) return null;
+		if (candidates.length === 1) return candidates[0];
+		let best = candidates[0], bestScore = -1e9;
+		for (const el of candidates) {
+			const r = this.taskBoxRect(el);
+			if (!r) continue;
+			let score = el.closest('.panel.is-focused') ? 5000 : 0;
+			if (Number.isFinite(cx) && Number.isFinite(cy)) {
+				score -= Math.hypot(r.left + r.width / 2 - cx, r.top + r.height / 2 - cy);
+			}
+			if (score > bestScore) { bestScore = score; best = el; }
+		}
+		return best;
+	}
+
+	applyDoneAttrToEl(el, forcedWas = undefined) {
+		if (!(el instanceof Element) || !el.classList.contains('listitem-task')) return;
+		if (!el.classList.contains('state-done')) {
+			if (el.hasAttribute('data-bt-was')) el.removeAttribute('data-bt-was');
+			return;
+		}
+		const guid = el.getAttribute('data-guid');
+		const was = forcedWas !== undefined ? forcedWas : (guid ? this.undoneByGuid.get(guid) : el.getAttribute('data-bt-was'));
+		if (was && was !== 'open' && was !== 'done') {
+			if (el.getAttribute('data-bt-was') !== was) el.setAttribute('data-bt-was', was);
+		} else if (el.hasAttribute('data-bt-was')) {
+			el.removeAttribute('data-bt-was');
+		}
+	}
+
+	applyDoneAttrsToRoot(root = document) {
+		if (!root?.querySelectorAll) return;
+		if (root instanceof Element && root.classList.contains('listitem-task')) this.applyDoneAttrToEl(root);
+		root.querySelectorAll('.listitem-task[data-guid]').forEach((el) => this.applyDoneAttrToEl(el));
+	}
+
+	scheduleSyncDoneOrigins() {
+		clearTimeout(this.syncTimer);
+		this.syncTimer = setTimeout(() => { this.syncDoneOrigins(); }, 100);
+	}
+
+	async syncDoneOrigins() {
+		try {
+			const seenItems = [];
+			const panels = this.ui.getPanels?.() || (this.ui.getActivePanel?.() ? [this.ui.getActivePanel()] : []);
+			for (const p of panels) {
+				const rec = p?.getActiveRecord?.();
+				if (!rec?.getLineItems) continue;
+				try {
+					const items = await rec.getLineItems();
+					if (Array.isArray(items)) seenItems.push(...items);
+				} catch (e) { /* ignore */ }
+			}
+			if (this.data?.searchByQuery) {
+				try {
+					const res = await this.data.searchByQuery('@done', 150);
+					if (Array.isArray(res?.lines)) seenItems.push(...res.lines);
+				} catch (e) { /* ignore */ }
+			}
+			let dirty = false;
+			for (const item of seenItems) {
+				if (!item?.guid) continue;
+				const st = item.getTaskStatus?.();
+				if (st === 'done') {
+					const was = statusFromCodeOrString(item.props?.undone);
+					if (was && was !== 'open' && was !== 'done') {
+						if (this.undoneByGuid.get(item.guid) !== was) {
+							this.undoneByGuid.set(item.guid, was);
+							dirty = true;
+						}
+					}
+				} else if (st && st !== 'done' && this.undoneByGuid.has(item.guid)) {
+					this.undoneByGuid.delete(item.guid);
+					dirty = true;
+				}
+			}
+			if (dirty) saveUndoneMap(this.undoneByGuid);
+			this.applyDoneAttrsToRoot(document);
+		} catch (e) { /* ignore */ }
+	}
+
+	emitAtTaskEl(el, status, originStatus = null) {
+		if (!this.cfg.bursts) return;
+		const r = this.taskBoxRect(el);
+		if (!r) return;
+		const origin = originStatus || el.getAttribute?.('data-bt-was') || null;
+		this.bursts.emit(status, r.left + r.width / 2, r.top + r.height / 2, Math.max(r.width, r.height), origin);
 	}
 
 	installTaskObserver() {
 		let gestureAt = -1e9;
-		let boxClickAt = -1e9;
-		let pickerActionAt = -1e9;
-		const recentEl = new WeakMap();
+		let lastX = NaN, lastY = NaN;
+		const knownStatusByGuid = new Map();
+		const lastBurstByGuid = new Map();
+		const lastElStamp = new WeakMap();
 
 		const mark = (e) => {
-			const now = performance.now();
-			gestureAt = now;
-			const t = e.target;
-			if (e.type === 'pointerdown' && t instanceof Element) {
-				if (t.closest('.listitem-task') && !t.closest('.autocomplete--option')) boxClickAt = now;
-				if (t.closest('.autocomplete--option')) pickerActionAt = now;
-			} else if (e.type === 'keydown') {
-				if (document.querySelector('.autocomplete--option')) pickerActionAt = now;
+			gestureAt = performance.now();
+			if (e.type === 'pointerdown' && typeof e.clientX === 'number') {
+				lastX = e.clientX;
+				lastY = e.clientY;
 			}
 		};
 		document.addEventListener('pointerdown', mark, { capture: true, passive: true });
@@ -668,45 +809,99 @@ class Plugin extends AppPlugin {
 		const isRealTask = (el) => (
 			el instanceof Element &&
 			el.classList.contains('listitem-task') &&
-			!el.closest('.autocomplete--option-icon') &&
-			!el.closest('.bt-settings')
+			!el.closest('.autocomplete--option-icon, .autocomplete--option, .bt-settings')
 		);
 
-		const fireIfFresh = (el, status) => {
+		const tryEmitGuid = (guid, nextStatus, elHint = null) => {
 			const now = performance.now();
-			const last = recentEl.get(el) || 0;
-			if (now - last < 160) return;
-			recentEl.set(el, now);
-			this.emitAtTaskEl(el, status);
+			const prevKnown = knownStatusByGuid.get(guid);
+			const prevBurst = lastBurstByGuid.get(guid);
+			if (prevKnown === nextStatus) return false;
+			if (prevBurst && prevBurst.status === nextStatus && now - prevBurst.at < 2000) return false;
+			knownStatusByGuid.set(guid, nextStatus);
+			lastBurstByGuid.set(guid, { status: nextStatus, at: now });
+			const was = nextStatus === 'done' ? this.undoneByGuid.get(guid) || null : null;
+			const targetEl = elHint || this.findTaskElByGuid(guid, lastX, lastY);
+			if (targetEl) {
+				this.applyDoneAttrToEl(targetEl);
+				this.emitAtTaskEl(targetEl, nextStatus, was);
+			} else {
+				requestAnimationFrame(() => {
+					const delayed = this.findTaskElByGuid(guid, lastX, lastY);
+					if (delayed && isRealTask(delayed)) {
+						this.applyDoneAttrToEl(delayed);
+						this.emitAtTaskEl(delayed, nextStatus, was);
+					}
+				});
+			}
+			return true;
 		};
+
+		const onLineUpdate = (ev) => {
+			if (!ev?.lineItemGuid) return;
+			const guid = ev.lineItemGuid;
+			const nextStatus = ev.status !== null && ev.status !== undefined ? statusFromCodeOrString(ev.status) : null;
+			const mp = ev.metaProperties || null;
+			if (nextStatus === 'done') {
+				let was = mp && 'undone' in mp ? statusFromCodeOrString(mp.undone) : null;
+				if (!was) {
+					const prev = knownStatusByGuid.get(guid);
+					if (prev && prev !== 'open' && prev !== 'done') was = prev;
+				}
+				if (was && was !== 'open' && was !== 'done') {
+					this.undoneByGuid.set(guid, was);
+					saveUndoneMap(this.undoneByGuid);
+				} else if (mp && 'undone' in mp && !mp.undone) {
+					this.undoneByGuid.delete(guid);
+					saveUndoneMap(this.undoneByGuid);
+				}
+			} else if (nextStatus && nextStatus !== 'done') {
+				if (this.undoneByGuid.delete(guid)) saveUndoneMap(this.undoneByGuid);
+			}
+
+			if (typeof CSS !== 'undefined' && CSS.escape) {
+				document.querySelectorAll(`.listitem-task[data-guid="${CSS.escape(guid)}"]`).forEach((el) => this.applyDoneAttrToEl(el));
+			}
+
+			if (!ev.source?.isLocal || !nextStatus) return;
+			tryEmitGuid(guid, nextStatus);
+		};
+		this.eventIds.push(this.events.on('lineitem.updated', onLineUpdate, { collection: '*' }));
 
 		const mo = new MutationObserver((muts) => {
 			const now = performance.now();
-			if (now - gestureAt > 1200) return;
-			const addedTasks = [];
 			for (const m of muts) {
-				if (m.type === 'attributes') {
-					const el = m.target;
-					if (!isRealTask(el)) continue;
-					const prev = statusFromClassName(m.oldValue || '');
-					const next = statusFromClassName(el.className || '');
-					if (prev !== next) fireIfFresh(el, next);
+				if (m.type === 'childList') {
+					for (const n of m.addedNodes) {
+						if (n instanceof Element) this.applyDoneAttrsToRoot(n);
+					}
 					continue;
 				}
-				if (now - boxClickAt > 950 && now - pickerActionAt > 950) continue;
-				for (const n of m.addedNodes) {
-					if (!(n instanceof Element)) continue;
-					if (isRealTask(n)) addedTasks.push(n);
-					else {
-						const nested = n.querySelector?.('.listitem-task');
-						if (nested && isRealTask(nested)) addedTasks.push(nested);
+				if (m.type !== 'attributes') continue;
+				const el = m.target;
+				if (!isRealTask(el)) continue;
+				const prev = statusFromClassName(m.oldValue || '');
+				const next = statusFromClassName(el.className || '');
+				const guid = el.getAttribute('data-guid');
+				if (prev === next) continue;
+
+				if (guid) {
+					if (next === 'done' && prev !== 'open' && prev !== 'done' && !this.undoneByGuid.has(guid)) {
+						this.undoneByGuid.set(guid, prev);
+						saveUndoneMap(this.undoneByGuid);
+					} else if (next !== 'done' && prev === 'done') {
+						if (this.undoneByGuid.delete(guid)) saveUndoneMap(this.undoneByGuid);
 					}
-				}
-			}
-			if (addedTasks.length > 0 && addedTasks.length <= 2) {
-				for (const el of addedTasks) {
-					const st = statusFromClassName(el.className || '');
-					if (st !== 'open') fireIfFresh(el, st);
+					this.applyDoneAttrToEl(el);
+					if (now - gestureAt <= 750) tryEmitGuid(guid, next, el);
+				} else if (now - gestureAt <= 750) {
+					if (next === 'done' && prev !== 'open' && prev !== 'done') el.setAttribute('data-bt-was', prev);
+					else if (next !== 'done') el.removeAttribute('data-bt-was');
+					const prevStamp = lastElStamp.get(el);
+					if (!prevStamp || prevStamp.status !== next || now - prevStamp.at >= 400) {
+						lastElStamp.set(el, { status: next, at: now });
+						this.emitAtTaskEl(el, next);
+					}
 				}
 			}
 		});
@@ -812,16 +1007,47 @@ class Plugin extends AppPlugin {
 
 		const playList = root.querySelector('.bt-play-list');
 		for (const spec of STATUS_SPECS) {
-			const row = mk(`<div class="listitem-task ${spec.cls}" data-status="${spec.key}"><div class="line-check-div"></div><div class="line-div"></div></div>`);
+			const row = mk(`<div class="listitem-task ${spec.cls}" data-status="${spec.key}" data-origin="${spec.key}"><div class="line-check-div"></div><div class="line-div"></div><button type="button" class="bt-done-btn"></button></div>`);
 			row.querySelector('.line-div').textContent = spec.sampleText;
+			const doneBtn = row.querySelector('.bt-done-btn');
+			const updateBtnLabel = () => {
+				const isDone = row.dataset.status === 'done';
+				doneBtn.classList.toggle('is-done', isDone);
+				doneBtn.textContent = isDone ? 'Restore' : 'Complete';
+			};
+			updateBtnLabel();
 			row.querySelector('.line-check-div').onclick = () => {
 				const cur = row.dataset.status || 'open';
 				const next = CYCLE_ORDER[(CYCLE_ORDER.indexOf(cur) + 1) % CYCLE_ORDER.length];
 				const nextSpec = STATUS_MAP.get(next);
 				for (const s of STATUS_SPECS) if (s.cls) row.classList.remove(s.cls);
 				if (nextSpec.cls) row.classList.add(nextSpec.cls);
+				if (next === 'done' && cur !== 'open' && cur !== 'done') {
+					row.setAttribute('data-bt-was', cur);
+					row.dataset.origin = cur;
+				} else if (next !== 'done') {
+					row.removeAttribute('data-bt-was');
+					row.dataset.origin = next;
+				}
 				row.dataset.status = next;
-				this.emitAtTaskEl(row, next);
+				updateBtnLabel();
+				this.emitAtTaskEl(row, next, row.getAttribute('data-bt-was'));
+			};
+			doneBtn.onclick = () => {
+				const cur = row.dataset.status || 'open';
+				const orig = row.dataset.origin && row.dataset.origin !== 'done' ? row.dataset.origin : 'open';
+				const next = cur === 'done' ? orig : 'done';
+				const nextSpec = STATUS_MAP.get(next);
+				for (const s of STATUS_SPECS) if (s.cls) row.classList.remove(s.cls);
+				if (nextSpec.cls) row.classList.add(nextSpec.cls);
+				if (next === 'done' && orig !== 'open' && orig !== 'done') {
+					row.setAttribute('data-bt-was', orig);
+				} else {
+					row.removeAttribute('data-bt-was');
+				}
+				row.dataset.status = next;
+				updateBtnLabel();
+				this.emitAtTaskEl(row, next, row.getAttribute('data-bt-was'));
 			};
 			playList.appendChild(row);
 		}

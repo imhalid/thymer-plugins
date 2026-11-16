@@ -4513,6 +4513,33 @@ class Plugin extends AppPlugin {
 		this.cleanup.push(() => { tree.disconnect(); observers.forEach(([o]) => o.disconnect()); observers.length = 0; });
 	}
 
+	taskBoxRect(el) {
+		if (!(el instanceof Element)) return null;
+		const boxEl = el.querySelector?.(':scope > .line-check-div, .line-check-div') || el;
+		const b = boxEl.getBoundingClientRect();
+		if (!(b.width > 0) || !(b.height > 0)) return null;
+		return { x: b.left, y: b.top, w: b.width, h: b.height };
+	}
+
+	findTaskElByGuid(guid, cx, cy) {
+		if (!guid || typeof CSS === 'undefined' || !CSS.escape) return null;
+		const candidates = [...document.querySelectorAll(`.listitem-task[data-guid="${CSS.escape(guid)}"]`)]
+			.filter((el) => !el.closest('.autocomplete--option-icon, .autocomplete--option, .cfx2-taskdemo, .bt-settings'));
+		if (!candidates.length) return null;
+		if (candidates.length === 1) return candidates[0];
+		let best = candidates[0], bestScore = -1e9;
+		for (const el of candidates) {
+			const b = this.taskBoxRect(el);
+			if (!b) continue;
+			let score = el.closest('.panel.is-focused') ? 5000 : 0;
+			if (Number.isFinite(cx) && Number.isFinite(cy)) {
+				score -= Math.hypot(b.x + b.w / 2 - cx, b.y + b.h / 2 - cy);
+			}
+			if (score > bestScore) { bestScore = score; best = el; }
+		}
+		return best;
+	}
+
 	triggerConfettiAt(box) {
 		if (!box || !(box.w > 0) || !(box.h > 0)) return;
 		const tint = this.activeCaret().tint ? this.activeCaret().tint(this.dark) : cursorColor(this.dark);
@@ -4521,38 +4548,88 @@ class Plugin extends AppPlugin {
 	}
 
 	installTaskObserver() {
-		let gestureAt = 0, boxClickAt = 0, firedAt = 0;
+		let gestureAt = -1e9;
+		let lastX = NaN, lastY = NaN;
+		const doneStateByGuid = new Map();
+		const doneFiredAtByGuid = new Map();
+		const doneElStamp = new WeakMap();
+
 		const mark = (e) => {
 			gestureAt = performance.now();
-			if (e.type === 'pointerdown' && e.target instanceof Element && e.target.closest('.listitem-task')) boxClickAt = gestureAt;
+			if (e.type === 'pointerdown' && typeof e.clientX === 'number') {
+				lastX = e.clientX;
+				lastY = e.clientY;
+			}
 		};
 		document.addEventListener('pointerdown', mark, { capture: true, passive: true });
 		document.addEventListener('keydown', mark, { capture: true, passive: true });
-		const isDoneTask = (el) => el instanceof Element && el.classList.contains('listitem-task') && el.classList.contains('state-done') && !el.closest('.cfx2-taskdemo');
-		const fire = (el) => {
-			const now = performance.now();
-			if (now - firedAt < 320) return;
-			const b = el.getBoundingClientRect();
-			if (!(b.width > 0) || !(b.height > 0)) return;
-			firedAt = now;
-			this.triggerConfettiAt({ x: b.left, y: b.top, w: b.width, h: b.height });
+
+		const isDoneTask = (el) => (
+			el instanceof Element &&
+			el.classList.contains('listitem-task') &&
+			el.classList.contains('state-done') &&
+			!el.closest('.autocomplete--option-icon, .autocomplete--option, .cfx2-taskdemo, .bt-settings')
+		);
+
+		const fireEl = (el) => {
+			const rect = this.taskBoxRect(el);
+			if (rect) this.triggerConfettiAt(rect);
 		};
+
+		const tryFireGuid = (guid, elHint = null) => {
+			const now = performance.now();
+			const lastAt = doneFiredAtByGuid.get(guid) || -1e9;
+			if (doneStateByGuid.get(guid) === true) return false;
+			if (now - lastAt < 1200) return false;
+			doneStateByGuid.set(guid, true);
+			doneFiredAtByGuid.set(guid, now);
+			const el = elHint || this.findTaskElByGuid(guid, lastX, lastY);
+			if (el) {
+				fireEl(el);
+			} else {
+				requestAnimationFrame(() => {
+					const delayed = this.findTaskElByGuid(guid, lastX, lastY);
+					if (delayed && isDoneTask(delayed)) fireEl(delayed);
+				});
+			}
+			return true;
+		};
+
+		const onLineUpdate = (ev) => {
+			if (!ev?.source?.isLocal || !ev.lineItemGuid || ev.status == null) return;
+			if (ev.status !== 'done') {
+				doneStateByGuid.set(ev.lineItemGuid, false);
+				return;
+			}
+			tryFireGuid(ev.lineItemGuid);
+		};
+		this.eventIds.push(this.events.on('lineitem.updated', onLineUpdate, { collection: '*' }));
+
 		const mo = new MutationObserver((muts) => {
-			if (performance.now() - gestureAt > 1200) return;
+			const now = performance.now();
 			for (const m of muts) {
-				if (m.type === 'attributes') {
-					if (isDoneTask(m.target) && !/\bstate-done\b/.test(m.oldValue || '')) fire(m.target);
+				if (m.type !== 'attributes') continue;
+				const el = m.target;
+				if (!(el instanceof Element) || !el.classList.contains('listitem-task')) continue;
+				if (el.closest('.autocomplete--option-icon, .autocomplete--option, .cfx2-taskdemo, .bt-settings')) continue;
+				const guid = el.getAttribute('data-guid');
+				const wasDone = /\bstate-done\b/.test(m.oldValue || '');
+				const isDone = el.classList.contains('state-done');
+				if (!isDone) {
+					if (wasDone && guid) doneStateByGuid.set(guid, false);
+					doneElStamp.delete(el);
 					continue;
 				}
-				if (performance.now() - boxClickAt > 1200) continue;
-				for (const n of m.addedNodes) {
-					if (!(n instanceof Element)) continue;
-					if (isDoneTask(n)) fire(n);
-					else { const el = n.querySelector('.listitem-task.state-done'); if (el && isDoneTask(el)) fire(el); }
+				if (wasDone || now - gestureAt > 750) continue;
+				if (guid) {
+					tryFireGuid(guid, el);
+				} else if (now - (doneElStamp.get(el) || -1e9) > 1200) {
+					doneElStamp.set(el, now);
+					fireEl(el);
 				}
 			}
 		});
-		mo.observe(document.body, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, childList: true, subtree: true });
+		mo.observe(document.body, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 		this.cleanup.push(() => {
 			mo.disconnect();
 			document.removeEventListener('pointerdown', mark, true);
@@ -4901,6 +4978,7 @@ class Plugin extends AppPlugin {
 			if (clip) { ctx.beginPath(); ctx.rect(clip.x, clip.y, clip.w, clip.h); ctx.clip(); }
 			fillRectR(ctx, info.rect.x - 1, info.rect.y, 2, info.rect.h, accentCol, 1);
 			ctx.restore();
+			if (this.confetti.active() && this.confetti.draw(ctx, nowMs, clip || winBounds) === 'raf') this.kick();
 			return;
 		}
 

@@ -37,6 +37,13 @@ body.btt-on .tooltip-element .kbd {
 body.btt-on .tooltip-element .ti {
 	color: var(--btt-kbd-fg);
 }
+/* Thymer puts some shortcut icons right on the chip (<span class="ti ti-hand-click kbd">): icon-sized there */
+body.btt-on .tooltip-element .kbd.ti {
+	padding: 1px 4px;
+	font-size: 12px;
+	line-height: 14px;
+	vertical-align: -2px;
+}
 body.btt-on .tooltip-element.tooltip-tall {
 	opacity: 1 !important;
 	border-radius: 10px;

@@ -654,7 +654,7 @@ html[data-theme] body .id--panel-title .id--h1-edit {
 					`--debug-fixed-width-font: ${moStack};`
 				);
 				chunks.push(`
-html[data-theme] body :is(code, pre, kbd, .lineitem-code, .kbd, .statusbar--kbd, .mcp-config, .shortcuts-help-content),
+html[data-theme] body :is(code, pre, kbd, .lineitem-code, .kbd, .statusbar--kbd, .mcp-config, .shortcuts-help-content):not(.ti),
 html[data-theme] body .block-container-div.block-codelang,
 html[data-theme] body .block-container-div.block-codelang > .block-content > .listitem,
 html[data-theme] body .block-container-div.block-codelang > .block-content > .listitem .line-div,

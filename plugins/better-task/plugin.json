@@ -1,0 +1,27 @@
+{
+  "ver": 1,
+  "name": "BetterTask",
+  "icon": "ti-checks",
+  "off": false,
+  "item_name": "Note",
+  "description": "Handcrafted vector task status icons with distinct colors, silhouettes, animations, and transition effects",
+  "show_sidebar_items": true,
+  "show_cmdpal_items": true,
+  "views": [],
+  "fields": [],
+  "page_field_ids": [],
+  "sidebar_record_sort_field_id": "updated_at",
+  "sidebar_record_sort_dir": "desc",
+  "managed": {
+    "fields": false,
+    "views": false,
+    "sidebar": false
+  },
+  "custom": {
+    "preset": "neon-glass",
+    "anim": true,
+    "bursts": true,
+    "rowTint": true
+  },
+  "home": false
+}

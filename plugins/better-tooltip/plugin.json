@@ -1,7 +1,7 @@
 {
   "ver": 1,
   "name": "BetterTooltip",
-  "icon": "ti-message-circle-2",
+  "icon": "ti-message-circle",
   "off": false,
   "item_name": "Note",
   "description": "Thymer's tooltips as small dark tinted pills with keyboard chips and a softer spring-in",

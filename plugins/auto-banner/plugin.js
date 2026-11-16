@@ -2189,9 +2189,9 @@ class Plugin extends AppPlugin {
 		}, { collection: '*' });
 
 		const toggle = (key) => () => { writeJSON(key, !readJSON(key, false)); this.syncAll(); };
-		this.ui.addCommandPaletteCommand({ label: 'Auto Banner: another picture for this page', icon: 'ti-dice-5', onSelected: () => this.setVariant(1 + ((Math.random() * 1e6) | 0)) });
+		this.ui.addCommandPaletteCommand({ label: 'Auto Banner: another picture for this page', icon: 'ti-dice', onSelected: () => this.setVariant(1 + ((Math.random() * 1e6) | 0)) });
 		this.ui.addCommandPaletteCommand({ label: "Auto Banner: back to this page's own picture", icon: 'ti-arrow-back-up', onSelected: () => this.setVariant(0) });
-		this.ui.addCommandPaletteCommand({ label: 'Auto Banner: switch between dither and smooth', icon: 'ti-grain', onSelected: () => {
+		this.ui.addCommandPaletteCommand({ label: 'Auto Banner: switch between dither and smooth', icon: 'ti-sparkles', onSelected: () => {
 			writeJSON(STYLE_KEY, this.style() === 'dither' ? 'smooth' : 'dither');
 			this.syncAll();
 		} });

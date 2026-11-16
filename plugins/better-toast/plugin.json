@@ -1,7 +1,7 @@
 {
   "ver": 1,
   "name": "BetterToast",
-  "icon": "ti-message-2",
+  "icon": "ti-message",
   "off": false,
   "item_name": "Note",
   "description": "Thymer's toasts as dark tinted cards with an inner glow and a glowing accent line, stacked by height, sliding away under each other",

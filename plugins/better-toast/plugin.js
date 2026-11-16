@@ -78,7 +78,7 @@ class Plugin extends AppPlugin {
 
 		this.installToasts();
 
-		this.ui.addCommandPaletteCommand({ label: 'BetterToast: preview toasts', icon: 'ti-message-2', onSelected: () => this.preview() });
+		this.ui.addCommandPaletteCommand({ label: 'BetterToast: preview toasts', icon: 'ti-message', onSelected: () => this.preview() });
 	}
 
 	onUnload() {

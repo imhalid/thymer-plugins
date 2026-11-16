@@ -1,7 +1,7 @@
 {
   "ver": 1,
   "name": "BetterTitlebar",
-  "icon": "ti-layout-navbar",
+  "icon": "ti-app-window",
   "off": false,
   "item_name": "Note",
   "description": "The panel title bar with reading time and word count",

@@ -1265,7 +1265,7 @@ class Plugin extends AppPlugin {
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: cycle style preset', icon: 'ti-palette', onSelected: () => this.cyclePreset() });
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle animations', icon: 'ti-sparkles', onSelected: () => this.update({ anim: !this.cfg.anim }, true) });
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle transition bursts', icon: 'ti-confetti', onSelected: () => this.update({ bursts: !this.cfg.bursts }, true) });
-		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle row tint', icon: 'ti-highlight', onSelected: () => this.update({ rowTint: !this.cfg.rowTint }, true) });
+		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle row tint', icon: 'ti-brush', onSelected: () => this.update({ rowTint: !this.cfg.rowTint }, true) });
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle subtask counts', icon: 'ti-list-numbers', onSelected: () => this.update({ subCounters: !this.cfg.subCounters }, true) });
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle smart task paste', icon: 'ti-clipboard-check', onSelected: () => this.update({ smartPaste: !this.cfg.smartPaste }, true) });
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: set custom status (kawaii, bug, draft…)', icon: 'ti-mood-happy', onSelected: () => this.openPickerAtCaret() });

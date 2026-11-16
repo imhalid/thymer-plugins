@@ -1,7 +1,7 @@
 {
   "ver": 1,
   "name": "BetterSidebar",
-  "icon": "ti-layout-sidebar",
+  "icon": "ti-layout-sidebar-left-expand",
   "off": false,
   "item_name": "Note",
   "description": "The sidebar with tinted icon chips and a glowing line on the open page",

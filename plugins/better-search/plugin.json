@@ -1,7 +1,7 @@
 {
   "ver": 1,
   "name": "BetterSearch",
-  "icon": "ti-zoom-scan",
+  "icon": "ti-filter-search",
   "off": false,
   "item_name": "Note",
   "description": "Search with your recent searches first, matched words highlighted and results as tinted cards",

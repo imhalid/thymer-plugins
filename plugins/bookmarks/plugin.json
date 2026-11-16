@@ -49,7 +49,7 @@
       "id": "category",
       "label": "Category",
       "type": "choice",
-      "icon": "ti-category",
+      "icon": "ti-layout-grid",
       "active": true,
       "many": false,
       "read_only": false,
@@ -57,7 +57,7 @@
         {
           "id": "components",
           "label": "Components",
-          "icon": "ti-components",
+          "icon": "ti-puzzle",
           "color": "4",
           "active": true
         },
@@ -85,7 +85,7 @@
         {
           "id": "fonts",
           "label": "Fonts",
-          "icon": "ti-typography",
+          "icon": "ti-letter-t",
           "color": "1",
           "active": true
         },
@@ -99,7 +99,7 @@
         {
           "id": "tools",
           "label": "Tools",
-          "icon": "ti-tool",
+          "icon": "ti-tools",
           "color": "3",
           "active": true
         },
@@ -282,7 +282,7 @@
       "id": "bookmarks",
       "label": "Bookmarks",
       "type": "custom",
-      "icon": "ti-bookmarks",
+      "icon": "ti-bookmark",
       "description": "",
       "query": "",
       "read_only": false,

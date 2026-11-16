@@ -84,7 +84,7 @@ class Plugin extends AppPlugin {
 
 		this.ui.addCommandPaletteCommand({
 			label: 'BetterMenus: clear recently used blocks',
-			icon: 'ti-history-off',
+			icon: 'ti-eraser',
 			onSelected: () => {
 				this.recent = [];
 				bmeSave(this.recent);

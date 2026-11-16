@@ -37,7 +37,7 @@ const MAX_INSTANCES = 4096;
 const SHAPES = [
 	{ id: 'nebula', name: 'Nebula', icon: 'ti-cloud' },
 	{ id: 'neural', name: 'Neural', icon: 'ti-brain' },
-	{ id: 'atlas', name: 'Star atlas', icon: 'ti-map-2' },
+	{ id: 'atlas', name: 'Star atlas', icon: 'ti-map' },
 ];
 // The biomes: hot (the brightest parts), mid and cold (the faint outer parts), and the colour of the links between days.
 const BIOMES = [
@@ -357,7 +357,7 @@ class Plugin extends AppPlugin {
 		try { this.look = { ...this.look, ...JSON.parse(localStorage.getItem(LOOK_KEY) || '{}') }; } catch (e) { /* the default */ }
 		this.ui.registerCustomPanelType(PANEL_TYPE, (panel) => this.render(panel));
 		this.ui.addCommandPaletteCommand({ label: 'Home: open', icon: 'ti-home', onSelected: () => this.open() });
-		this.ui.addCommandPaletteCommand({ label: 'Home: next sky shape', icon: 'ti-planet', onSelected: () => this.setLook({ shape: SHAPES[(SHAPES.findIndex((s) => s.id === this.look.shape) + 1) % SHAPES.length].id }) });
+		this.ui.addCommandPaletteCommand({ label: 'Home: next sky shape', icon: 'ti-world', onSelected: () => this.setLook({ shape: SHAPES[(SHAPES.findIndex((s) => s.id === this.look.shape) + 1) % SHAPES.length].id }) });
 		this.ui.addCommandPaletteCommand({ label: 'Home: next biome', icon: 'ti-palette', onSelected: () => this.setLook({ biome: BIOMES[(BIOMES.findIndex((b) => b.id === this.look.biome) + 1) % BIOMES.length].id }) });
 
 		// Lines written while Home is open brighten today's star.

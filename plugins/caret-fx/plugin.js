@@ -3870,10 +3870,10 @@ class Plugin extends AppPlugin {
 
 		this.ui.registerCustomPanelType(PAGE_TYPE, (panel) => this.renderPage(panel));
 		this.ui.addCommandPaletteCommand({ label: 'Caret FX: open settings', icon: 'ti-palette', onSelected: () => this.openPage() });
-		this.ui.addCommandPaletteCommand({ label: 'Caret FX: next preset', icon: 'ti-color-swatch', onSelected: () => this.nextPreset() });
+		this.ui.addCommandPaletteCommand({ label: 'Caret FX: next preset', icon: 'ti-palette', onSelected: () => this.nextPreset() });
 		for (const e of Object.values(EFFECTS)) {
 			if (e.mode !== 'always' || e.toggleable === false || PAGE_SWITCHES.some(([key]) => key === e.id)) continue;
-			this.ui.addCommandPaletteCommand({ label: `Caret FX: toggle ${e.label.toLowerCase()}`, icon: 'ti-toggle-right', onSelected: () => this.update({ [e.id]: !this.cfg[e.id] }) });
+			this.ui.addCommandPaletteCommand({ label: `Caret FX: toggle ${e.label.toLowerCase()}`, icon: 'ti-adjustments', onSelected: () => this.update({ [e.id]: !this.cfg[e.id] }) });
 		}
 
 		// Picks up edits made in the plugin's configuration JSON.

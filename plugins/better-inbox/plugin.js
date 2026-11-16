@@ -116,7 +116,7 @@ class Plugin extends AppPlugin {
 		this.watchToasts();
 
 		this.ui.addCommandPaletteCommand({ label: 'BetterInbox: show notifications', icon: 'ti-bell', onSelected: () => this.open() });
-		this.ui.addCommandPaletteCommand({ label: 'BetterInbox: clear notifications', icon: 'ti-bell-off', onSelected: () => this.clear() });
+		this.ui.addCommandPaletteCommand({ label: 'BetterInbox: clear notifications', icon: 'ti-trash', onSelected: () => this.clear() });
 	}
 
 	onUnload() {
@@ -140,7 +140,7 @@ class Plugin extends AppPlugin {
 	updateBell() {
 		if (!this.bell) return;
 		const n = this.unread();
-		this.bell.setIcon(n ? 'ti-bell-ringing' : 'ti-bell');
+		this.bell.setIcon('ti-bell'); // unread shows as the count and color (data-bib-unread); ti-bell-ringing is not in Thymer's icon set
 		this.bell.setLabel(n ? String(n > 99 ? '99+' : n) : '');
 		this.bell.setTooltip(n ? `${n} unread notification${n === 1 ? '' : 's'}` : 'Notifications');
 		const el = this.bell.getElement?.();
@@ -310,7 +310,7 @@ class Plugin extends AppPlugin {
 		count.textContent = this.log.length ? String(this.log.length) : '';
 		if (!this.log.length) {
 			const empty = bibEl('div', 'bib-empty');
-			empty.append(bibEl('span', 'ti ti-bell-off'), bibEl('div', null, 'No notifications yet'));
+			empty.append(bibEl('span', 'ti ti-bell'), bibEl('div', null, 'No notifications yet'));
 			list.append(empty);
 			return;
 		}

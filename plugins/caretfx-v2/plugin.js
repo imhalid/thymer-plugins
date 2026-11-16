@@ -4352,8 +4352,8 @@ class Plugin extends AppPlugin {
 		this.ui.addCommandPaletteCommand({ label: 'CaretFx-v2: open settings', icon: 'ti-palette', onSelected: () => this.openPage() });
 		this.ui.addCommandPaletteCommand({ label: 'CaretFx-v2: next caret', icon: 'ti-cursor-text', onSelected: () => this.nextCaret() });
 		this.ui.addCommandPaletteCommand({ label: 'CaretFx-v2: toggle jelly', icon: 'ti-droplet', onSelected: () => this.update({ jelly: !this.cfg.jelly }) });
-		this.ui.addCommandPaletteCommand({ label: 'CaretFx-v2: toggle sleepy caret', icon: 'ti-zzz', onSelected: () => this.update({ sleep: !this.cfg.sleep }) });
-		this.ui.addCommandPaletteCommand({ label: 'CaretFx-v2: next Kawaii / UwU mode', icon: 'ti-mood-smile', onSelected: () => this.nextSubMode() });
+		this.ui.addCommandPaletteCommand({ label: 'CaretFx-v2: toggle sleepy caret', icon: 'ti-bed', onSelected: () => this.update({ sleep: !this.cfg.sleep }) });
+		this.ui.addCommandPaletteCommand({ label: 'CaretFx-v2: next Kawaii / UwU mode', icon: 'ti-mood-happy', onSelected: () => this.nextSubMode() });
 
 		this.eventIds.push(this.events.on('global-plugin.updated', () => this.readConfig()));
 		this.eventIds.push(this.events.on('panel.navigated', () => { this.resetCaret(); requestAnimationFrame(() => this.sample(false)); }));

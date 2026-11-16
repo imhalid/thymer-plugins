@@ -1,7 +1,7 @@
 {
   "ver": 1,
   "name": "BetterPalette",
-  "icon": "ti-command",
+  "icon": "ti-keyboard",
   "off": false,
   "item_name": "Note",
   "description": "Thymer's command palette with your recently used commands first, and a dark tinted dialog with a glowing selection",

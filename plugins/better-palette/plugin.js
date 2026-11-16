@@ -107,7 +107,7 @@ class Plugin extends AppPlugin {
 
 		this.ui.addCommandPaletteCommand({
 			label: 'BetterPalette: clear recent commands',
-			icon: 'ti-history-off',
+			icon: 'ti-eraser',
 			onSelected: () => {
 				this.recent = [];
 				bpalSave(this.recent);

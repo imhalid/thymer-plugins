@@ -1,0 +1,29 @@
+{
+  "ver": 1,
+  "name": "CaretFx-v2",
+  "icon": "ti-cursor-text",
+  "off": false,
+  "item_name": "Note",
+  "description": "24 physics and reactive carets ported from Ryudit (Slime, Mizan, CRT, Back-man, Portal, Marine, Ink, Lock-on, and more)",
+  "show_sidebar_items": true,
+  "show_cmdpal_items": true,
+  "views": [],
+  "fields": [],
+  "page_field_ids": [],
+  "sidebar_record_sort_field_id": "updated_at",
+  "sidebar_record_sort_dir": "desc",
+  "managed": {
+    "fields": false,
+    "views": false,
+    "sidebar": false
+  },
+  "custom": {
+    "caret": "Slime",
+    "jelly": true,
+    "sleep": true,
+    "sleepAfterMs": 5000,
+    "kawaiiMode": "auto",
+    "uwuMode": "auto"
+  },
+  "home": false
+}

@@ -952,6 +952,177 @@ html:root body.bt-on.bt-row-tint .listitem-task.state-starred > .line-div {
 	opacity: 0.6;
 }
 
+/* ---- Nested Subtask Stack Counters (data-bt-sub) ------------------------------------- */
+
+html:root body.bt-on.bt-sub-counts .listitem.listitem-task[data-bt-sub]::after {
+	content: attr(data-bt-sub);
+	flex: none;
+	align-self: flex-start;
+	margin-top: calc((var(--ed-line-height, 26px) - 19px) / 2);
+	margin-left: 5px;
+	height: 19px;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	padding: 0 8px 0 20px;
+	border-radius: 999px;
+	white-space: nowrap;
+	user-select: none;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 11px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+	letter-spacing: -0.02em;
+	--bt-sub-bg: rgba(148, 163, 184, 0.09);
+	--bt-sub-border: rgba(148, 163, 184, 0.24);
+	--bt-sub-fg: rgba(226, 232, 240, 0.84);
+	--bt-sub-stack-edge: rgba(148, 163, 184, 0.34);
+	border: 1px solid var(--bt-sub-border);
+	color: var(--bt-sub-fg);
+	background-color: var(--bt-sub-bg);
+	background-image: var(--bt-sub-ring, none);
+	background-position: 3px center;
+	background-size: 13px 13px;
+	background-repeat: no-repeat;
+	transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+html:root body.bt-on.bt-light.bt-sub-counts .listitem.listitem-task[data-bt-sub]::after {
+	--bt-sub-bg: rgba(15, 23, 42, 0.045);
+	--bt-sub-border: rgba(71, 85, 105, 0.22);
+	--bt-sub-fg: rgba(30, 41, 59, 0.84);
+	--bt-sub-stack-edge: rgba(100, 116, 139, 0.32);
+}
+
+html:root body.bt-on.bt-sub-counts .listitem.listitem-task[data-bt-sub][data-bt-sub-state="started"]::after {
+	--bt-sub-bg: rgba(34, 211, 238, 0.09);
+	--bt-sub-border: rgba(34, 211, 238, 0.38);
+	--bt-sub-fg: #67e8f9;
+	--bt-sub-stack-edge: rgba(34, 211, 238, 0.45);
+}
+html:root body.bt-on.bt-light.bt-sub-counts .listitem.listitem-task[data-bt-sub][data-bt-sub-state="started"]::after {
+	--bt-sub-bg: rgba(2, 132, 199, 0.08);
+	--bt-sub-border: rgba(2, 132, 199, 0.32);
+	--bt-sub-fg: #0369a1;
+}
+
+html:root body.bt-on.bt-sub-counts .listitem.listitem-task[data-bt-sub][data-bt-sub-state="urgent"]::after {
+	--bt-sub-bg: rgba(244, 63, 94, 0.12);
+	--bt-sub-border: rgba(251, 113, 133, 0.44);
+	--bt-sub-fg: #fda4af;
+	--bt-sub-stack-edge: rgba(251, 113, 133, 0.48);
+}
+html:root body.bt-on.bt-light.bt-sub-counts .listitem.listitem-task[data-bt-sub][data-bt-sub-state="urgent"]::after {
+	--bt-sub-bg: rgba(225, 29, 72, 0.08);
+	--bt-sub-border: rgba(225, 29, 72, 0.32);
+	--bt-sub-fg: #be123c;
+}
+
+html:root body.bt-on.bt-sub-counts .listitem.listitem-task[data-bt-sub][data-bt-sub-state="done"]::after {
+	--bt-sub-bg: rgba(16, 185, 129, 0.13);
+	--bt-sub-border: rgba(52, 211, 153, 0.46);
+	--bt-sub-fg: #6ee7b7;
+	--bt-sub-stack-edge: rgba(52, 211, 153, 0.48);
+}
+html:root body.bt-on.bt-light.bt-sub-counts .listitem.listitem-task[data-bt-sub][data-bt-sub-state="done"]::after {
+	--bt-sub-bg: rgba(5, 150, 105, 0.10);
+	--bt-sub-border: rgba(5, 150, 105, 0.36);
+	--bt-sub-fg: #047857;
+}
+
+html:root body.bt-on.bt-sub-counts .listitem.listitem-task[data-bt-sub][data-bt-sub-state="canceled"]::after {
+	--bt-sub-bg: rgba(148, 163, 184, 0.06);
+	--bt-sub-border: rgba(148, 163, 184, 0.24);
+	--bt-sub-fg: rgba(148, 163, 184, 0.72);
+	opacity: 0.75;
+}
+
+/* Folded state: concentric circle + stacked capsule badge */
+html:root body.bt-on.bt-sub-counts .listitem.listitem-task.listitem-folded[data-bt-sub]::after {
+	content: attr(data-bt-sub) "\2009\25B8";
+	padding: 0 8px 0 20px;
+	font-weight: 700;
+	--bt-sub-bg: rgba(56, 189, 248, 0.11);
+	--bt-sub-border: rgba(56, 189, 248, 0.45);
+	box-shadow: 0 2px 0 -0.5px rgba(15, 23, 42, 0.55), 0 3px 0 -1px var(--bt-sub-stack-edge), 0 2px 8px rgba(0, 0, 0, 0.18);
+	cursor: pointer;
+}
+html:root body.bt-on.bt-light.bt-sub-counts .listitem.listitem-task.listitem-folded[data-bt-sub]::after {
+	--bt-sub-bg: rgba(2, 132, 199, 0.09);
+	--bt-sub-border: rgba(2, 132, 199, 0.38);
+	box-shadow: 0 2px 0 -0.5px rgba(255, 255, 255, 0.9), 0 3px 0 -1px var(--bt-sub-stack-edge), 0 1px 4px rgba(15, 23, 42, 0.10);
+}
+html:root body.bt-on.bt-sub-counts .listitem.listitem-task.listitem-folded[data-bt-sub][data-bt-sub-state="done"]::after {
+	content: attr(data-bt-sub) "\2009\2713";
+	--bt-sub-border: rgba(52, 211, 153, 0.58);
+}
+html:root body.bt-on.bt-sub-counts .listitem.listitem-task.listitem-folded[data-bt-sub][data-bt-sub-state="urgent"]::after {
+	--bt-sub-border: rgba(251, 113, 133, 0.62);
+}
+
+/* Settings nested playground rows */
+.bt-stack-box {
+	margin-top: 14px;
+	padding-top: 12px;
+	border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+.bt-stack-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-top: 8px;
+}
+.bt-stack-wrap .listitem-task {
+	display: flex;
+	align-items: flex-start;
+	padding: 2px 4px 2px 22px;
+	border-radius: 7px;
+	--ed-checkbox-size: 17px;
+	--ed-line-height: 24px;
+	position: relative;
+}
+.bt-stack-wrap .listitem-task[data-indent="1"] { margin-left: 24px; }
+.bt-stack-wrap .listitem-task[data-indent="2"] { margin-left: 48px; }
+.bt-stack-wrap .listitem-task[data-indent="3"] { margin-left: 72px; }
+.bt-stack-wrap .listitem-task > .line-div {
+	padding: 0 6px;
+	font-size: 14px;
+	line-height: 24px;
+	user-select: none;
+}
+.bt-stack-wrap .listitem-task:is(.state-done, .state-canceled) > .line-div {
+	text-decoration: line-through;
+	opacity: 0.6;
+}
+.bt-stack-fold {
+	position: absolute;
+	left: 3px;
+	top: 4px;
+	width: 16px;
+	height: 16px;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted, #9ca3af);
+	font-size: 11px;
+	line-height: 16px;
+	text-align: center;
+	cursor: pointer;
+	padding: 0;
+	transition: transform 0.16s ease, background 0.15s ease, color 0.15s ease;
+}
+.bt-stack-fold:hover {
+	background: rgba(148, 163, 184, 0.16);
+	color: inherit;
+}
+.bt-stack-wrap .listitem-task.listitem-folded > .bt-stack-fold {
+	transform: rotate(-90deg);
+}
+.bt-stack-wrap .listitem-task.is-hidden-sub {
+	display: none;
+}
+
 .bt-done-btn {
 	margin-left: auto;
 	border: 1px solid rgba(148, 163, 184, 0.24);

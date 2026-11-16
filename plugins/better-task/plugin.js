@@ -148,6 +148,179 @@ function saveUndoneMap(map) {
 	}
 }
 
+function computeSubtaskStats(items) {
+	const byGuid = new Map();
+	const childrenByParent = new Map();
+	const queue = Array.isArray(items) ? [...items] : [];
+	for (let i = 0; i < queue.length; i++) {
+		const it = queue[i];
+		if (!it?.guid || byGuid.has(it.guid)) continue;
+		byGuid.set(it.guid, it);
+		if (Array.isArray(it.children)) {
+			for (const ch of it.children) if (ch?.guid && !byGuid.has(ch.guid)) queue.push(ch);
+		}
+	}
+	for (const it of byGuid.values()) {
+		const p = it.parent_guid;
+		if (!p || p === it.guid) continue;
+		let arr = childrenByParent.get(p);
+		if (!arr) { arr = []; childrenByParent.set(p, arr); }
+		arr.push(it);
+	}
+
+	const memo = new Map();
+	const visiting = new Set();
+	const walk = (guid) => {
+		const hit = memo.get(guid);
+		if (hit) return hit;
+		if (visiting.has(guid)) return { total: 0, done: 0, canceled: 0, started: 0, urgent: 0 };
+		visiting.add(guid);
+		const acc = { total: 0, done: 0, canceled: 0, started: 0, urgent: 0 };
+		for (const c of childrenByParent.get(guid) || []) {
+			const sub = walk(c.guid);
+			acc.total += sub.total;
+			acc.done += sub.done;
+			acc.canceled += sub.canceled;
+			acc.started += sub.started;
+			acc.urgent += sub.urgent;
+			if (c.type === 'task') {
+				acc.total += 1;
+				const st = statusFromCodeOrString(c.getTaskStatus?.() ?? c.props?.done ?? 'none') || 'open';
+				if (st === 'done') acc.done += 1;
+				else if (st === 'canceled') acc.canceled += 1;
+				else if (st === 'started') acc.started += 1;
+				else if (st === 'alert' || st === 'exclaim') acc.urgent += 1;
+			}
+		}
+		visiting.delete(guid);
+		memo.set(guid, acc);
+		return acc;
+	};
+
+	const out = new Map();
+	for (const it of byGuid.values()) {
+		if (it.type !== 'task') continue;
+		const s = walk(it.guid);
+		if (s.total <= 0) continue;
+		const activeTotal = Math.max(0, s.total - s.canceled);
+		const pct = activeTotal > 0 ? Math.round((s.done / activeTotal) * 100) : 100;
+		const label = activeTotal > 0 ? `${s.done}/${activeTotal}` : `0/${s.total}`;
+		const state = activeTotal === 0
+			? 'canceled'
+			: s.done >= activeTotal
+				? 'done'
+				: s.urgent > 0
+					? 'urgent'
+					: s.started > 0
+						? 'started'
+						: 'open';
+		out.set(it.guid, { ...s, activeTotal, pct, label, state });
+	}
+	return out;
+}
+
+const SUB_RING_CACHE = new Map();
+const SUB_RING_PALETTE = {
+	dark: {
+		track: 'rgba(148,163,184,0.34)',
+		open: '#38bdf8',
+		started: '#22d3ee',
+		urgent: '#fb7185',
+		done: '#10b981',
+		canceled: '#94a3b8',
+	},
+	light: {
+		track: 'rgba(71,85,105,0.28)',
+		open: '#0284c7',
+		started: '#0284c7',
+		urgent: '#e11d48',
+		done: '#059669',
+		canceled: '#64748b',
+	},
+};
+
+function dashArraySeq(count, d, g, rest) {
+	const seq = [];
+	for (let i = 0; i < count; i++) seq.push(d, i + 1 < count ? g : rest);
+	return seq.join(' ');
+}
+
+function buildSubRingUri(st, dark = true) {
+	if (!st) return '';
+	const count = st.activeTotal > 0 ? st.activeTotal : st.total;
+	if (!(count > 0)) return '';
+	const filled = st.activeTotal > 0 ? Math.min(Math.max(0, st.done || 0), count) : 0;
+	const state = st.state || 'open';
+	const key = `${filled}|${count}|${state}|${dark ? 1 : 0}`;
+	const hit = SUB_RING_CACHE.get(key);
+	if (hit) return hit;
+
+	const pal = dark ? SUB_RING_PALETTE.dark : SUB_RING_PALETTE.light;
+	const fg = pal[state] || pal.open;
+	const track = pal.track;
+	const r = 5.4;
+	const C = 2 * Math.PI * r;
+	const rest = (C + 4).toFixed(2);
+	let body = '';
+
+	if (count > 10) {
+		const sw = '1.9';
+		if (filled >= count) {
+			body = `<circle cx="8" cy="8" r="${r}" fill="none" stroke="${fg}" stroke-width="${sw}"/>`;
+		} else {
+			body = `<circle cx="8" cy="8" r="${r}" fill="none" stroke="${track}" stroke-width="${sw}"/>`;
+			if (filled > 0) {
+				const arc = ((filled / count) * C).toFixed(2);
+				body += `<circle cx="8" cy="8" r="${r}" fill="none" stroke="${fg}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${arc} ${rest}" transform="rotate(-90 8 8)"/>`;
+			}
+		}
+	} else {
+		const visualN = count === 1 ? 6 : count;
+		const visualFilled = count === 1 ? (filled >= 1 ? 6 : 0) : filled;
+		const seg = C / visualN;
+		const sw = visualN <= 4 ? 1.85 : visualN <= 7 ? 1.75 : 1.55;
+		const gapVis = visualN <= 3 ? 2.6 : visualN <= 5 ? 2.0 : visualN <= 7 ? 1.65 : 1.2;
+		const d = Number(Math.max(0.4, seg - gapVis - sw).toFixed(3));
+		const g = Number((seg - d).toFixed(3));
+		const rot = -90 + ((g / 2) / C) * 360;
+
+		if (visualFilled >= visualN) {
+			body = `<circle cx="8" cy="8" r="${r}" fill="none" stroke="${fg}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${d} ${g}" transform="rotate(${rot.toFixed(2)} 8 8)"/>`;
+		} else if (visualFilled <= 0) {
+			body = `<circle cx="8" cy="8" r="${r}" fill="none" stroke="${track}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${d} ${g}" transform="rotate(${rot.toFixed(2)} 8 8)"/>`;
+		} else {
+			const rem = visualN - visualFilled;
+			const fgArr = dashArraySeq(visualFilled, d, g, rest);
+			const trArr = dashArraySeq(rem, d, g, rest);
+			const trRot = rot + (visualFilled * 360) / visualN;
+			body =
+				`<circle cx="8" cy="8" r="${r}" fill="none" stroke="${track}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${trArr}" transform="rotate(${trRot.toFixed(2)} 8 8)"/>` +
+				`<circle cx="8" cy="8" r="${r}" fill="none" stroke="${fg}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${fgArr}" transform="rotate(${rot.toFixed(2)} 8 8)"/>`;
+		}
+	}
+
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">${body}</svg>`;
+	const uri = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+	if (SUB_RING_CACHE.size > 512) SUB_RING_CACHE.clear();
+	SUB_RING_CACHE.set(key, uri);
+	return uri;
+}
+
+function applySubStatAttrs(el, st, dark = true) {
+	if (!st) {
+		if (el.hasAttribute('data-bt-sub')) el.removeAttribute('data-bt-sub');
+		if (el.hasAttribute('data-bt-sub-state')) el.removeAttribute('data-bt-sub-state');
+		el.style?.removeProperty('--bt-sub-ring');
+		el.style?.removeProperty('--bt-sub-pct');
+		return;
+	}
+	const ring = buildSubRingUri(st, dark);
+	if (el.getAttribute('data-bt-sub') !== st.label) el.setAttribute('data-bt-sub', st.label);
+	if (el.getAttribute('data-bt-sub-state') !== st.state) el.setAttribute('data-bt-sub-state', st.state);
+	if (el.style?.getPropertyValue('--bt-sub-ring') !== ring) el.style?.setProperty('--bt-sub-ring', ring);
+	el.style?.removeProperty('--bt-sub-pct');
+}
+
 function statusFromClassName(cls) {
 	if (!cls) return 'open';
 	const s = String(cls);
@@ -155,6 +328,151 @@ function statusFromClassName(cls) {
 		if (spec.cls && new RegExp(`(?:^|\\s)${spec.cls}(?:\\s|$)`).test(s)) return spec.key;
 	}
 	return 'open';
+}
+
+const MD_TASK_LINE_RE = /^([ \t]*)([-*+]\s+)?\[([ xX>|!$?^*c#\-✓✔]?)\](?:\s+(.*)|\s*)$/;
+const MD_MARK_ALIAS = { '': ' ', '-': 'c', '✓': 'x', '✔': 'x', X: 'x' };
+
+function prepareTaskMarkdownPaste(raw, onTaskRow = false) {
+	if (typeof raw !== 'string') return null;
+	const lines = raw.replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' ').split('\n');
+	const parsed = [];
+	let inFence = false;
+	let prefixedTasks = 0;
+	let bareTasks = 0;
+
+	for (const rawLine of lines) {
+		const line = rawLine.replace(/^[\u200b-\u200d\ufeff]+/, '');
+		if (/^\s*```/.test(line)) {
+			inFence = !inFence;
+			parsed.push({ kind: 'other', out: line });
+			continue;
+		}
+		if (inFence) {
+			parsed.push({ kind: 'other', out: line });
+			continue;
+		}
+		if (!line.trim()) {
+			parsed.push({ kind: 'blank', out: '' });
+			continue;
+		}
+		const m = line.match(MD_TASK_LINE_RE);
+		if (m) {
+			const indent = m[1] || '';
+			const hasBullet = Boolean(m[2]);
+			const rawMark = m[3] ?? ' ';
+			const mark = MD_MARK_ALIAS[rawMark] ?? rawMark;
+			const body = m[4] ?? '';
+			const out = body ? `${indent}- [${mark}] ${body}` : `${indent}- [${mark}]`;
+			if (hasBullet) prefixedTasks += 1;
+			else bareTasks += 1;
+			parsed.push({ kind: 'task', hasBullet, out });
+			continue;
+		}
+		parsed.push({ kind: 'other', out: line });
+	}
+
+	const totalTasks = prefixedTasks + bareTasks;
+	if (totalTasks === 0) return null;
+	if (prefixedTasks === 0 && bareTasks < 2 && !(bareTasks === 1 && onTaskRow)) return null;
+
+	while (parsed.length && parsed[0].kind === 'blank') parsed.shift();
+	while (parsed.length && parsed[parsed.length - 1].kind === 'blank') parsed.pop();
+	if (!parsed.length) return null;
+
+	const outLines = [];
+	for (let i = 0; i < parsed.length; i++) {
+		const cur = parsed[i];
+		if (cur.kind === 'blank') {
+			let prev = null;
+			for (let p = i - 1; p >= 0; p--) {
+				if (parsed[p].kind !== 'blank') { prev = parsed[p]; break; }
+			}
+			let next = null;
+			for (let n = i + 1; n < parsed.length; n++) {
+				if (parsed[n].kind !== 'blank') { next = parsed[n]; break; }
+			}
+			if (prev?.kind === 'task' && next?.kind === 'task') continue;
+		}
+		outLines.push(cur.out);
+	}
+	return outLines.join('\n');
+}
+
+function isLineItemEmpty(item, childrenLen) {
+	if (!item || childrenLen > 0) return false;
+	if (!['text', 'empty', 'task', 'ulist', 'olist'].includes(item.type)) return false;
+	if (!Array.isArray(item.segments) || item.segments.length === 0) return true;
+	return item.segments.every((seg) => !String(typeof seg?.text === 'string' ? seg.text : '').trim());
+}
+
+function isBlockedPasteTarget(node) {
+	if (!(node instanceof Element)) return false;
+	if (node.closest('.bt-settings, .cm-editor, .inline-terminal, .block-codelang')) return true;
+	if (node.closest('#virtualinput-wrapper')) return false;
+	return Boolean(node.closest('input, textarea, select, [contenteditable]'));
+}
+
+function findActiveCaretEl(root) {
+	const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+	const ae = document.activeElement;
+	const focusBox = ae && ae !== document.body && typeof ae.getBoundingClientRect === 'function'
+		? ae.getBoundingClientRect()
+		: null;
+	let best = null, bestScore = -1e9;
+	for (const n of scope.querySelectorAll('div.listview-caret-self')) {
+		if (n.classList?.contains('caret-inactive')) continue;
+		const b = n.getBoundingClientRect?.();
+		if (!b || !(b.height > 0.5)) continue;
+		const cs = typeof getComputedStyle === 'function' ? getComputedStyle(n) : null;
+		if (cs && (cs.display === 'none' || cs.visibility === 'hidden')) continue;
+		let score = n.closest?.('listview-editor') ? 4 : 0;
+		if (n.closest?.('.panel.focused-panel, .panel.has-focus')) score += 2;
+		if (focusBox) {
+			const bBot = b.bottom ?? (b.top + b.height);
+			const fBot = focusBox.bottom ?? (focusBox.top + focusBox.height);
+			const dy = Math.max(0, focusBox.top - bBot, b.top - fBot);
+			score -= Math.min(dy, 5000) / 5000;
+		}
+		if (score > bestScore) { bestScore = score; best = n; }
+	}
+	return best;
+}
+
+function findRowForCaret(caretEl, panelEl) {
+	const ed = caretEl?.closest?.('listview-editor') || panelEl?.querySelector?.('listview-editor') || null;
+	if (!ed) return null;
+	const b = caretEl?.getBoundingClientRect?.();
+	if (b && b.height > 0.5) {
+		const midY = b.top + b.height / 2;
+		const matchesLine = (row) => {
+			if (!row || !(row instanceof Element) || !ed.contains(row)) return false;
+			const line = row.querySelector?.(':scope > .line-div') || row;
+			const lr = line.getBoundingClientRect?.();
+			const lBot = lr ? (lr.bottom ?? (lr.top + lr.height)) : 0;
+			return lr && lr.height > 0 && midY >= lr.top - 4 && midY <= lBot + 4;
+		};
+		const direct = caretEl.closest?.('.listitem[data-guid]');
+		if (matchesLine(direct)) return direct;
+		if (typeof document.elementFromPoint === 'function') {
+			for (const x of [b.left + 4, b.left + 24, b.left - 4]) {
+				const hit = document.elementFromPoint(x, midY)?.closest?.('.listitem[data-guid]');
+				if (matchesLine(hit)) return hit;
+			}
+		}
+		const rows = [...ed.querySelectorAll('.listitem[data-guid]')].reverse();
+		for (const row of rows) {
+			if (matchesLine(row)) return row;
+		}
+	}
+	const sel = typeof window.getSelection === 'function' ? window.getSelection() : null;
+	const anchor = sel?.anchorNode;
+	const anchorEl = anchor instanceof Element ? anchor : anchor?.parentElement;
+	if (anchorEl && !anchorEl.closest?.('#magic_selector')) {
+		const hit = anchorEl.closest?.('.listitem[data-guid]');
+		if (hit && ed.contains(hit)) return hit;
+	}
+	return null;
 }
 
 function loadChoices() {
@@ -567,9 +885,11 @@ class Plugin extends AppPlugin {
 		this.eventIds = [];
 		this.page = null;
 		this.dark = true;
-		this.cfg = { preset: 'neon-glass', anim: true, bursts: true, rowTint: true };
+		this.cfg = { preset: 'neon-glass', anim: true, bursts: true, rowTint: true, subCounters: true, smartPaste: true };
 		this.bursts = new TaskBurstSystem();
 		this.undoneByGuid = loadUndoneMap();
+		this.prevStatusByGuid = new Map();
+		this.subStatsByGuid = new Map();
 		this.syncTimer = 0;
 
 		this.readConfig();
@@ -582,6 +902,7 @@ class Plugin extends AppPlugin {
 
 		this.installThemeObserver();
 		this.installTaskObserver();
+		this.installSmartTaskPaste();
 
 		this.ui.registerCustomPanelType(BT_PAGE_TYPE, (panel) => this.renderPage(panel));
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: open settings', icon: 'ti-checks', onSelected: () => this.openPage() });
@@ -589,11 +910,17 @@ class Plugin extends AppPlugin {
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle animations', icon: 'ti-sparkles', onSelected: () => this.update({ anim: !this.cfg.anim }, true) });
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle transition bursts', icon: 'ti-confetti', onSelected: () => this.update({ bursts: !this.cfg.bursts }, true) });
 		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle row tint', icon: 'ti-highlight', onSelected: () => this.update({ rowTint: !this.cfg.rowTint }, true) });
+		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle subtask counts', icon: 'ti-list-numbers', onSelected: () => this.update({ subCounters: !this.cfg.subCounters }, true) });
+		this.ui.addCommandPaletteCommand({ label: 'BetterTask: toggle smart task paste', icon: 'ti-clipboard-check', onSelected: () => this.update({ smartPaste: !this.cfg.smartPaste }, true) });
 
 		this.eventIds.push(this.events.on('global-plugin.updated', () => this.readConfig()));
 		this.eventIds.push(this.events.on('panel.navigated', () => this.scheduleSyncDoneOrigins()));
 		this.eventIds.push(this.events.on('panel.focused', () => this.scheduleSyncDoneOrigins()));
 		this.eventIds.push(this.events.on('record.updated', () => this.scheduleSyncDoneOrigins()));
+		this.eventIds.push(this.events.on('lineitem.created', () => this.scheduleSyncDoneOrigins(), { collection: '*' }));
+		this.eventIds.push(this.events.on('lineitem.moved', () => this.scheduleSyncDoneOrigins(), { collection: '*' }));
+		this.eventIds.push(this.events.on('lineitem.deleted', () => this.scheduleSyncDoneOrigins(), { collection: '*' }));
+		this.eventIds.push(this.events.on('lineitem.undeleted', () => this.scheduleSyncDoneOrigins(), { collection: '*' }));
 		this.scheduleSyncDoneOrigins();
 	}
 
@@ -610,20 +937,29 @@ class Plugin extends AppPlugin {
 		this.bursts.destroy();
 		this.clearBodyClasses();
 		document.querySelectorAll('.listitem-task[data-bt-was]').forEach((el) => el.removeAttribute('data-bt-was'));
+		document.querySelectorAll('.listitem-task[data-bt-sub]').forEach((el) => {
+			el.removeAttribute('data-bt-sub');
+			el.removeAttribute('data-bt-sub-state');
+			el.style?.removeProperty('--bt-sub-ring');
+			el.style?.removeProperty('--bt-sub-pct');
+		});
 		this.page = null;
 	}
 
 	readConfig() {
 		let custom = {};
 		try { custom = this.getConfiguration()?.custom || {}; } catch (e) { custom = {}; }
-		const merged = { preset: 'neon-glass', anim: true, bursts: true, rowTint: true, ...custom, ...loadChoices() };
+		const merged = { preset: 'neon-glass', anim: true, bursts: true, rowTint: true, subCounters: true, smartPaste: true, ...custom, ...loadChoices() };
 		this.cfg = {
 			preset: PRESETS.some((p) => p.id === merged.preset) ? merged.preset : 'neon-glass',
 			anim: merged.anim !== false,
 			bursts: merged.bursts !== false,
 			rowTint: merged.rowTint !== false,
+			subCounters: merged.subCounters !== false,
+			smartPaste: merged.smartPaste !== false,
 		};
 		this.applyBodyClasses();
+		this.applyDoneAttrsToRoot();
 		this.refreshPage();
 	}
 
@@ -632,6 +968,10 @@ class Plugin extends AppPlugin {
 		if (!PRESETS.some((p) => p.id === this.cfg.preset)) this.cfg.preset = 'neon-glass';
 		saveChoices(patch);
 		this.applyBodyClasses();
+		if ('subCounters' in patch) {
+			this.applyDoneAttrsToRoot();
+			if (this.cfg.subCounters) this.scheduleSyncDoneOrigins();
+		}
 		this.refreshPage();
 		if (toast) {
 			const msg = patch.preset
@@ -650,7 +990,7 @@ class Plugin extends AppPlugin {
 	clearBodyClasses() {
 		const cl = document.body?.classList;
 		if (!cl) return;
-		cl.remove('bt-on', 'bt-anim', 'bt-row-tint', 'bt-dark', 'bt-light');
+		cl.remove('bt-on', 'bt-anim', 'bt-row-tint', 'bt-sub-counts', 'bt-dark', 'bt-light');
 		for (const p of PRESETS) cl.remove(`bt-preset-${p.id}`);
 	}
 
@@ -663,6 +1003,7 @@ class Plugin extends AppPlugin {
 		setCls('bt-on', true);
 		setCls('bt-anim', !!this.cfg.anim);
 		setCls('bt-row-tint', !!this.cfg.rowTint);
+		setCls('bt-sub-counts', !!this.cfg.subCounters);
 		setCls('bt-dark', !!this.dark);
 		setCls('bt-light', !this.dark);
 		for (const p of PRESETS) setCls(`bt-preset-${p.id}`, p.id === this.cfg.preset);
@@ -673,6 +1014,8 @@ class Plugin extends AppPlugin {
 		if (!force && next === this.dark) return;
 		this.dark = next;
 		this.applyBodyClasses();
+		this.applyDoneAttrsToRoot();
+		this.page?.refreshStack?.();
 	}
 
 	installThemeObserver() {
@@ -717,13 +1060,25 @@ class Plugin extends AppPlugin {
 
 	applyDoneAttrToEl(el, forcedWas = undefined) {
 		if (!(el instanceof Element) || !el.classList.contains('listitem-task')) return;
+		const guid = el.getAttribute('data-guid');
 		if (!el.classList.contains('state-done')) {
+			const curSt = statusFromClassName(el.className);
+			if (guid) {
+				if (curSt && curSt !== 'open') this.prevStatusByGuid?.set(guid, curSt);
+				else this.prevStatusByGuid?.delete(guid);
+				if (this.undoneByGuid.delete(guid)) saveUndoneMap(this.undoneByGuid);
+			}
 			if (el.hasAttribute('data-bt-was')) el.removeAttribute('data-bt-was');
 			return;
 		}
-		const guid = el.getAttribute('data-guid');
-		const was = forcedWas !== undefined ? forcedWas : (guid ? this.undoneByGuid.get(guid) : el.getAttribute('data-bt-was'));
+		const was = forcedWas !== undefined
+			? forcedWas
+			: (guid ? (this.undoneByGuid.get(guid) || this.prevStatusByGuid?.get(guid)) : el.getAttribute('data-bt-was'));
 		if (was && was !== 'open' && was !== 'done') {
+			if (guid && !this.undoneByGuid.has(guid)) {
+				this.undoneByGuid.set(guid, was);
+				saveUndoneMap(this.undoneByGuid);
+			}
 			if (el.getAttribute('data-bt-was') !== was) el.setAttribute('data-bt-was', was);
 		} else if (el.hasAttribute('data-bt-was')) {
 			el.removeAttribute('data-bt-was');
@@ -732,25 +1087,44 @@ class Plugin extends AppPlugin {
 
 	applyDoneAttrsToRoot(root = document) {
 		if (!root?.querySelectorAll) return;
-		if (root instanceof Element && root.classList.contains('listitem-task')) this.applyDoneAttrToEl(root);
-		root.querySelectorAll('.listitem-task[data-guid]').forEach((el) => this.applyDoneAttrToEl(el));
+		if (root instanceof Element && root.classList.contains('listitem-task')) {
+			this.applyDoneAttrToEl(root);
+			this.applySubStatToEl(root);
+		}
+		root.querySelectorAll('.listitem-task[data-guid]').forEach((el) => {
+			this.applyDoneAttrToEl(el);
+			this.applySubStatToEl(el);
+		});
+	}
+
+	applySubStatToEl(el) {
+		if (!(el instanceof Element) || !el.classList.contains('listitem-task') || el.closest('.bt-settings, .autocomplete--option-icon')) return;
+		const guid = el.getAttribute('data-guid');
+		const st = this.cfg.subCounters && guid ? this.subStatsByGuid.get(guid) : null;
+		applySubStatAttrs(el, st, this.dark);
 	}
 
 	scheduleSyncDoneOrigins() {
 		clearTimeout(this.syncTimer);
-		this.syncTimer = setTimeout(() => { this.syncDoneOrigins(); }, 100);
+		this.syncTimer = setTimeout(() => { this.syncDoneOrigins(); }, 90);
 	}
 
 	async syncDoneOrigins() {
 		try {
 			const seenItems = [];
+			const nextSubStats = new Map();
 			const panels = this.ui.getPanels?.() || (this.ui.getActivePanel?.() ? [this.ui.getActivePanel()] : []);
 			for (const p of panels) {
 				const rec = p?.getActiveRecord?.();
 				if (!rec?.getLineItems) continue;
 				try {
 					const items = await rec.getLineItems();
-					if (Array.isArray(items)) seenItems.push(...items);
+					if (Array.isArray(items)) {
+						seenItems.push(...items);
+						if (this.cfg.subCounters) {
+							for (const [k, v] of computeSubtaskStats(items)) nextSubStats.set(k, v);
+						}
+					}
 				} catch (e) { /* ignore */ }
 			}
 			if (this.data?.searchByQuery) {
@@ -759,6 +1133,7 @@ class Plugin extends AppPlugin {
 					if (Array.isArray(res?.lines)) seenItems.push(...res.lines);
 				} catch (e) { /* ignore */ }
 			}
+			this.subStatsByGuid = nextSubStats;
 			let dirty = false;
 			for (const item of seenItems) {
 				if (!item?.guid) continue;
@@ -766,14 +1141,16 @@ class Plugin extends AppPlugin {
 				if (st === 'done') {
 					const was = statusFromCodeOrString(item.props?.undone);
 					if (was && was !== 'open' && was !== 'done') {
+						this.prevStatusByGuid.set(item.guid, was);
 						if (this.undoneByGuid.get(item.guid) !== was) {
 							this.undoneByGuid.set(item.guid, was);
 							dirty = true;
 						}
 					}
-				} else if (st && st !== 'done' && this.undoneByGuid.has(item.guid)) {
-					this.undoneByGuid.delete(item.guid);
-					dirty = true;
+				} else if (st) {
+					if (st === 'open' || st === 'none') this.prevStatusByGuid.delete(item.guid);
+					else this.prevStatusByGuid.set(item.guid, st);
+					if (this.undoneByGuid.delete(item.guid)) dirty = true;
 				}
 			}
 			if (dirty) saveUndoneMap(this.undoneByGuid);
@@ -801,6 +1178,16 @@ class Plugin extends AppPlugin {
 			if (e.type === 'pointerdown' && typeof e.clientX === 'number') {
 				lastX = e.clientX;
 				lastY = e.clientY;
+			}
+			const row = e.target?.closest?.('.listitem-task[data-guid]')
+				|| (e.type === 'keydown' ? findRowForCaret(findActiveCaretEl(document), null) : null);
+			if (row && !row.closest?.('.bt-settings, .autocomplete--option-icon')) {
+				const rg = row.getAttribute('data-guid');
+				const rst = statusFromClassName(row.className);
+				if (rg && rst && rst !== 'done') {
+					if (rst === 'open') this.prevStatusByGuid.delete(rg);
+					else this.prevStatusByGuid.set(rg, rst);
+				}
 			}
 		};
 		document.addEventListener('pointerdown', mark, { capture: true, passive: true });
@@ -845,17 +1232,21 @@ class Plugin extends AppPlugin {
 			if (nextStatus === 'done') {
 				let was = mp && 'undone' in mp ? statusFromCodeOrString(mp.undone) : null;
 				if (!was) {
-					const prev = knownStatusByGuid.get(guid);
+					const prev = knownStatusByGuid.get(guid) || this.prevStatusByGuid.get(guid);
 					if (prev && prev !== 'open' && prev !== 'done') was = prev;
 				}
 				if (was && was !== 'open' && was !== 'done') {
+					this.prevStatusByGuid.set(guid, was);
 					this.undoneByGuid.set(guid, was);
 					saveUndoneMap(this.undoneByGuid);
 				} else if (mp && 'undone' in mp && !mp.undone) {
+					this.prevStatusByGuid.delete(guid);
 					this.undoneByGuid.delete(guid);
 					saveUndoneMap(this.undoneByGuid);
 				}
 			} else if (nextStatus && nextStatus !== 'done') {
+				if (nextStatus === 'open') this.prevStatusByGuid.delete(guid);
+				else this.prevStatusByGuid.set(guid, nextStatus);
 				if (this.undoneByGuid.delete(guid)) saveUndoneMap(this.undoneByGuid);
 			}
 
@@ -863,10 +1254,32 @@ class Plugin extends AppPlugin {
 				document.querySelectorAll(`.listitem-task[data-guid="${CSS.escape(guid)}"]`).forEach((el) => this.applyDoneAttrToEl(el));
 			}
 
-			if (!ev.source?.isLocal || !nextStatus) return;
+			if (!ev.source?.isLocal || !nextStatus) {
+				if (ev.status !== null && ev.status !== undefined) this.scheduleSyncDoneOrigins();
+				return;
+			}
+			this.scheduleSyncDoneOrigins();
 			tryEmitGuid(guid, nextStatus);
 		};
 		this.eventIds.push(this.events.on('lineitem.updated', onLineUpdate, { collection: '*' }));
+
+		const onFoldBadgeClick = (e) => {
+			if (e.button !== 0 || !(e.target instanceof Element)) return;
+			const row = e.target;
+			if (!row.classList.contains('listitem-task') || !row.classList.contains('listitem-folded') || !row.hasAttribute('data-bt-sub')) return;
+			const lineDiv = row.querySelector(':scope > .line-div');
+			if (!lineDiv) return;
+			const lr = lineDiv.getBoundingClientRect();
+			if (e.clientX >= lr.right && e.clientX <= lr.right + 110 && e.clientY >= lr.top - 4 && e.clientY <= lr.top + 32) {
+				const ctrl = row.querySelector(':scope > .lineitem-btn-unfold, :scope > .line-fold-chevron');
+				if (ctrl) {
+					e.preventDefault();
+					e.stopPropagation();
+					ctrl.click();
+				}
+			}
+		};
+		document.addEventListener('click', onFoldBadgeClick, true);
 
 		const mo = new MutationObserver((muts) => {
 			const now = performance.now();
@@ -886,13 +1299,19 @@ class Plugin extends AppPlugin {
 				if (prev === next) continue;
 
 				if (guid) {
-					if (next === 'done' && prev !== 'open' && prev !== 'done' && !this.undoneByGuid.has(guid)) {
-						this.undoneByGuid.set(guid, prev);
-						saveUndoneMap(this.undoneByGuid);
-					} else if (next !== 'done' && prev === 'done') {
-						if (this.undoneByGuid.delete(guid)) saveUndoneMap(this.undoneByGuid);
+					if (next === 'done' && prev !== 'open' && prev !== 'done') {
+						this.prevStatusByGuid.set(guid, prev);
+						if (this.undoneByGuid.get(guid) !== prev) {
+							this.undoneByGuid.set(guid, prev);
+							saveUndoneMap(this.undoneByGuid);
+						}
+					} else if (next !== 'done') {
+						if (next === 'open') this.prevStatusByGuid.delete(guid);
+						else this.prevStatusByGuid.set(guid, next);
+						if (prev === 'done' && this.undoneByGuid.delete(guid)) saveUndoneMap(this.undoneByGuid);
 					}
 					this.applyDoneAttrToEl(el);
+					this.scheduleSyncDoneOrigins();
 					if (now - gestureAt <= 750) tryEmitGuid(guid, next, el);
 				} else if (now - gestureAt <= 750) {
 					if (next === 'done' && prev !== 'open' && prev !== 'done') el.setAttribute('data-bt-was', prev);
@@ -918,6 +1337,86 @@ class Plugin extends AppPlugin {
 			mo.disconnect();
 			document.removeEventListener('pointerdown', mark, true);
 			document.removeEventListener('keydown', mark, true);
+			document.removeEventListener('click', onFoldBadgeClick, true);
+		});
+	}
+
+	async resolvePasteTarget(record, rowEl) {
+		const items = await record.getLineItems?.(false);
+		const list = Array.isArray(items) ? items : [];
+		const byGuid = new Map(list.map((it) => [it.guid, it]));
+		const rowGuid = rowEl?.getAttribute?.('data-guid') || null;
+		if (rowGuid) {
+			const cur = byGuid.get(rowGuid);
+			if (!cur) return { skip: true };
+			const pGuid = cur.parent_guid;
+			const parentItem = pGuid && pGuid !== record.guid ? (byGuid.get(pGuid) || null) : null;
+			const children = typeof cur.getChildren === 'function' ? await cur.getChildren() : (cur.children || []);
+			const replaceEmptyItem = isLineItemEmpty(cur, Array.isArray(children) ? children.length : 0) ? cur : null;
+			return { parentItem, afterItem: cur, replaceEmptyItem, skip: false };
+		}
+		const topItems = list.filter((it) => !it.parent_guid || it.parent_guid === record.guid);
+		if (topItems.length === 1) {
+			const sole = topItems[0];
+			const children = typeof sole.getChildren === 'function' ? await sole.getChildren() : (sole.children || []);
+			if (isLineItemEmpty(sole, Array.isArray(children) ? children.length : 0)) {
+				return { parentItem: null, afterItem: sole, replaceEmptyItem: sole, skip: false };
+			}
+		}
+		return { parentItem: null, afterItem: topItems[topItems.length - 1] || null, replaceEmptyItem: null, skip: false };
+	}
+
+	installSmartTaskPaste() {
+		let skipShiftPasteAt = -1e9;
+		const onKeyDown = (e) => {
+			if ((e.ctrlKey || e.metaKey) && e.shiftKey && String(e.code || '').toLowerCase() === 'keyv') {
+				skipShiftPasteAt = performance.now();
+			}
+		};
+		const onPaste = (e) => {
+			if (!this.cfg.smartPaste || e.defaultPrevented || !e.clipboardData) return;
+			if (performance.now() - skipShiftPasteAt < 500) return;
+			const types = Array.from(e.clipboardData.types || []);
+			if (types.some((t) => t === 'text/thymer' || t.startsWith('web text/thymer'))) return;
+			if (isBlockedPasteTarget(e.target) || isBlockedPasteTarget(document.activeElement)) return;
+
+			const panel = this.ui.getActivePanel?.();
+			const record = panel?.getActiveRecord?.();
+			if (!record || typeof record.insertFromMarkdown !== 'function') return;
+
+			const panelEl = panel.getElement?.() || document.querySelector('.panel.focused-panel, .panel.has-focus') || null;
+			const caretEl = findActiveCaretEl(panelEl || document);
+			const rowEl = findRowForCaret(caretEl, panelEl);
+			if (rowEl?.closest?.('.block-codelang, .table-cell-container-div')) return;
+			if (!rowEl && !caretEl?.closest?.('listview-editor')) return;
+
+			const raw = e.clipboardData.getData('text/plain') || '';
+			const md = prepareTaskMarkdownPaste(raw, Boolean(rowEl?.classList?.contains('listitem-task')));
+			if (!md) return;
+
+			e.preventDefault();
+			e.stopPropagation();
+
+			(async () => {
+				try {
+					const target = await this.resolvePasteTarget(record, rowEl);
+					if (target.skip) return;
+					const ok = await record.insertFromMarkdown(md, target.parentItem, target.afterItem);
+					if (ok && target.replaceEmptyItem) {
+						try { await target.replaceEmptyItem.delete?.(); } catch (err) { /* ignore */ }
+					}
+					this.scheduleSyncDoneOrigins();
+				} catch (err) {
+					this.ui.addToaster?.({ title: 'BetterTask', message: 'Task paste failed', dismissible: true, autoDestroyTime: 1800 });
+				}
+			})();
+		};
+
+		document.addEventListener('keydown', onKeyDown, true);
+		document.addEventListener('paste', onPaste, true);
+		this.cleanup.push(() => {
+			document.removeEventListener('keydown', onKeyDown, true);
+			document.removeEventListener('paste', onPaste, true);
 		});
 	}
 
@@ -961,6 +1460,10 @@ class Plugin extends AppPlugin {
   <div class="bt-playground">
     <div class="bt-panel-label">Interactive Task Playground (click checkbox to cycle)</div>
     <div class="bt-play-list"></div>
+    <div class="bt-stack-box">
+      <div class="bt-panel-label">Nested Subtask Stack &amp; Fold Preview (tick subtasks or click chevron)</div>
+      <div class="bt-stack-wrap"></div>
+    </div>
   </div>
 </div></div>`;
 
@@ -980,6 +1483,8 @@ class Plugin extends AppPlugin {
 			['anim', 'Ambient motion'],
 			['bursts', 'Transition FX'],
 			['rowTint', 'Row mood tint'],
+			['subCounters', 'Subtask counts'],
+			['smartPaste', 'Smart task paste'],
 		]) {
 			const b = mk(`<button type="button" class="bt-toggle" data-key="${key}"><span class="bt-dot"></span><span></span></button>`);
 			b.querySelector('span:last-child').textContent = label;
@@ -1052,6 +1557,81 @@ class Plugin extends AppPlugin {
 			playList.appendChild(row);
 		}
 
+		// Nested stack interactive preview
+		const stackItems = [
+			{ guid: 'demo-root', parent_guid: null, indent: 0, status: 'open', text: 'Toast animasyonu asiri hizli', foldBtn: true, folded: false },
+			{ guid: 'demo-p1', parent_guid: 'demo-root', indent: 1, status: 'started', text: 'ffas (active subtask)', foldBtn: true, folded: false },
+			{ guid: 'demo-c1', parent_guid: 'demo-p1', indent: 2, status: 'done', text: 'ffasf (completed)' },
+			{ guid: 'demo-c2', parent_guid: 'demo-p1', indent: 2, status: 'open', text: 'fasf (open)' },
+			{ guid: 'demo-c3', parent_guid: 'demo-p1', indent: 2, status: 'alert', text: 'hhhqw (urgent)', foldBtn: true, folded: false },
+			{ guid: 'demo-c4', parent_guid: 'demo-c3', indent: 3, status: 'open', text: 'asgh (leaf)' },
+			{ guid: 'demo-big', parent_guid: null, indent: 0, status: 'started', text: 'Sprint backlog (>10 uses smooth circle)', foldBtn: true, folded: true },
+			...Array.from({ length: 12 }, (_, idx) => ({
+				guid: `demo-b-${idx}`, parent_guid: 'demo-big', indent: 1,
+				status: idx < 4 ? 'done' : 'open', text: `Backlog task #${idx + 1}`,
+			})),
+		];
+		const stackWrap = root.querySelector('.bt-stack-wrap');
+		const stackEls = [];
+		const refreshStack = () => {
+			const fake = stackItems.map((it) => ({
+				guid: it.guid, parent_guid: it.parent_guid, type: 'task',
+				getTaskStatus: () => it.status, props: { done: it.status },
+			}));
+			const stats = computeSubtaskStats(fake);
+			const byGuid = new Map(stackItems.map((it) => [it.guid, it]));
+			for (const entry of stackEls) {
+				const { item, el } = entry;
+				let hidden = false;
+				let p = item.parent_guid;
+				while (p) {
+					const par = byGuid.get(p);
+					if (!par) break;
+					if (par.folded) { hidden = true; break; }
+					p = par.parent_guid;
+				}
+				el.classList.toggle('is-hidden-sub', hidden);
+				el.classList.toggle('listitem-folded', !!item.folded);
+				const s = this.cfg.subCounters ? stats.get(item.guid) : null;
+				applySubStatAttrs(el, s, this.dark);
+			}
+		};
+		this.page.refreshStack = refreshStack;
+		for (const item of stackItems) {
+			const sp = STATUS_MAP.get(item.status) || STATUS_MAP.get('open');
+			const el = mk(`<div class="listitem listitem-task ${sp.cls}" data-indent="${item.indent}"><div class="line-check-div"></div><div class="line-div"></div></div>`);
+			el.querySelector('.line-div').textContent = item.text;
+			if (item.foldBtn) {
+				const fbtn = mk(`<button type="button" class="bt-stack-fold" title="Fold / unfold">&#9662;</button>`);
+				fbtn.onclick = (e) => { e.stopPropagation(); item.folded = !item.folded; refreshStack(); };
+				el.prepend(fbtn);
+			}
+			el.querySelector('.line-check-div').onclick = () => {
+				const orig = item.origin || (item.status !== 'done' ? item.status : 'open');
+				if (item.status === 'done') {
+					item.status = orig;
+					el.removeAttribute('data-bt-was');
+				} else {
+					item.origin = item.status;
+					item.status = 'done';
+					if (orig !== 'open' && orig !== 'done') el.setAttribute('data-bt-was', orig);
+				}
+				for (const s of STATUS_SPECS) if (s.cls) el.classList.remove(s.cls);
+				const ns = STATUS_MAP.get(item.status);
+				if (ns?.cls) el.classList.add(ns.cls);
+				refreshStack();
+				this.emitAtTaskEl(el, item.status, el.getAttribute('data-bt-was'));
+			};
+			el.addEventListener('click', (e) => {
+				if (!item.folded || e.target !== el) return;
+				const lr = el.querySelector('.line-div').getBoundingClientRect();
+				if (e.clientX >= lr.right) { item.folded = false; refreshStack(); }
+			});
+			stackEls.push({ item, el });
+			stackWrap.appendChild(el);
+		}
+		refreshStack();
+
 		this.refreshPage();
 	}
 
@@ -1061,5 +1641,6 @@ class Plugin extends AppPlugin {
 		if (!root.isConnected) { this.page = null; return; }
 		root.querySelectorAll('.bt-seg-btn').forEach((b) => b.classList.toggle('is-active', b.dataset.preset === this.cfg.preset));
 		root.querySelectorAll('.bt-toggle').forEach((b) => b.classList.toggle('is-on', !!this.cfg[b.dataset.key]));
+		this.page.refreshStack?.();
 	}
 }

@@ -21,7 +21,9 @@
     "preset": "neon-glass",
     "anim": true,
     "bursts": true,
-    "rowTint": true
+    "rowTint": true,
+    "subCounters": true,
+    "smartPaste": true
   },
   "home": false
 }

@@ -20,8 +20,7 @@
   "custom": {
     "color": "#9ff5e1",
     "accent": "#13b5a0",
-    "bounce": false,
-    "trail": true,
+
     "intensity": 0.9,
     "fx": "zephyr",
     "colorLight": null,

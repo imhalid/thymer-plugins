@@ -92,10 +92,6 @@ const PRESETS = [
 // 'block' when on); every other key is the id of an 'always' effect. An effect here has no toggle command of its own.
 // (Fresh ink and Back-man are not here: they are special presets, one at a time like Lightning.)
 const PAGE_SWITCHES = [
-	['style', 'Block cursor', 'A box the width of the letter'],
-	['smear', 'Motion smear', 'Stretches as it moves, snaps back'],
-	['trail', 'Trail', 'A comet ribbon behind the caret'],
-	['bounce', 'Bounce', 'A hop on every letter'],
 	['sleep', 'Sleepy caret', 'Dozes off when you stop writing'],
 	['confetti', 'Confetti', 'A burst when you tick off a task'],
 	['tether', 'Bracket tether', 'A line under the span between matching brackets or quotes'],
@@ -494,180 +490,7 @@ EFFECTS.glow = {
 	},
 };
 
-// ---- Effect: Bounce (neovide-ish hop: a caret-sized ghost jumps up and settles with a damped spring) ----
-EFFECTS.bounce = {
-	id: 'bounce', label: 'Bounce', mode: 'always', defaults: {}, blend: 'lighter',
-	onMove(plugin, prev, cur, info) {
-		if (!info.typed) return;
-		plugin.items = plugin.items.filter((i) => i.effect !== 'bounce');
-		plugin.items.push({ effect: 'bounce', t0: info.now, dur: 260 });
-	},
-	draw(plugin, ctx, item, p, k) {
-		const rect = plugin.last;
-		if (!rect) return;
-		if (!plugin.dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
-		const spring = Math.exp(-4 * p) * Math.sin(p * Math.PI * 2.5); // starts at the caret, no ghost
-		const lift = -rect.h * 0.42 * k * spring;
-		const stretch = 1 + 0.35 * spring * k;
-		const a = (1 - p) * 0.75 * Math.min(1, Math.abs(spring) * 3);
-		ctx.fillStyle = rgba(plugin.col(), a);
-		ctx.shadowColor = rgba(plugin.col(), a);
-		ctx.shadowBlur = 10 * k;
-		ctx.fillRect(rect.x - 0.5, rect.y + lift - (rect.h * (stretch - 1)) / 2, rect.w + 1, rect.h * stretch);
-		ctx.shadowBlur = 0;
-	},
-};
 
-// ---- Effect: Trail (a comet ribbon the caret draws behind itself) ----------------------------------------------------
-// The caret's path is kept for a moment and drawn as one ribbon: the caret's full height where it is now, narrowing to a
-// point and fading toward where it was, never taller than the caret, a soft halo in the accent color round it and a bright
-// thread down its middle. The
-// tail flutters a little as it fades, like a ribbon let go in the air. Typing draws it out letter by letter behind the
-// caret, and so does any move along the line (a word skipped, a click farther on); a move to another line (Enter, a click
-// elsewhere) is one sweep, short-lived, that collapses toward where the caret landed. A line up or down by arrow key lets
-// go of the ribbon, which fades where it is. When the page scrolls the ribbon goes along with the text.
-// Settings: trailMs (how long the ribbon lingers; 900 is normal), trailReach (how far back it reaches while typing, in caret
-// heights; 3 is normal - a sweep keeps its whole length), trailMinWidths (a move farther than this many caret
-// heights is a jump).
-const TRAIL_PIECE_PX = 9;     // the ribbon is drawn in pieces about this long, each with its own width and fade
-const TRAIL_MAX_PTS = 160;    // the most points of the path kept
-const TRAIL_EDGE_PX = 1.5;    // half the width of a stretch that runs straight up or down (it has no caret height to spread over)
-const TRAIL_HOLD = 0.35;      // the share of its time a piece of the ribbon stays at full strength before it eases away
-const TRAIL_END = 0.72;       // from this share of a ribbon's reach back, its tail eases out to nothing
-const TRAIL_SWEEP = 0.55;     // a sweep (to another line) lives this share of the ribbon's time: a flash of a blaze, not a stripe left on the page
-
-/** How long the ribbon lingers, from the settings. */
-const trailDur = (plugin) => clamp(Number(plugin.cfg.trailMs) || 900, 200, 5000);
-
-/** The item that holds the path of `host` (the plugin, or a preview host). */
-function trailOf(host) {
-	const item = host.ensureItem('trail');
-	if (!item.pts) { item.pts = []; item.broken = false; item.attached = false; }
-	return item;
-}
-
-/** A point of the path: the caret's left edge and middle, its height, when it was there; `gap` begins a new ribbon there. */
-const trailPoint = (r, t, gap) => ({ x: r.x + 1, y: r.y + r.h / 2, h: r.h, t, gap });
-
-/**
- * One ribbon of the path (two points or more, oldest first), resampled into short pieces. Each piece has its own half
- * height - the caret's at the head, down to nothing at the tail, by its age and by how far back along the ribbon it is -
- * its own fade, and its own flutter, a wave that grows toward the tail as the ribbon ages. Its edge runs up and down over
- * the caret's height where the ribbon runs along the line, and a little sideways where it runs up or down the page.
- * Three passes: the halo, the body, the thread.
- */
-function drawRibbon(ctx, ribbon, now, dur, reach, K, col, acc, core) {
-	const nodes = [];
-	for (let a = 0; a + 1 < ribbon.length; a++) {
-		const p = ribbon[a], q = ribbon[a + 1], n = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / TRAIL_PIECE_PX));
-		for (let s = a ? 1 : 0; s <= n; s++) { const f = s / n; nodes.push({ x: lerp(p.x, q.x, f), y: lerp(p.y, q.y, f), h: lerp(p.h, q.h, f), t: lerp(p.t, q.t, f) }); }
-	}
-	const last = nodes.length - 1;
-	let L = 0;
-	for (let a = last; a >= 0; a--) { if (a < last) L += Math.hypot(nodes[a + 1].x - nodes[a].x, nodes[a + 1].y - nodes[a].y); nodes[a].d = L; }   // the way back from the head
-	const span = Math.min(Math.max(L, nodes[last].h * 2), reach);   // a short ribbon (a letter or two) is hardly tapered at all; a long one is cut to its reach
-	for (let a = 0; a <= last; a++) {
-		const n = nodes[a], u = clamp01((now - n.t) / dur), s = Math.min(1, n.d / span);
-		const f = u < TRAIL_HOLD ? 1 : 1 - smoothStep((u - TRAIL_HOLD) / (1 - TRAIL_HOLD));   // full for a while, then eased away
-		n.hh = n.h * 0.46 * (0.08 + 0.92 * Math.sqrt(f) * Math.pow(1 - s, 0.7));   // a little inside the caret's height at the head
-		n.a = f * (1 - 0.5 * s) * (s < TRAIL_END ? 1 : 1 - smoothStep((s - TRAIL_END) / (1 - TRAIL_END)));   // and out to nothing at the end of its reach
-		n.yy = n.y + Math.sin(now * 0.012 + n.d * 0.08) * n.h * 0.18 * Math.min(1, u * 1.5) * s;
-		const b = nodes[Math.min(last, a + 1)], c = nodes[Math.max(0, a - 1)], dx = b.x - c.x, dy = b.y - c.y, len = Math.hypot(dx, dy);
-		let nx = 0, ny = 1;
-		if (len > 1e-6) { nx = -dy / len; ny = dx / len; if (ny < 0 || (ny === 0 && nx < 0)) { nx = -nx; ny = -ny; } }   // always the same side up, so a ribbon that turns back never twists
-		n.ex = nx * TRAIL_EDGE_PX; n.ey = ny;
-	}
-	const quad = (p, q, wp, wq, m) => {
-		ctx.beginPath();
-		ctx.moveTo(p.x - p.ex * m, p.yy - p.ey * wp); ctx.lineTo(q.x - q.ex * m, q.yy - q.ey * wq);
-		ctx.lineTo(q.x + q.ex * m, q.yy + q.ey * wq); ctx.lineTo(p.x + p.ex * m, p.yy + p.ey * wp);
-		ctx.closePath();
-		ctx.fill();
-	};
-	for (let a = 0; a < last; a++) {   // the halo, wide and faint
-		const p = nodes[a], q = nodes[a + 1], al = (p.a + q.a) / 2;
-		if (al < 0.01) continue;
-		ctx.fillStyle = rgba(acc, 0.18 * al * K);
-		quad(p, q, Math.min(p.hh * 1.25 + 0.5, p.h / 2), Math.min(q.hh * 1.25 + 0.5, q.h / 2), 2.2);   // never taller than the caret
-	}
-	for (let a = 0; a < last; a++) {   // the body
-		const p = nodes[a], q = nodes[a + 1], al = (p.a + q.a) / 2;
-		if (al < 0.01) continue;
-		ctx.fillStyle = rgba(col, 0.52 * al * K);
-		quad(p, q, p.hh, q.hh, 1);
-	}
-	ctx.lineWidth = 1;
-	ctx.lineCap = 'butt';
-	for (let a = 0; a < last; a++) {   // the thread
-		const p = nodes[a], q = nodes[a + 1], al = Math.pow((p.a + q.a) / 2, 1.6) * 0.9 * K;
-		if (al < 0.01) continue;
-		ctx.strokeStyle = rgba(core, al);
-		ctx.beginPath(); ctx.moveTo(p.x, p.yy); ctx.lineTo(q.x, q.yy); ctx.stroke();
-	}
-}
-
-EFFECTS.trail = {
-	id: 'trail', label: 'Trail', mode: 'always',
-	defaults: { trailMinWidths: 1.5, trailMs: 900, trailReach: 3 },
-	blend: 'lighter',
-	onMove(plugin, prev, cur, info) {
-		const item = trailOf(plugin), dur = trailDur(plugin), pts = item.pts, now = info.now;
-		const sameLine = Math.abs(info.dy) < cur.h * 0.6, far = info.dist > cur.h * plugin.cfg.trailMinWidths;
-		if (sameLine) {
-			// Along the line the ribbon simply follows the caret - a letter typed, a word skipped with the arrow keys, a click
-			// farther along: one ribbon, reaching a few letters back (a stub left at every word would not be a trail).
-			if (item.broken || !pts.length) { pts.push(trailPoint(prev, now - dur * 0.3, true)); item.broken = false; }
-			pts.push(trailPoint(cur, now, false));
-		} else if (far || info.typed) {
-			// Another line: a sweep, a short-lived ribbon of its own from where the caret was - given some age at once, so it
-			// collapses toward the caret from its first frame - to where it landed. The next move along the line starts afresh.
-			const life = dur * TRAIL_SWEEP;
-			pts.push({ ...trailPoint(prev, now - life * 0.4, true), sweep: true });
-			pts.push({ ...trailPoint(cur, now, false), sweep: true });
-			item.broken = true;
-		} else { item.broken = true; item.attached = false; return; }   // a line up or down by arrow key: nothing, the ribbon lets go
-		item.attached = true;   // the newest point is the caret
-		if (pts.length > TRAIL_MAX_PTS) pts.splice(0, pts.length - TRAIL_MAX_PTS);
-	},
-	onShift(plugin, dx, dy) {   // the page scrolled: the ribbon goes with the text
-		const item = plugin.items.find((it) => it.effect === 'trail' && !it.done);
-		if (item && item.pts) for (const q of item.pts) { q.x += dx; q.y += dy; }
-	},
-	onSample(plugin, cur) {   // the caret gone (another page): nothing may stay drawn where it was
-		if (cur) return;
-		const item = plugin.items.find((it) => it.effect === 'trail' && !it.done);
-		if (item) { item.pts = []; item.done = true; }
-	},
-	draw(plugin, ctx, item, p, k, now) {
-		const dur = trailDur(plugin), reach = Math.max(0.5, Number(plugin.cfg.trailReach) || 3);
-		// A point past its time goes - unless the point after it, in the same ribbon, is still alive: then it stays as the far
-		// end of that stretch, which fades toward the live end rather than vanishing whole.
-		const dead = (q) => now - q.t >= (q.sweep ? dur * TRAIL_SWEEP : dur), all = item.pts, pts = [];
-		for (let i = 0; i < all.length; i++) {
-			const q = all[i], next = all[i + 1];
-			if (!dead(q) || (next && !next.gap && !dead(next))) pts.push(q);
-			else if (q.gap && next) next.gap = true;   // the ribbon still begins where it began
-		}
-		item.pts = pts;
-		if (!pts.length) { item.done = true; return; }
-		const dark = plugin.dark, K = Math.min(k, 1.5) * (dark ? 1 : 0.55), col = plugin.col(), acc = plugin.acc(), core = dark ? '#ffffff' : lighten(col, 0.45);
-		if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing: drawn as a (fainter) band of color instead
-		// While Motion smear carries the caret across (its leading point still on its way), the ribbon ends on the smear, not
-		// ahead of it at the place the caret will arrive.
-		const sm = plugin.fxState.smear, lead = sm && sm.lead && plugin.items.some((it) => it.effect === 'smear' && !it.done) ? sm.lead : null;
-		for (let i = 0; i < pts.length;) {   // ribbon by ribbon: a gap begins a new one
-			let j = i + 1;
-			while (j < pts.length && !pts[j].gap) j++;
-			if (j - i >= 2) {
-				const ribbon = pts.slice(i, j);
-				if (lead && item.attached && j === pts.length) { const head = ribbon[ribbon.length - 1]; ribbon[ribbon.length - 1] = { ...head, x: lead.x + 1, y: lead.y + head.h / 2 }; }
-				const sweep = ribbon.some((q) => q.sweep);
-				drawRibbon(ctx, ribbon, now, sweep ? dur * TRAIL_SWEEP : dur, sweep ? Infinity : reach * ribbon[ribbon.length - 1].h, K, col, acc, core);
-			}
-			i = j;
-		}
-	},
-};
 
 // ---- Effect: Lightning (signature) -------------------------------------------------------
 // Rare short crackles jump off the caret while typing; a big bolt is drawn when the caret changes line.
@@ -814,7 +637,52 @@ function caretBox(plugin) {
  * Fills and rings the current path the way the block cursor is drawn (.cfx-block): a tint, a 1.5 px ring and a soft
  * glow. `fill` and `ring` are 0..1 strengths; a Line caret is all fill and no ring.
  */
-function paintCaretBody(ctx, col, fill, ring) {
+/**
+ * Translucent lit glass rendering (CARET_SKILL §3):
+ * 1. Soft Halo: 3 strokes with widths [9, 6, 3.5] px and low alpha (0.035, 0.06, 0.09).
+ * 2. Lit Gradient Fill: top-to-bottom linear gradient (0.0 mix(col,white,0.45) @ 0.62*alpha, 0.4 @ 0.40*alpha, 0.65 @ 0.42*alpha, 1.0 @ 0.52*alpha).
+ * 3. Rim Stroke: 1.25px stroke in col at 0.95 * alpha.
+ * 4. Specular Gloss: 1.4px white vertical highlight near the upper-left (alpha 0.55 on dark bg, 0.8 on light bg).
+ */
+function glassBody(ctx, col, box, alpha = 1, dark = true) {
+	ctx.save();
+	ctx.lineJoin = 'round';
+	ctx.lineCap = 'round';
+	for (const [w, a] of [[9, 0.035], [6, 0.06], [3.5, 0.09]]) {
+		ctx.lineWidth = w;
+		ctx.strokeStyle = rgba(col, a * alpha);
+		ctx.stroke();
+	}
+	const y0 = box ? box.y : 0, bh = box ? Math.max(1, box.h) : 20;
+	const g = ctx.createLinearGradient(0, y0, 0, y0 + bh);
+	g.addColorStop(0.0, rgba(lighten(col, 0.45), 0.62 * alpha));
+	g.addColorStop(0.4, rgba(col, 0.40 * alpha));
+	g.addColorStop(0.65, rgba(col, 0.42 * alpha));
+	g.addColorStop(1.0, rgba(col, 0.52 * alpha));
+	ctx.fillStyle = g;
+	ctx.fill();
+	ctx.lineWidth = 1.25;
+	ctx.strokeStyle = rgba(col, 0.95 * alpha);
+	ctx.stroke();
+	if (box && box.w >= 4) {
+		ctx.clip();
+		const gx = box.x + Math.max(1.6, box.w * 0.22);
+		ctx.beginPath();
+		ctx.moveTo(gx, box.y + box.h * 0.14);
+		ctx.lineTo(gx, box.y + box.h * 0.36);
+		ctx.lineWidth = 1.4;
+		ctx.lineCap = 'round';
+		ctx.strokeStyle = `rgba(255,255,255,${(dark ? 0.55 : 0.8) * alpha})`;
+		ctx.stroke();
+	}
+	ctx.restore();
+}
+
+function paintCaretBody(ctx, col, fill, ring, box = null, dark = true) {
+	if (ring > 0 && box) {
+		glassBody(ctx, col, box, ring, dark);
+		return;
+	}
 	if (fill > 0) {
 		ctx.shadowColor = rgba(col, 0.45 * ring);
 		ctx.shadowBlur = 8 * ring;
@@ -823,81 +691,115 @@ function paintCaretBody(ctx, col, fill, ring) {
 		ctx.shadowBlur = 0;
 	}
 	if (ring > 0) {
-		ctx.lineWidth = 1.5;
+		ctx.lineWidth = 1.25;
 		ctx.lineJoin = 'round';
-		ctx.strokeStyle = rgba(col, ring);
+		ctx.strokeStyle = rgba(col, 0.95 * ring);
 		ctx.stroke();
 	}
 }
 
-// ---- Effect: Motion smear ------------------------------------------------------------------------------------------
-// From Cursor-Smith's src/paint/paint-smear.ts. The caret stretches as it moves and snaps back when it arrives. It is
-// drawn as a quad whose four corners are blends of two tracked points: a leading point on a spring (it may overshoot
-// and snap back, which is the feel) and a trailing point that lags behind it (an approach with no velocity of its own,
-// so it can neither rotate nor boomerang). Whichever face of the caret trails the move is decided by the area each
-// face sweeps, so the shape is a parallelogram in every frame. A move to another line is smeared like any other. While it
-// moves, Thymer's caret (or the block cursor) is hidden and the quad is drawn in its place; when it has arrived, the real
-// caret is shown again.
-// Not ported: Tapered trail, Max length and Conserve area, which Cursor-Smith leaves off by default.
-// Settings: smearStiffness (the leading point), smearTrailingStiffness, smearDamping, each 0..1.
-const SMEAR_MAX_STEP = 1 / 240;     // s: the spring is integrated in steps this small, so every frame rate swings alike
-const SMEAR_SETTLE_V = 30;          // px/s: slower than this and within half a pixel of the caret, the smear has arrived
-const SMEAR_KEY_STEP_CHARS = 2.5;   // a move along the row by at most this many letters is the keyboard's (typing, an arrow)...
-const SMEAR_KEY_STEP_MS = 200;      // ...and for this long after one the leading edge sits on the caret: only the tail trails
+/** Traces a closed rounded arbitrary-quad path with corner radius `r` (CARET_SKILL §2.6). */
+function traceRoundedQuad(ctx, corners, r) {
+	ctx.beginPath();
+	for (let i = 0; i < 4; i++) {
+		const prev = corners[(i + 3) % 4], cur = corners[i], next = corners[(i + 1) % 4];
+		const dPrev = Math.hypot(prev.x - cur.x, prev.y - cur.y);
+		const dNext = Math.hypot(next.x - cur.x, next.y - cur.y);
+		const d = Math.min(r, dPrev / 2, dNext / 2);
+		const p0x = dPrev > 1e-4 ? cur.x + ((prev.x - cur.x) / dPrev) * d : cur.x;
+		const p0y = dPrev > 1e-4 ? cur.y + ((prev.y - cur.y) / dPrev) * d : cur.y;
+		const p1x = dNext > 1e-4 ? cur.x + ((next.x - cur.x) / dNext) * d : cur.x;
+		const p1y = dNext > 1e-4 ? cur.y + ((next.y - cur.y) / dNext) * d : cur.y;
+		if (i === 0) ctx.moveTo(p0x, p0y); else ctx.lineTo(p0x, p0y);
+		ctx.quadraticCurveTo(cur.x, cur.y, p1x, p1y);
+	}
+	ctx.closePath();
+}
+
+// ---- Effect: Motion smear (Jelly Body, CARET_SKILL §2) -------------------------------------------------------------
+// Models the caret box as two faces chasing the target rect (rect.x, rect.y) on different springs:
+// - Leading face (lead): fast underdamped 2nd-order spring (snaps ahead, slight overshoot).
+// - Trailing face (trail): slower 1st-order exponential follower (lags behind).
+// Leading corners use the leading face, trailing corners use the trailing face; the tail tapers (pinches) inward
+// proportionally to lag, and corners are rounded with quadratic curves before rendering with glassBody.
+// Settings: smearStiffness (0.65), smearTrailingStiffness (0.15), smearDamping (0.4).
+const SMEAR_MAX_STEP = 1 / 240;     // s: sub-stepped at 240 Hz
+const SMEAR_CAP_LEN = 150;          // max px a face may lag behind target
 
 /**
- * One frame of the smear toward `rect` ({ x, y, w, h }), `dt` seconds on. `s` holds the two points, the centre the
- * caret had a frame ago and the direction of travel, held after the caret stops so the tail keeps pointing back the way
- * it came. `pinned` puts the leading point on the caret. Returns the corners (top-left, top-right, bottom-right,
- * bottom-left) and whether they are still on their way.
+ * One frame of the Jelly smear toward `rect` ({ x, y, w, h }), `dt` seconds on.
+ * Returns { corners, box, settled }.
  */
-function stepSmear(s, rect, dt, cfg, pinned) {
+function stepSmear(s, rect, dt, cfg) {
 	const { lead, trail } = s;
-	const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
-	const dx = cx - s.cx, dy = cy - s.cy, len = Math.hypot(dx, dy);
-	if (len > 0.01) s.dir = { x: dx / len, y: dy / len };
-	s.cx = cx; s.cy = cy;
+	const w = rect.w, h = rect.h;
+	const cx = rect.x + w / 2, cy = rect.y + h / 2;
+	const d = Math.hypot(cx - s.cx, cy - s.cy);
+	if (d > 0.01) {
+		s.dir = { x: (cx - s.cx) / d, y: (cy - s.cy) / d };
+		s.cx = cx; s.cy = cy;
+	}
 
-	const freqLead = 2 + clamp01(cfg.smearStiffness) * 38;
-	const freqTrail = 2 + clamp01(cfg.smearTrailingStiffness) * 38;
-	const damping = 0.15 + clamp01(cfg.smearDamping) * 1.15;
-	if (pinned) { lead.x = rect.x; lead.y = rect.y; lead.vx = lead.vy = 0; }
-	const steps = Math.max(1, Math.min(16, Math.ceil(dt / SMEAR_MAX_STEP))), h = dt / steps;
-	const k = freqLead * freqLead, damp = 2 * damping * freqLead, f = 1 - Math.exp(-freqTrail * h);
+	const wL = 2 + clamp01(cfg.smearStiffness ?? 0.65) * 38;
+	const wT = 2 + clamp01(cfg.smearTrailingStiffness ?? 0.15) * 38;
+	const zeta = 0.15 + clamp01(cfg.smearDamping ?? 0.4) * 1.15;
+	const steps = Math.min(16, Math.max(1, Math.ceil(dt * 240))), hh = dt / steps;
+	const f = 1 - Math.exp(-wT * hh);
 	for (let i = 0; i < steps; i++) {
-		lead.vx += (k * (rect.x - lead.x) - damp * lead.vx) * h;
-		lead.vy += (k * (rect.y - lead.y) - damp * lead.vy) * h;
-		lead.x += lead.vx * h;
-		lead.y += lead.vy * h;
+		lead.vx += (wL * wL * (rect.x - lead.x) - 2 * zeta * wL * lead.vx) * hh;
+		lead.x += lead.vx * hh;
+		lead.vy += (wL * wL * (rect.y - lead.y) - 2 * zeta * wL * lead.vy) * hh;
+		lead.y += lead.vy * hh;
 		trail.x += (lead.x - trail.x) * f;
 		trail.y += (lead.y - trail.y) * f;
 	}
 	if (![lead.x, lead.y, lead.vx, lead.vy, trail.x, trail.y].every(Number.isFinite)) {
 		lead.x = trail.x = rect.x; lead.y = trail.y = rect.y; lead.vx = lead.vy = 0;
 	}
+	const capFace = (pt) => {
+		const rx = pt.x - rect.x, ry = pt.y - rect.y, dist = Math.hypot(rx, ry);
+		if (dist > SMEAR_CAP_LEN) { pt.x = rect.x + (rx / dist) * SMEAR_CAP_LEN; pt.y = rect.y + (ry / dist) * SMEAR_CAP_LEN; }
+	};
+	capFace(lead);
+	capFace(trail);
 
-	// The rear face of the caret trails and the front face leads. Which is which is the area each face sweeps - the
-	// sides sweep h*|dx|, the top and bottom w*|dy| - blended by their share (to the fourth power, so one clearly
-	// dominant axis wins outright), never by a branch: a branch is where the quad used to snap between two shapes.
-	const dir = s.dir;
-	const hx = (rect.h * (dir ? Math.abs(dir.x) : 0)) ** 4, wy = (rect.w * (dir ? Math.abs(dir.y) : 0)) ** 4;
+	const dx = s.dir ? s.dir.x : 1, dy = s.dir ? s.dir.y : 0;
+	const hx = Math.pow(h * Math.abs(dx), 4), wy = Math.pow(w * Math.abs(dy), 4);
 	const u = hx + wy > 0 ? hx / (hx + wy) : 0.5;
-	const sgnX = dir ? Math.sign(dir.x) : 0, sgnY = dir ? Math.sign(dir.y) : 0;
-	const tvx = (lead.x - trail.x) * freqTrail, tvy = (lead.y - trail.y) * freqTrail;   // the trailing point's speed
-	let moving = false;
-	const corners = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([fx, fy]) => {
-		const ox = fx * rect.w, oy = fy * rect.h;
-		const front = dir ? (ox > 0 ? 1 : -1) * sgnX * u + (oy > 0 ? 1 : -1) * sgnY * (1 - u) : 0;   // +1 front face .. -1 rear face
-		const lag = (1 - front) / 2;                                                                  // 0 at the leading point .. 1 at the trailing one
-		const vx = lead.vx + (tvx - lead.vx) * lag, vy = lead.vy + (tvy - lead.vy) * lag;
-		const c = { x: lead.x + (trail.x - lead.x) * lag + ox, y: lead.y + (trail.y - lead.y) * lag + oy };
-		if (Math.abs(c.x - rect.x - ox) > 0.5 || Math.abs(c.y - rect.y - oy) > 0.5 || Math.abs(vx) > SMEAR_SETTLE_V || Math.abs(vy) > SMEAR_SETTLE_V) moving = true;
-		return c;
-	});
-	if (moving) return { corners, moving };
-	// Arrived: onto the caret exactly, with no velocity left to creep back into motion.
-	lead.x = trail.x = rect.x; lead.y = trail.y = rect.y; lead.vx = lead.vy = 0;
-	return { corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([fx, fy]) => ({ x: rect.x + fx * rect.w, y: rect.y + fy * rect.h })), moving };
+	const offs = [[0, 0, -1, -1], [w, 0, 1, -1], [w, h, 1, 1], [0, h, -1, 1]];
+	const corners = new Array(4), lag = new Array(4);
+	let maxLag = 0;
+	for (let i = 0; i < 4; i++) {
+		const [ox, oy, sx, sy] = offs[i];
+		const front = sx * Math.sign(dx) * u + sy * Math.sign(dy) * (1 - u);
+		const fr = (1 - front) / 2;
+		const x = lead.x + (trail.x - lead.x) * fr + ox;
+		const y = lead.y + (trail.y - lead.y) * fr + oy;
+		corners[i] = { x, y };
+		lag[i] = Math.hypot(x - (rect.x + ox), y - (rect.y + oy));
+		if (lag[i] > maxLag) maxLag = lag[i];
+	}
+
+	if (maxLag < 0.5 && Math.hypot(lead.vx, lead.vy) < 8) {
+		lead.x = trail.x = rect.x; lead.y = trail.y = rect.y; lead.vx = lead.vy = 0;
+		return { corners: offs.map(([ox, oy]) => ({ x: rect.x + ox, y: rect.y + oy })), box: rect, settled: true };
+	}
+
+	const reach = clamp01((maxLag - 4) / 20);
+	let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+	for (let i = 0; i < 4; i++) {
+		const offx = corners[i].x - cx, offy = corners[i].y - cy;
+		const along = offx * dx + offy * dy;
+		const px = offx - along * dx, py = offy - along * dy;
+		const k = maxLag > 0 ? (lag[i] / maxLag) * reach * 0.7 : 0;
+		corners[i].x -= px * k;
+		corners[i].y -= py * k;
+		if (corners[i].x < minX) minX = corners[i].x;
+		if (corners[i].y < minY) minY = corners[i].y;
+		if (corners[i].x > maxX) maxX = corners[i].x;
+		if (corners[i].y > maxY) maxY = corners[i].y;
+	}
+	return { corners, box: { x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY) }, settled: false };
 }
 
 function finishSmear(plugin, item) {
@@ -909,20 +811,17 @@ function finishSmear(plugin, item) {
 function caretTaken(plugin) { return backManBusy(plugin) || !!(EFFECTS[plugin.cfg.fx] && EFFECTS[plugin.cfg.fx].ownsCaret); }
 
 EFFECTS.smear = {
-	id: 'smear', label: 'Motion smear', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
-	defaults: { smearStiffness: 0.6, smearTrailingStiffness: 0.4, smearDamping: 0.8 },
+	id: 'smear', label: 'Motion smear', mode: 'always', toggleable: false, defaultOn: true, keepsState: true, blend: 'source-over',
+	defaults: { smearStiffness: 0.65, smearTrailingStiffness: 0.15, smearDamping: 0.4 },
 	onMove(plugin, prev, cur, info) {
 		if (caretTaken(plugin)) return;   // the creature, or the jelly, has the caret
 		const S = plugin.state('smear');
-		const dx = Math.abs(cur.x - prev.x), dy = Math.abs(cur.y - prev.y);
-		// A letter's step: along the row (a little jitter in the text's box allowed) by at most a couple of letters, measured
-		// against the line height as well as the letter under the caret, which may be a narrow one when the one just typed was wide.
-		if (dy < cur.h * 0.5 && dx > 0.5 && dx <= SMEAR_KEY_STEP_CHARS * Math.max(cur.cw, cur.h * 0.5)) S.stepT = info.now;
-		if (dy > cur.h * 0.5) S.stepT = 0;   // another line (Enter right after a letter, say): the leading edge is not held on the caret, the whole caret stretches across
 		if (plugin.items.some((i) => i.effect === 'smear' && !i.done)) return;   // already under way: it chases the caret by itself
 		S.lead = { x: prev.x, y: prev.y, vx: 0, vy: 0 };
 		S.trail = { x: prev.x, y: prev.y };
-		S.cx = prev.x + prev.w / 2; S.cy = prev.y + prev.h / 2; S.dir = null;
+		S.cx = prev.x + prev.w / 2; S.cy = prev.y + prev.h / 2;
+		const dx = cur.x - prev.x, dy = cur.y - prev.y, d = Math.hypot(dx, dy);
+		S.dir = d > 0.01 ? { x: dx / d, y: dy / d } : { x: 1, y: 0 };
 		plugin.items.push({ effect: 'smear', t0: info.now, dur: Infinity });
 	},
 	onShift(plugin, dx, dy) {   // the page scrolled: the smear's points go along, so nothing seems to have moved
@@ -933,19 +832,19 @@ EFFECTS.smear = {
 	draw(plugin, ctx, item, p, k, now, dt) {
 		const S = plugin.state('smear'), rect = caretBox(plugin);
 		if (!rect || !S.lead || caretTaken(plugin)) return finishSmear(plugin, item);
-		const { corners, moving } = stepSmear(S, rect, dt / 1000, plugin.cfg, now - (S.stepT || 0) < SMEAR_KEY_STEP_MS);
-		if (!moving) return finishSmear(plugin, item);
+		const dtSec = Math.min(0.05, Math.max(0.001, (dt || 16) / 1000));
+		const { corners, box, settled } = stepSmear(S, rect, dtSec, plugin.cfg);
+		if (settled) return finishSmear(plugin, item);
 		plugin.hideCaret('smear', true);   // hidden only in a frame that draws the quad, so the caret never blinks out between the two
 		item.hidesCaret = true;
-		const block = plugin.cfg.style === 'block';
 		ctx.save();
-		ctx.beginPath();
-		corners.forEach((c, i) => (i ? ctx.lineTo(c.x, c.y) : ctx.moveTo(c.x, c.y)));
-		ctx.closePath();
-		paintCaretBody(ctx, plugin.col(), block ? 0.42 : 1, block ? 1 : 0);
+		traceRoundedQuad(ctx, corners, Math.min(rect.w, rect.h) * 0.25);
+		glassBody(ctx, plugin.col(), box, 1, plugin.dark);
 		ctx.restore();
 	},
 };
+
+
 
 // ---- Effect: Fresh ink ---------------------------------------------------------------------------------------------
 // From Cursor-Smith's src/effects/effects-ink.ts, where it is part of Typewriter. The characters just typed stay wet in
@@ -1330,7 +1229,7 @@ function tetherGlyphs(line, from, to) {
 		if (!mt) { ctx.font = st.font; const t = ctx.measureText('M'); mt = { a: t.fontBoundingBoxAscent ?? 11, d: t.fontBoundingBoxDescent ?? 3 }; metrics.set(st.font, mt); }
 		let k = line.nodes.length - 1;
 		while (k > 0 && line.starts[k] > i) k--;
-		out.push({ ch, node: line.nodes[k], off: i - line.starts[k], x: r.x, w: r.w, h: r.h, top: r.y, y: r.y + mt.a + (r.h - mt.a - mt.d) / 2, st, n: out.length, h1: hash(out.length * 1.93 + from * 0.37), h2: hash(out.length * 4.71 + 9.1) });
+		out.push({ idx: i, ch, node: line.nodes[k], off: i - line.starts[k], x: r.x, w: r.w, h: r.h, top: r.y, y: r.y + mt.a + (r.h - mt.a - mt.d) / 2, st, n: out.length, h1: hash(out.length * 1.93 + from * 0.37), h2: hash(out.length * 4.71 + 9.1) });
 	}
 	return out;
 }
@@ -3904,8 +3803,8 @@ EFFECTS.confetti = {
 // ---- Defaults: core keys + every effect's keys (toggle key per 'always' effect, plus its own defaults) ----
 const DEFAULTS = {
 	color: '#ffb929',       // main caret / glow color (dark theme)
-	accent: '#ff3b1f',      // trail edge + lightning glow color (dark theme)
-	style: 'line',          // 'line' | 'block'
+	accent: '#ff3b1f',      // accent / lightning glow color (dark theme)
+	style: 'block',         // always block cursor
 	fx: null,               // signature effect id set by the preset (a 'signature' effect id), or null
 	intensity: 1,           // 0.3 (subtle) .. 2 (strong)
 };
@@ -3954,7 +3853,7 @@ class Plugin extends AppPlugin {
 		listen(document, 'keydown', (e) => {
 			if (!this.caretEl) return; // typing in the palette, a rename field or another plugin: not ours
 			const key = e.key || '', typing = (key.length === 1 && !e.ctrlKey && !e.metaKey) || key === 'Backspace' || key === 'Delete' || key === 'Enter';
-			if (typing) { this.lastTypeKey = performance.now(); setTimeout(() => this.sample(true), 0); }
+			if (typing) { this.lastKeyName = key; this.lastTypeKey = performance.now(); setTimeout(() => this.sample(true), 0); }
 			if (document.querySelector(MODAL_SEL)) return;
 			const now = performance.now();
 			for (const fx of this.activeEffects()) this.callHook(fx, 'onKey', e, now);
@@ -4177,8 +4076,10 @@ class Plugin extends AppPlugin {
 ${EFFECTS[this.cfg.fx]?.caretCss?.(this) || ''}`;   // a special preset may draw the line caret its own way
 		if (block) {
 			if (!this.block) { this.block = document.createElement('div'); this.block.className = 'cfx-block'; this.block.style.display = 'none'; document.body.appendChild(this.block); }
-			this.block.style.background = rgba(col, 0.42);
-			this.block.style.boxShadow = `inset 0 0 0 1.5px ${col}, 0 0 8px ${rgba(col, 0.45)}`;
+			const topCol = lighten(col, 0.45);
+			this.block.style.background = `linear-gradient(180deg, ${rgba(topCol, 0.62)} 0%, ${rgba(col, 0.40)} 40%, ${rgba(col, 0.42)} 65%, ${rgba(col, 0.52)} 100%)`;
+			this.block.style.boxShadow = `inset 0 0 0 1.25px ${rgba(col, 0.95)}, 0 0 3.5px ${rgba(col, 0.09)}, 0 0 6px ${rgba(col, 0.06)}, 0 0 9px ${rgba(col, 0.035)}`;
+			this.block.style.setProperty('--gloss', `rgba(255,255,255,${this.dark ? 0.55 : 0.8})`);
 		} else if (this.block) {
 			this.block.remove();
 			this.block = null;
@@ -4191,7 +4092,8 @@ ${EFFECTS[this.cfg.fx]?.caretCss?.(this) || ''}`;   // a special preset may draw
 		const clip = this.clipRect();
 		const visible = rect && (!clip || (rect.y + rect.h > clip.y && rect.y < clip.y + clip.h && rect.x + rect.w > clip.x && rect.x < clip.x + clip.w));
 		if (!visible) { this.block.style.display = 'none'; return; }
-		Object.assign(this.block.style, { display: 'block', left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.w}px`, height: `${rect.h}px` });
+		const r = Math.min(rect.w, rect.h) * 0.25;
+		Object.assign(this.block.style, { display: 'block', left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.w}px`, height: `${rect.h}px`, borderRadius: `${r}px` });
 		if (moved) { this.block.style.animation = 'none'; void this.block.offsetWidth; this.block.style.animation = ''; } // solid while moving, blinks when idle
 	}
 
@@ -4204,6 +4106,7 @@ ${EFFECTS[this.cfg.fx]?.caretCss?.(this) || ''}`;   // a special preset may draw
 		} catch (e) { this.cfg = { ...DEFAULTS, ...loadChoices() }; }
 		if (this.cfg.fx === 'tether') { this.cfg.fx = null; this.cfg.tether = true; }   // Bracket tether used to be a preset; it is a switch now
 		// Effects that cannot be toggled (no command) must not stay off because of an old saved value.
+		this.cfg.style = 'block';
 		for (const e of Object.values(EFFECTS)) if (e.mode === 'always' && e.toggleable === false) this.cfg[e.id] = true;
 		if (this.canvas) this.applyCaretStyle();
 		this.syncEffects();
@@ -4585,7 +4488,7 @@ ${EFFECTS[this.cfg.fx]?.caretCss?.(this) || ''}`;   // a special preset may draw
 	// Draws every live item through its effect's draw(); the blend mode comes from the effect. Also used by a preview host.
 	renderItems(now) {
 		const ctx = this.ctx, k = this.cfg.intensity;
-		const dt = Math.min(48, this.lastT ? now - this.lastT : 16);
+		const dt = Math.min(50, this.lastT ? now - this.lastT : 16);
 		this.lastT = now;
 		this.items = this.items.filter((it) => !it.done && now - it.t0 < it.dur);
 		// Draw in registry order (not insertion order): a long-lived particle item must not sink under newer items.

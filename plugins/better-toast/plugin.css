@@ -57,6 +57,9 @@ html:not([data-device=mobile]) body.bto-on .toaster {
 	transition: top 0.4s cubic-bezier(0.16, 1, 0.3, 1), bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
 	animation: bto-in 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+html:not([data-device=mobile]) body.bto-on .toaster:not([data-bto-placed]) {
+	transition: none;
+}
 
 /* Kinds */
 html:not([data-device=mobile]) body.bto-on :is(.toaster, .bto-ghost)[data-bto="error"] { --bto-c: #f4512c; --bto-tint: #4a120a; }

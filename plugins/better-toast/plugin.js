@@ -4,9 +4,11 @@
  * Thymer's toast (`.toaster`: title, message, buttons) carries no type, so the kind is guessed from
  * its text and stored as data-bto (error, warning, success, info, loading); plugin.css draws the
  * card from it. Three things CSS cannot do are done here:
- * - Stacking: Thymer stacks toasts 40px apart, so a taller card covers the one above. The toast
- *   area is re-stacked by real heights; Thymer's own writes trigger it again, and once our values
- *   are in place there is nothing left to write.
+ * - Stacking: Thymer stacks toasts 40px apart, oldest nearest the edge, so a taller card covers
+ *   the one above and toasts with different lifetimes vanish from the middle of the pile. The area
+ *   is re-stacked by arrival order, newest nearest the edge, by real heights; Thymer's own writes
+ *   trigger it again, and once our values are in place there is nothing left to write. A new toast
+ *   is placed without a transition (data-bto-placed marks the ones already placed).
  * - Leaving: Thymer drops a toast's node at once. A copy (.bto-ghost, on <body>, outside Thymer's
  *   DOM) slides out beneath the remaining toasts, which glide up over it.
  * - Theme polarity, for the light variant.
@@ -95,6 +97,8 @@ class Plugin extends AppPlugin {
 	installToasts() {
 		const rects = new Map(); // toaster -> resting rect (for the leaving copy)
 		const watched = new WeakSet();
+		const order = new WeakMap(); // toaster -> arrival number
+		let arrivals = 0;
 		const isMobile = () => document.documentElement.getAttribute('data-device') === 'mobile';
 
 		const measure = (el) => {
@@ -123,12 +127,17 @@ class Plugin extends AppPlugin {
 				if (!area.isConnected) continue;
 				const up = (!area.style.top || area.style.top === 'auto') && area.style.bottom && area.style.bottom !== 'auto';
 				const prop = up ? 'bottom' : 'top';
+				const stack = [...area.children]
+					.filter((t) => t.classList.contains('toaster') && !(t.style.left && t.style.left !== 'auto')) // not placed next to an element
+					.sort((a, b) => (order.get(b) || 0) - (order.get(a) || 0)); // newest first
 				let off = 0;
-				for (const t of area.children) {
-					if (!t.classList.contains('toaster')) continue;
-					if (t.style.left && t.style.left !== 'auto') continue; // placed next to an element
+				for (const t of stack) {
 					const v = `${Math.round(off)}px`;
 					if (t.style[prop] !== v) t.style[prop] = v;
+					if (!t.hasAttribute('data-bto-placed')) {
+						// After this frame's styles land, so the first placement does not glide.
+						requestAnimationFrame(() => requestAnimationFrame(() => t.setAttribute('data-bto-placed', '')));
+					}
 					off = Math.min(off + t.offsetHeight + BTO_GAP, limit);
 				}
 			}
@@ -150,6 +159,7 @@ class Plugin extends AppPlugin {
 		const arrive = (el) => {
 			if (watched.has(el)) return;
 			watched.add(el);
+			order.set(el, ++arrivals);
 			el.setAttribute('data-bto', btoKindOf(el));
 			styleMo.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
 			el.addEventListener('animationend', (e) => { if (e.target === el) remember(el); });
@@ -197,18 +207,21 @@ class Plugin extends AppPlugin {
 			styleMo.disconnect();
 			cancelAnimationFrame(stackRaf);
 			document.querySelectorAll('.bto-ghost').forEach((g) => g.remove());
-			document.querySelectorAll('.toaster[data-bto]').forEach((t) => t.removeAttribute('data-bto'));
+			document.querySelectorAll('.toaster[data-bto]').forEach((t) => {
+				t.removeAttribute('data-bto');
+				t.removeAttribute('data-bto-placed');
+			});
 		});
 	}
 
 	preview() {
 		const samples = [
-			{ title: 'Error', message: 'Could not sync this workspace. Check your connection and try again.', dismissible: true, autoDestroyTime: 7000, primaryLabel: 'Retry', onPrimary: (t) => t?.destroy?.() },
+			{ title: 'Error', message: 'Could not sync this workspace. Check your connection and try again.', dismissible: true, autoDestroyTime: 6000, primaryLabel: 'Retry', onPrimary: (t) => t?.destroy?.() },
 			{ title: 'Success', message: 'Workspace exported successfully. The archive is ready to download.', dismissible: true, autoDestroyTime: 6000 },
-			{ title: 'Warning', message: 'This action is irreversible. Deleting a page permanently removes its content.', dismissible: true, autoDestroyTime: 6500 },
-			{ title: 'Info', message: 'Daily notes older than a year will be archived in 24 hours.', dismissible: true, autoDestroyTime: 5500 },
-			{ title: 'Loading', message: 'Syncing workspace…', dismissible: false, autoDestroyTime: 3200 },
+			{ title: 'Warning', message: 'This action is irreversible. Deleting a page permanently removes its content.', dismissible: true, autoDestroyTime: 6000 },
+			{ title: 'Info', message: 'Daily notes older than a year will be archived in 24 hours.', dismissible: true, autoDestroyTime: 6000 },
+			{ title: 'Loading', message: 'Syncing workspace…', dismissible: false, autoDestroyTime: 6000 },
 		];
-		samples.forEach((t, i) => setTimeout(() => this.ui.addToaster(t), i * 260));
+		samples.forEach((t, i) => setTimeout(() => this.ui.addToaster(t), i * 320));
 	}
 }

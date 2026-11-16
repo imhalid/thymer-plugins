@@ -1356,7 +1356,7 @@ html:root body.bt-on .listitem-task[data-bt-tag="draft"]:not(.state-done):not(.s
 	box-shadow: 0 0 13px rgba(96, 165, 250, 0.5);
 }
 
-/* -- Deadline: flipping hourglass inside a ticking clock ring -- */
+/* -- Deadline: flipping hourglass inside a dashed ring -- */
 
 html:root body.bt-on .listitem-task[data-bt-tag="deadline"]:not(.state-done):not(.state-canceled) > .line-check-div {
 	border-radius: 5px;
@@ -1381,7 +1381,7 @@ html:root body.bt-on.bt-anim .listitem-task[data-bt-tag="deadline"]:not(.state-d
 	border-radius: 9px; /* the tile's 5px plus the 4px gap: the ring follows the rounded square */
 	border: 1.5px dashed rgba(251, 146, 60, 0.7);
 	opacity: 0.9;
-	animation: bt-spin 6s steps(12) infinite;
+	animation: none; /* still: the hourglass inside is the motion */
 }
 html:root body.bt-on .listitem-task[data-bt-tag="deadline"]:not(.state-done):not(.state-canceled) > .line-check-div:hover {
 	border-color: #fdba74;

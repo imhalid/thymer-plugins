@@ -183,6 +183,8 @@ body.brf-on .backrefs-card-popup .id--references-popup-title {
 }
 body.brf-on .backrefs-card-popup > .references-editor {
 	margin-top: 10px;
+	/* the fold chevrons hang 22px left of their heading; this keeps them inside the card (which scrolls, so it clips) */
+	padding-left: 14px;
 }
 
 @media (prefers-reduced-motion: reduce) {

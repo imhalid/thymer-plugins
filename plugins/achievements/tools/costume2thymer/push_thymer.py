@@ -48,7 +48,7 @@ class Mcp:
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--workspace", help="workspace name (default: the focused one)")
-    ap.add_argument("--plugin", default="Achievements", help="global plugin name")
+    ap.add_argument("--plugin", default="Mascot", help="global plugin name")
     ap.add_argument("--port", type=int, default=13100)
     ap.add_argument("--preview", action="store_true", help="hot-reload without saving")
     ap.add_argument("--restore", help="restore a backup file made by an earlier push")

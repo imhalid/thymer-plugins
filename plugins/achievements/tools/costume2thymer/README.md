@@ -1,6 +1,6 @@
 # costume2thymer
 
-Turns a [Kozmas](https://www.kozmas.gg) costume into the Achievements plugin's mascot (`../../knight.json`), and optionally builds and
+Turns a [Kozmas](https://www.kozmas.gg) costume into the Mascot plugin's knight (folder `plugins/achievements`) (`../../knight.json`), and optionally builds and
 pushes the plugin to Thymer.
 
 ```sh
@@ -18,7 +18,7 @@ MCP Settings).
 | fetch | `costume2thymer.py` | reads the costume page (its data lists the pieces, e.g. `bare-costume-armor-heavenly_guardian_armor.gltf`), downloads them and the knight skeleton's idle and salute poses into `.cache/<costume>/` |
 | blender | `blender_export.py` | headless: rebuilds the 41-bone skeleton from `knight-idle.gltf`, skins the armor to it by bone name, bone-parents the helm, eyes, weapon and shield where their placement matrix says, bakes Idle and Salute, writes both poses per vertex (`parts.json`) and a `costume.blend` to look at |
 | model | `build_model.py` | splits head and body (by head-bone weights, or a piece placed on a head bone), crops below the shoulders, packs the poses, quantizes the textures, frames the head from its own bounds, whitens the eye glow (`--eyes white`, the default) -> `knight.json` |
-| build | `../../build.mjs` | embeds `knight.json` and the effect textures -> `achievements.js` |
+| build | `../../build.mjs` | embeds `knight.json` -> `achievements.js` |
 | push | `push_thymer.py` | backs up the live plugin to `.cache/backups/`, writes `achievements.js` and `plugin.css`, reads them back to check; `--restore <backup>` undoes it, `--preview` hot-reloads without saving |
 
 ## Why a rig is rebuilt

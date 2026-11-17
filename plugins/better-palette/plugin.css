@@ -103,12 +103,16 @@ html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog :is(.autocomplete--o
 	color: var(--bpal-strong);
 }
 html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog :is(.autocomplete--option-selected, .autocomplete--option-selected:hover, .bpal-recent-row.is-selected) {
-	background: linear-gradient(90deg, color-mix(in srgb, var(--bpal-c) 17%, transparent), color-mix(in srgb, var(--bpal-c) 5%, transparent) 72%);
+	/* Lit from the left edge, like a glowing app icon: a dark fill and four inner shadows (deep, light,
+	   a white rim, and a faint one on the far edge), from a Figma recipe turned sideways and scaled to a row. */
+	background: linear-gradient(90deg, color-mix(in srgb, var(--bpal-c) 7%, #09101f), #0a0909 75%);
 	color: var(--bpal-strong);
 	box-shadow:
-		inset 2px 0 0 var(--bpal-c),
-		inset 16px 0 18px -16px var(--bpal-c),
-		inset 0 0 0 1px color-mix(in srgb, var(--bpal-c) 14%, transparent);
+		inset 5px 0 5px -2px rgba(255, 255, 255, 0.4),
+		inset 12px 0 10px -3px color-mix(in srgb, color-mix(in srgb, var(--bpal-c) 55%, #ffffff) 50%, transparent),
+		inset 26px 0 20px -10px color-mix(in srgb, var(--bpal-c) 75%, #001040),
+		inset -2px 0 2px -1px color-mix(in srgb, var(--bpal-c) 15%, transparent),
+		inset 0 0 0 1px color-mix(in srgb, var(--bpal-c) 16%, transparent);
 }
 html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog.bpal-recent-focus .cmdpal--ac-container :is(.autocomplete--option-selected, .autocomplete--option-selected:hover) {
 	background: transparent;

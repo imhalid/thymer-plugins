@@ -123,6 +123,13 @@ def block():
     out.append('\t-webkit-mask-image: var(--bme-ib);\n\tmask-image: var(--bme-ib);\n\topacity: 0.34;\n}')
     for name, (hue, back, front) in ICONS.items():
         out.append(f"{scope}.ti-{name} {{ --bme-hue: var(--bme-{hue}); --bme-ib: {uri(back)}; --bme-ia: {uri(front)}; }}")
+    # the row takes its icon's hue too (--bme-row), so the selected row glows in the icon's colour
+    row = 'html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option'
+    by_hue = {}
+    for name, (hue, _, _) in ICONS.items():
+        by_hue.setdefault(hue, []).append(name)
+    for hue, group in by_hue.items():
+        out.append(f"{row}:has(.autocomplete--option-icon > .ti:is({', '.join('.ti-' + n for n in group)})) {{ --bme-row: var(--bme-{hue}); }}")
     out.append('/* ICONS:END */')
     return '\n'.join(out)
 

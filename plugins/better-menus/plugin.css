@@ -69,12 +69,17 @@ html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option
 	color: var(--bme-strong);
 }
 html:not([data-device=mobile]) body.bme-on .cmdpal--inline :is(.autocomplete--option-selected, .autocomplete--option-selected:hover):not(.autocomplete-widget) {
-	background: linear-gradient(90deg, color-mix(in srgb, var(--bme-c) 17%, transparent), color-mix(in srgb, var(--bme-c) 5%, transparent) 72%);
+	/* Lit from the left edge, like a glowing app icon: a dark fill and four inner shadows (deep, light,
+	   a white rim, and a faint one on the far edge), from a Figma recipe turned sideways and scaled to a row.
+	   The colour is the row icon's hue (--bme-row, set by icons.py), or the accent for icons without one. */
+	background: linear-gradient(90deg, color-mix(in srgb, var(--bme-row, var(--bme-c)) 9%, #0a0b10), #0a0909 75%);
 	color: var(--bme-strong);
 	box-shadow:
-		inset 2px 0 0 var(--bme-c),
-		inset 14px 0 16px -14px var(--bme-c),
-		inset 0 0 0 1px color-mix(in srgb, var(--bme-c) 14%, transparent);
+		inset 5px 0 5px -2px rgba(255, 255, 255, 0.4),
+		inset 9px 0 8px -3px color-mix(in srgb, color-mix(in srgb, var(--bme-row, var(--bme-c)) 55%, #ffffff) 50%, transparent),
+		inset 20px 0 16px -8px color-mix(in srgb, var(--bme-row, var(--bme-c)) 70%, #000000),
+		inset -2px 0 2px -1px color-mix(in srgb, var(--bme-row, var(--bme-c)) 15%, transparent),
+		inset 0 0 0 1px color-mix(in srgb, var(--bme-row, var(--bme-c)) 16%, transparent);
 }
 html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--current {
 	background: color-mix(in srgb, var(--bme-c) 9%, transparent);
@@ -122,7 +127,8 @@ html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option
 	transition: background-color 0.12s ease, box-shadow 0.12s ease;
 }
 html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option-selected .autocomplete--option-icon > .ti {
-	background: color-mix(in srgb, var(--bme-hue) 24%, transparent);
+	/* opaque, so the row's glow from the left does not shine through the chip */
+	background: color-mix(in srgb, var(--bme-hue) 24%, #0d0e13);
 	box-shadow:
 		inset 0 0 0 1px color-mix(in srgb, var(--bme-hue) 42%, transparent),
 		0 0 12px -2px color-mix(in srgb, var(--bme-hue) 55%, transparent);
@@ -212,7 +218,11 @@ html:not([data-device=mobile]) body.bme-on.bme-light .cmdpal--inline {
 		0 8px 20px -10px rgba(15, 23, 42, 0.15);
 }
 html:not([data-device=mobile]) body.bme-on.bme-light .cmdpal--inline :is(.autocomplete--option-selected, .autocomplete--option-selected:hover):not(.autocomplete-widget) {
-	background: linear-gradient(90deg, color-mix(in srgb, var(--bme-c) 13%, transparent), color-mix(in srgb, var(--bme-c) 4%, transparent) 72%);
+	background: linear-gradient(90deg, color-mix(in srgb, var(--bme-row, var(--bme-c)) 13%, transparent), color-mix(in srgb, var(--bme-row, var(--bme-c)) 4%, transparent) 72%);
+	box-shadow:
+		inset 2px 0 0 var(--bme-row, var(--bme-c)),
+		inset 14px 0 16px -14px var(--bme-row, var(--bme-c)),
+		inset 0 0 0 1px color-mix(in srgb, var(--bme-row, var(--bme-c)) 14%, transparent);
 }
 html:not([data-device=mobile]) body.bme-on.bme-light .cmdpal--inline .autocomplete--hilite,
 html:not([data-device=mobile]) body.bme-on.bme-light .cmdpal--inline .bme-recent .autocomplete--option-label::after {
@@ -295,4 +305,13 @@ html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option
 html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option-icon > .ti.ti-clipboard { --bme-hue: var(--bme-zinc); --bme-ib: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z' fill='black'/%3E%3C/svg%3E"); --bme-ia: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Crect x='9' y='3' width='6' height='4' rx='1.5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option-icon > .ti.ti-copy { --bme-hue: var(--bme-zinc); --bme-ib: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='8.5' y='8.5' width='12' height='12' rx='2.5' fill='black'/%3E%3C/svg%3E"); --bme-ia: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='8.5' y='8.5' width='12' height='12' rx='2.5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option-icon > .ti.ti-trash { --bme-hue: var(--bme-red); --bme-ib: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5.5 7.5h13l-1 11.5a2 2 0 0 1-2 1.8h-7a2 2 0 0 1-2-1.8z' fill='black'/%3E%3C/svg%3E"); --bme-ia: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 7.5h16 M10 11v5.5 M14 11v5.5 M5.5 7.5l1 11.5a2 2 0 0 0 2 1.8h7a2 2 0 0 0 2-1.8l1-11.5 M9 7.5V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2.5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option:has(.autocomplete--option-icon > .ti:is(.ti-letter-t, .ti-letter-case, .ti-h-1, .ti-h-2, .ti-h-3, .ti-h-4, .ti-h-5, .ti-h-6, .ti-quote, .ti-bold, .ti-italic)) { --bme-row: var(--bme-blue); }
+html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option:has(.autocomplete--option-icon > .ti:is(.ti-list, .ti-list-numbers, .ti-checkbox, .ti-check, .ti-currency-dollar)) { --bme-row: var(--bme-green); }
+html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option:has(.autocomplete--option-icon > .ti:is(.ti-photo, .ti-paperclip, .ti-table, .ti-code, .ti-terminal, .ti-filter-search, .ti-blocks, .ti-line-dotted, .ti-app-window, .ti-arrows-diagonal, .ti-box)) { --bme-row: var(--bme-violet); }
+html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option:has(.autocomplete--option-icon > .ti:is(.ti-file-text, .ti-files, .ti-file-plus, .ti-notebook, .ti-search, .ti-arrow-up-right, .ti-external-link, .ti-link, .ti-plus)) { --bme-row: var(--bme-cyan); }
+html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option:has(.autocomplete--option-icon > .ti:is(.ti-calendar, .ti-user, .ti-at, .ti-star, .ti-player-play)) { --bme-row: var(--bme-amber); }
+html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option:has(.autocomplete--option-icon > .ti:is(.ti-player-pause, .ti-slash, .ti-info-circle, .ti-clipboard, .ti-copy)) { --bme-row: var(--bme-zinc); }
+html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option:has(.autocomplete--option-icon > .ti:is(.ti-alert-square, .ti-trash)) { --bme-row: var(--bme-red); }
+html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option:has(.autocomplete--option-icon > .ti:is(.ti-alert-triangle)) { --bme-row: var(--bme-orange); }
+html:not([data-device=mobile]) body.bme-on .cmdpal--inline .autocomplete--option:has(.autocomplete--option-icon > .ti:is(.ti-help)) { --bme-row: var(--bme-pink); }
 /* ICONS:END */

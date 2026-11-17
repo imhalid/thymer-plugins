@@ -1,0 +1,28 @@
+{
+  "name": "Spaceship",
+  "description": "Dark Sans as Spaceship IDE's HUD (github.com/chuanqisun/spaceship): pure black, white ink in five steps, orange only for what is live (the caret, the selection, the row being picked), hairlines, corner brackets and a tick ruler down the page, JetBrains Mono",
+  "accent": "#ff5a1f",
+  "ground": "#000000",
+  "text": "#ffffff",
+  "sidebar": "#000000",
+  "veil": {
+    "direction": "to bottom",
+    "stops": [[1, "0%"], [1, "100%"]]
+  },
+  "selected": "soft",
+  "title": "upright",
+  "syntax": {
+    "meta": "#ff5a1f", "keyword": "#ffffff", "type": "#d4d4d4", "title": "#ffffff",
+    "string": "#a3a3a3", "number": "#ff8f66", "comment": "#5e5e5e"
+  },
+  "code_alpha": 0.92,
+  "tokens": {
+    "--radius-normal": "1px",
+    "--radius-larger": "2px",
+    "--radius-xlarge": "2px",
+    "--modal-radius": "2px",
+    "--prop-status-radius": "1px",
+    "--ed-caret-self-fg": "#ff5a1f",
+    "--ed-selection-self-bg": "rgb(255 90 31 / 0.38)"
+  }
+}

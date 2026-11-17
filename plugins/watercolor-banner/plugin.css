@@ -30,6 +30,7 @@ html:not([data-mobile-type="phone"]) .panel-heading.banner-is-empty.has-crumb-pa
 	position: relative;
 	isolation: isolate;
 	min-height: 100%;
+	box-sizing: border-box;     /* (its padding inside that height, or a short page would scroll) */
 }
 .wcb-foot {
 	position: absolute;
@@ -47,9 +48,9 @@ html[data-mobile-type="phone"] .wcb-foot { height: 200px; }
 /* the start sheet: geometry studies across an empty panel, behind its cards; transparent where nothing is drawn, so the
    start screen's own background shows through */
 .panel-scroller-y > .panel-body.wcb-has-start {
+	/* (no min-height: Thymer already makes the start screen's body the panel's height, and one more made it scroll) */
 	position: relative;
 	isolation: isolate;
-	min-height: 100%;
 }
 .wcb-start {
 	position: absolute;

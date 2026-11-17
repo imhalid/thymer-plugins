@@ -1,11 +1,11 @@
 {
   "ver": 1,
-  "name": "BetterSidebar",
-  "icon": "ti-layout-sidebar-left-expand",
+  "name": "Watercolor Banner",
+  "icon": "ti-photo",
   "off": false,
   "item_name": "Note",
-  "description": "The sidebar with tinted icon chips and a glowing line on the open page",
-  "show_sidebar_items": true,
+  "description": "Every page gets a pencil and watercolour landscape at the top (one of seven scenes) and a notebook page of doodles at the bottom, drawn from its title, tags and content",
+  "show_sidebar_items": false,
   "show_cmdpal_items": true,
   "views": [],
   "fields": [],
@@ -17,6 +17,8 @@
     "views": false,
     "sidebar": false
   },
-  "custom": {},
+  "custom": {
+    "exclude": []
+  },
   "home": false
 }

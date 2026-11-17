@@ -1,10 +1,10 @@
 {
   "ver": 1,
-  "name": "BetterTitlebar",
-  "icon": "ti-app-window",
+  "name": "Smart Dates",
+  "icon": "ti-calendar-bolt",
   "off": false,
   "item_name": "Note",
-  "description": "The panel title bar with reading time and word count",
+  "description": "Date words typed in a line (yarın sabah, 2 gün önce, saat 5, next monday, three days after) become date tags once the caret leaves the line",
   "show_sidebar_items": true,
   "show_cmdpal_items": true,
   "views": [],

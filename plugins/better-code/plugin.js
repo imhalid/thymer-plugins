@@ -47,6 +47,37 @@ class Plugin extends AppPlugin {
 		this.cleanup.push(() => themeMo.disconnect());
 
 		this.makeButton();
+		this.greetEmptyPanels();
+	}
+
+	/** The empty panel (no page open) gets a greeting and today's date above its shortcuts. */
+	greetEmptyPanels() {
+		const tr = /^tr/i.test(navigator.language || '');
+		const greet = (h) => (tr
+			? (h < 5 ? 'İyi geceler' : h < 12 ? 'Günaydın' : h < 18 ? 'İyi günler' : h < 22 ? 'İyi akşamlar' : 'İyi geceler')
+			: (h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Good night'));
+		const fill = () => {
+			for (const nav of document.querySelectorAll('.empty-panel > .empty-panel--navigation')) {
+				let el = nav.querySelector(':scope > .bcd-ep-hello');
+				if (!el) {
+					el = document.createElement('div');
+					el.className = 'bcd-ep-hello';
+					el.innerHTML = '<small></small><b></b>';
+					nav.prepend(el);
+				}
+				const now = new Date();
+				const date = now.toLocaleDateString(tr ? 'tr-TR' : undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+				if (el.firstChild.textContent !== date) el.firstChild.textContent = date;
+				const g = greet(now.getHours());
+				if (el.lastChild.textContent !== g) el.lastChild.textContent = g;
+			}
+		};
+		let raf = 0;
+		const mo = new MutationObserver(() => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; fill(); }); });
+		mo.observe(document.body, { childList: true, subtree: true });
+		const tick = setInterval(fill, 60000);
+		fill();
+		this.cleanup.push(() => { mo.disconnect(); clearInterval(tick); cancelAnimationFrame(raf); document.querySelectorAll('.bcd-ep-hello').forEach((e) => e.remove()); });
 	}
 
 	onUnload() {

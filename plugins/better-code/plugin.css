@@ -175,3 +175,206 @@ body.bcd-on .container-border.block-codelang > .block-content > .listitem:first-
 		transition: none;
 	}
 }
+
+/* ---- The empty panel (no page open) ------------------------------------------------------ */
+/* A quiet start screen: across the whole panel (its scroller, not Thymer's narrower content box) a fine grid
+   fading out round the middle under two soft blue and violet lights that drift slowly; the logo smaller, a greeting with today's date (plugin.js adds it), the three shortcuts side by side
+   as small cards, and the recent pages in one card with their icons in chips. All of it is CSS on Thymer's own
+   elements; the grid and the lights are pseudo-elements under the content. */
+
+html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel) {
+	--ep-accent: var(--color-primary-500, #38bdf8);
+	--ep-ink: 255, 255, 255;
+	--ep-card: rgba(var(--ep-ink), 0.028);
+	--ep-card-hover: rgba(var(--ep-ink), 0.055);
+	--ep-line: rgba(var(--ep-ink), 0.08);
+	--ep-line-hover: rgba(var(--ep-ink), 0.16);
+	--ep-grid: rgba(var(--ep-ink), 0.035);
+	isolation: isolate;
+}
+html:not([data-device=mobile]) body.bcd-on.bcd-light .panel-scroller-y:has(> .panel-body .empty-panel) {
+	--ep-ink: 0, 0, 0;
+	--ep-card: rgba(255, 255, 255, 0.6);
+	--ep-card-hover: rgba(255, 255, 255, 0.95);
+	--ep-line: rgba(0, 0, 0, 0.08);
+	--ep-line-hover: rgba(0, 0, 0, 0.16);
+	--ep-grid: rgba(0, 0, 0, 0.045);
+}
+/* The ground: a fine grid that fades out round the middle, under two soft lights of the accent that drift slowly. */
+html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel)::before,
+html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel)::after {
+	content: "";
+	position: absolute;
+	pointer-events: none;
+	z-index: -1;
+}
+html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel)::before {
+	inset: 0;
+	background:
+		linear-gradient(var(--ep-grid) 1px, transparent 1px) 50% 0 / 40px 40px,
+		linear-gradient(90deg, var(--ep-grid) 1px, transparent 1px) 50% 0 / 40px 40px;
+	-webkit-mask-image: radial-gradient(ellipse 50% 45% at 50% 40%, #000 10%, transparent 75%);
+	mask-image: radial-gradient(ellipse 50% 45% at 50% 40%, #000 10%, transparent 75%);
+}
+html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel)::after {
+	/* inside the panel's edges: this lies in the scrolling element, so anything past them (a negative inset, a
+	   transform) makes the start screen scroll. The lights drift by moving the oversized background instead. */
+	inset: 0;
+	/* two wide lights, blue and violet, fading all the way to the edge (a hard stop draws a ring) */
+	background:
+		radial-gradient(42% 34% at 42% 30%, rgba(120, 160, 255, 0.075), rgba(120, 160, 255, 0.03) 45%, transparent 100%),
+		radial-gradient(36% 30% at 62% 42%, rgba(167, 139, 250, 0.06), rgba(167, 139, 250, 0.02) 45%, transparent 100%);
+	background-size: 125% 125%;
+	background-position: 30% 40%;
+	animation: bcd-ep-drift 22s ease-in-out infinite alternate;
+}
+html:not([data-device=mobile]) body.bcd-on.bcd-light .panel-scroller-y:has(> .panel-body .empty-panel)::after {
+	background:
+		radial-gradient(42% 34% at 42% 30%, rgba(59, 130, 246, 0.07), rgba(59, 130, 246, 0.025) 45%, transparent 100%),
+		radial-gradient(36% 30% at 62% 42%, rgba(139, 92, 246, 0.055), rgba(139, 92, 246, 0.02) 45%, transparent 100%);
+}
+@keyframes bcd-ep-drift {
+	from { background-position: 30% 40%; }
+	to { background-position: 70% 60%; }
+}
+
+/* The logo, smaller and quieter, then a greeting with the date (added by plugin.js). */
+html:not([data-device=mobile]) body.bcd-on .empty-panel > .id--logo {
+	transform: scale(0.66);
+	opacity: 0.8;
+	margin: -10px 0 0;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--navigation {
+	width: min(440px, 100%);
+	padding-top: 6px;
+}
+.bcd-ep-hello {
+	margin: 0 0 18px;
+	text-align: center;
+}
+.bcd-ep-hello small {
+	display: block;
+	font-size: 10.5px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+.bcd-ep-hello b {
+	display: block;
+	margin-top: 6px;
+	font-size: 22px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	color: var(--text-default, inherit);
+}
+
+/* The three shortcuts side by side as small cards: the name on top, its keys under it. */
+html:not([data-device=mobile]) body.bcd-on .empty-panel .id--options {
+	display: grid !important;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 8px !important;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .id--options > .text-details {
+	display: flex;
+	flex-direction: column-reverse;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 11px 12px 10px;
+	border: 1px solid var(--ep-line);
+	border-radius: 11px;
+	background: var(--ep-card);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+	font-size: 12.5px;
+	line-height: 1.2;
+	transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .id--options > .text-details:hover {
+	border-color: var(--ep-line-hover);
+	background: var(--ep-card-hover);
+	transform: translateY(-1px);
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .id--options .statusbar--kbd {
+	font-size: 10.5px;
+	padding: 1px 6px;
+	border: 1px solid var(--ep-line);
+	border-bottom-width: 2px;
+	border-radius: 5px;
+	background: rgba(var(--ep-ink), 0.04);
+	color: var(--text-muted, inherit);
+	box-shadow: none;
+}
+
+/* The recent pages in one card: a small heading, rows with their icon in a chip, an arrow on the row under the pointer. */
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recents {
+	margin-top: 14px;
+	padding: 8px;
+	gap: 1px;
+	border: 1px solid var(--ep-line);
+	border-radius: 13px;
+	background: var(--ep-card);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-heading {
+	padding: 4px 8px 6px;
+	font-size: 10.5px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page {
+	position: relative;
+	gap: 10px;
+	padding: 5px 30px 5px 8px;
+	border-radius: 8px;
+	transition: background-color 0.12s ease;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page:hover {
+	background: var(--ep-card-hover);
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page > .ti {
+	width: 24px;
+	flex: 0 0 24px;
+	height: 24px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 7px;
+	background: rgba(var(--ep-ink), 0.05);
+	font-size: 14px;
+	opacity: 0.8;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page:hover > .ti {
+	color: var(--ep-accent);
+	background: color-mix(in srgb, var(--ep-accent) 14%, transparent);
+	opacity: 1;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page::after {
+	content: "\2192";
+	position: absolute;
+	right: 10px;
+	top: 50%;
+	transform: translate(-4px, -50%);
+	opacity: 0;
+	color: var(--text-muted, inherit);
+	transition: opacity 0.12s ease, transform 0.15s ease;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page:hover::after {
+	opacity: 1;
+	transform: translate(0, -50%);
+}
+
+html:not([data-device=mobile]) body.bcd-on .empty-panel > :is(.id--logo, .empty-panel--navigation) {
+	animation: bcd-ep-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel > .empty-panel--navigation {
+	animation-delay: 0.06s;
+}
+@keyframes bcd-ep-in {
+	from { opacity: 0; transform: translateY(6px); }
+	to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+	html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel)::after,
+	html:not([data-device=mobile]) body.bcd-on .empty-panel > :is(.id--logo, .empty-panel--navigation) {
+		animation: none;
+	}
+}

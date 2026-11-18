@@ -52,3 +52,181 @@ ROOT h1.title {
 	-webkit-text-stroke: 0;
 	text-shadow: 0 1px 2px rgb(0 0 0 / .35);
 }
+
+/* Faint text. Dark Paper keeps its quiet greys from the light theme's scale: muted text (row previews,
+   descriptions, hints) is text-800 and xmuted text (search placeholders, …) text-900, about 2.4:1 and 1.7:1
+   on the panel, below what reads comfortably. One step up each: muted text-600 (about 4.7:1, still a
+   step under the subtle text-500) and xmuted text-700 (about 3.4:1). */
+ROOT {
+	--text-muted: var(--color-text-600);
+	--text-xmuted: var(--color-text-700);
+	--query-placeholder-color: var(--color-text-700);
+}
+
+/* The plugin and collection lists (Settings > Plugins). Thymer lays them out as a grid of cards in the
+   panel's own colour, so they read as holes in the page. Here each list is one raised sheet and every
+   plugin a compact row of it: an icon tile, the name over a one-line description, and the switch and
+   Edit Code button on the right; a hairline between rows and the count at the foot. Thymer writes the
+   icon's size, the name's spacing and the description's colour inline, hence the !important. */
+ROOT :is(.id--global-content, .id--collections-content) .plugins-list {
+	--pl-line: color-mix(in srgb, var(--color-text-100) 8%, transparent);
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	padding: 0;
+	overflow: hidden;
+	counter-reset: pl;
+	border: 1px solid var(--pl-line);
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--panel-bg-color), white 3%);
+	box-shadow: inset 0 1px 0 rgb(255 255 255 / .03), 0 10px 28px -16px rgb(0 0 0 / .6);
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugins-list::after {
+	content: counter(pl) " plugins";
+	padding: 8px 14px;
+	border-top: 1px solid var(--pl-line);
+	color: var(--text-xmuted);
+	font-size: var(--text-size-xsmall);
+	letter-spacing: .02em;
+}
+ROOT .id--collections-content .plugins-list::after {
+	content: counter(pl) " collections";
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item {
+	counter-increment: pl;
+	display: grid;
+	grid-template-columns: 30px minmax(0, 1fr) auto;
+	align-items: center;
+	column-gap: 14px;
+	row-gap: 0;
+	padding: 10px 12px 10px 14px;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+	transform: none;
+	transition: background-color .15s ease;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item + .plugin-item {
+	border-top: 1px solid var(--pl-line);
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item:hover {
+	background: color-mix(in srgb, var(--panel-bg-color), white 6%);
+	box-shadow: none;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-icon {
+	display: grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	margin: 0 !important;
+	border-radius: 8px;
+	font-size: 16px !important;
+	line-height: 1;
+	color: var(--text-hilite) !important;
+	background: color-mix(in srgb, var(--panel-bg-color), white 9%);
+	box-shadow: inset 0 0 0 1px var(--pl-line);
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-info {
+	min-width: 0;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-name {
+	display: flex;
+	margin: 0 !important;
+	font-weight: 600 !important;
+	font-size: var(--text-size-normal);
+	line-height: 1.35;
+	color: var(--text-hilite);
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-description {
+	margin-top: 2px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: var(--text-size-small) !important;
+	line-height: 1.4;
+	color: var(--text-muted) !important;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-actions {
+	display: flex !important;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 14px !important;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-actions .text-small {
+	display: inline-block;
+	min-width: 2.2em;
+	font-size: var(--text-size-xsmall);
+}
+/* Edit Code as a quiet outlined button that lights up with its row. */
+ROOT :is(.id--global-content, .id--collections-content) .plugin-actions .button-primary {
+	gap: 5px;
+	border: 1px solid var(--pl-line);
+	background: transparent;
+	box-shadow: none;
+	color: var(--text-subtle);
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item:hover .plugin-actions .button-primary {
+	border-color: color-mix(in srgb, var(--color-text-100) 14%, transparent);
+	background: color-mix(in srgb, var(--panel-bg-color), white 9%);
+	color: var(--text-hilite);
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-actions .button-primary:hover {
+	background: var(--color-primary-500);
+	border-color: transparent;
+	color: var(--color-text-50);
+}
+/* Off and trashed plugins: the row stays, its icon and text fade. */
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item.plugin-item-disabled,
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item.plugin-item-trashed {
+	opacity: 1;
+	filter: none;
+	background: transparent;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item.plugin-item-disabled:hover,
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item.plugin-item-trashed:hover {
+	background: color-mix(in srgb, var(--panel-bg-color), white 6%);
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item-disabled > :is(.plugin-icon, .plugin-info),
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item-packaged.plugin-item-disabled .plugin-info {
+	opacity: .45;
+	filter: saturate(.3);
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item-trashed > :is(.plugin-icon, .plugin-info, .plugin-actions) {
+	opacity: .5;
+}
+
+/* The packaged layout (plugins installed from a URL): the icon and name sit in a header inside the info,
+   the description under it, and the switch and menu in a column. Laid out as the same row. */
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item-packaged {
+	grid-template-columns: minmax(0, 1fr) auto;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item-packaged .plugin-info {
+	display: grid;
+	grid-template-columns: 30px minmax(0, 1fr);
+	column-gap: 14px;
+	align-items: center;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item-packaged .plugin-info > .flex-vcenter {
+	display: contents;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item-packaged .plugin-icon {
+	grid-row: 1 / span 2;
+	flex: none;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item-packaged .plugin-description {
+	grid-column: 2;
+	display: block;
+	margin-top: 2px;
+	-webkit-line-clamp: unset;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item-packaged .plugin-actions {
+	flex-direction: row !important;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item-packaged .plugin-actions > .flex-vcenter {
+	gap: 10px;
+}
+ROOT :is(.id--global-content, .id--collections-content) .plugin-item-packaged :is(.plugin-version, .plugin-badge) {
+	margin-left: 6px;
+	font-weight: normal;
+}

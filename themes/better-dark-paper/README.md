@@ -15,6 +15,8 @@ A theme, not a plugin: Thymer's Dark Paper without its green cast. Dark Paper's 
 - The chosen row of the command palette is a deeper ink blue, so its cream text stays legible (about 5:1 instead of 2.5:1).
 - The edge of the command palette and of dialogs drawn on it (the theme picker, ...) is a still graphite line on the box's own corners, instead of a pencil line shaken by a noise filter that wanders off the box on a dark sheet.
 - The page title is plain paper white with a soft shadow for banners, instead of Dark Paper's 1px black stroke that makes bold letters read hollow on a dark sheet.
+- Faint text is one step brighter: muted text (row previews, descriptions, hints) from about 2.4:1 to 4.7:1 on the panel, and search placeholders from about 1.7:1 to 3.4:1.
+- Settings → Plugins lists global plugins and collections as one raised sheet of compact rows (an icon tile, the name over a one-line description, the switch and a quiet Edit Code button that lights up with its row) with the count at the foot, instead of a grid of cards in the panel's own colour. Off and trashed plugins keep their row and fade.
 
 ![The command palette in Better Dark Paper: the chosen row in a deeper ink blue, a graphite edge](images/command-palette.png)
 

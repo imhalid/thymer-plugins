@@ -15,7 +15,7 @@
  * (tiny star glints that twinkle on the caret, like a gem), Prism (two crescents of spectrum flanking the caret, light
  * through a lens), Health (tiny pluses rising out of the caret as you write, each with a trail of light, as if you were gaining health) and Zephyr (an anime-style wind skill: speed lines and leaves swept up round the caret) and Tide
  * (a stylized water skill: sprays of teardrops and drifting bubbles), and Stitch (a running stitch sewn under the line
- * as you write, in the thread of the theme), and Mizan (for the Premium theme: a small Mizan Stat over the caret as you
+ * as you write, in the caret's color), and Mizan (a small Mizan Stat over the caret as you
  * write - a live sparkline of your pace, words a minute and a change badge, a border beam running round it - and a
  * raised pill gliding on a spring when the caret jumps). Pick them on the "Caret FX: open settings" page under Special.
  *
@@ -2808,31 +2808,16 @@ EFFECTS.tide = {
 // A running stitch sewn along the line as you write, as if the words were being stitched down: each letter puts the
 // thread under itself, the newest stitch pulled through as you watch, a needle-hole at either end of each. The stitches
 // hold a moment, then the thread is drawn out and they fade, the oldest first; Backspace unpicks the ones it passes
-// back over, and a new line ties a small cross-stitch knot where the last one ended. The thread is the theme's - saddle
-// tan on Leather's paper, jeans gold on Folder's, red on Desk's, the binder's tan, Notebook's ballpoint blue, Herbarium's
-// sepia, Blueprint's line blue - and on any other theme the caret's own color. It lies just under the letters, above the
-// line's own rule.
+// back over, and a new line ties a small cross-stitch knot where the last one ended. The thread is the caret's own
+// color. It lies just under the letters, above the line's own rule.
 // Settings: stitchSize (1 is normal).
 const STITCH_HOLD_MS = 1500;    // how long a stitch stays whole after it is sewn
 const STITCH_FADE_MS = 700;     // how long the thread takes to draw out
 const STITCH_SEW_MS = 130;      // how long the newest stitch takes to pull through
 const STITCH_MAX = 160;         // the most lengths of thread kept at once
 const STITCH_KNOT_MS = 2200;    // how long a knot stays before it fades with the thread
-// The thread for each theme, by Thymer's data-theme; themes not here use the caret's color.
-const STITCH_THREADS = {
-	'thymer-leather': '#b06c33',
-	'thymer-folder': '#cf8a1f',
-	'thymer-desk': '#c0372f',
-	'thymer-binder': '#9a6634',
-	'thymer-notebook': '#3563c9',
-	'thymer-herbarium': '#8a6526',
-	'thymer-blueprint': '#9bd8ff',
-	'thymer-sakura': '#ff8fb3',
-	'thymer-meadow': '#9fcc5f',
-};
-
-/** The thread's color: the theme's own, or the caret's. */
-const stitchThread = (plugin) => STITCH_THREADS[document.documentElement.dataset.theme] || plugin.col();
+/** The thread's color: the caret's. */
+const stitchThread = (plugin) => plugin.col();
 
 /** The item that holds the thread of `host` (the plugin, or a preview host). */
 function stitchOf(host) {
@@ -2966,7 +2951,7 @@ EFFECTS.stitch = {
 
 
 // ---- Effect: Mizan -------------------------------------------------------------------------------------------------
-// Writing as a dashboard, in the language of Mizan, the component library the Premium theme is drawn with (pano-ui):
+// Writing as a dashboard, in the language of Mizan, the component library from pano-ui:
 // while you write, a small Stat floats over the caret on Mizan's frosted glass - a live sparkline of your pace over
 // the last keys (Sparkline.tsx: a 1.6px line, the area under it in the series color fading down, a dot on the last
 // value), the pace in words per minute in tabular figures, and a change badge (Stat's: ▲ green when you speed up

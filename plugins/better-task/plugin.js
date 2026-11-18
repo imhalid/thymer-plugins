@@ -673,7 +673,7 @@ function detectDarkTheme() {
 	if (root.classList.contains('basic-light')) return false;
 	const dt = (root.getAttribute('data-theme') || '').toLowerCase();
 	if (dt.includes('light')) return false;
-	if (dt.includes('dark') || dt === 'thymer-premium') return true;
+	if (dt.includes('dark')) return true;
 	const el = document.querySelector('.panel') || document.body || root;
 	try {
 		const bg = getComputedStyle(el).backgroundColor;

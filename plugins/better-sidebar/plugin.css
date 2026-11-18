@@ -1,0 +1,82 @@
+/* BetterSidebar. Thymer toggles the sidebar by writing --sidebar-width on .panels-grid-sidebar (the grid's
+   first column) and the same width inline on .sidebar, but animates only .sidebar, so the page jumps.
+   Here the column and the sidebar move together on one curve. A transition takes the timing of the state
+   it goes to, so the collapsed rules carry the closing curve. Phones keep Thymer's drawer; dragging the
+   sizer stays immediate (Thymer sets body.dragging). Durations here and in plugin.js go together. */
+
+html:not([data-device=mobile]) .panels-grid-sidebar:not(.ssb-ghost) {
+	transition: grid-template-columns .5s cubic-bezier(.22, 1, .36, 1);
+}
+html:not([data-device=mobile]) .panels-grid-sidebar:not(.ssb-ghost) > .sidebar {
+	transition: width .5s cubic-bezier(.22, 1, .36, 1) !important;
+}
+html:not([data-device=mobile]) .panels-grid-sidebar:not(.ssb-ghost):has(> .sidebar.sidebar-collapsed) {
+	transition: grid-template-columns .42s cubic-bezier(.32, .72, 0, 1);
+}
+html:not([data-device=mobile]) .panels-grid-sidebar:not(.ssb-ghost) > .sidebar.sidebar-collapsed {
+	transition: width .42s cubic-bezier(.32, .72, 0, 1) !important;
+}
+html:not([data-device=mobile]) body.dragging .panels-grid-sidebar,
+html:not([data-device=mobile]) body.dragging .panels-grid-sidebar > .sidebar {
+	transition: none !important;
+}
+/* …except the jump when a drag crosses Thymer's limit and the sidebar collapses or opens (plugin.js). */
+html:not([data-device=mobile]) body.dragging.ssb-snap .panels-grid-sidebar:not(.ssb-ghost) {
+	transition: grid-template-columns .5s cubic-bezier(.22, 1, .36, 1) !important;
+}
+html:not([data-device=mobile]) body.dragging.ssb-snap .panels-grid-sidebar:not(.ssb-ghost) > .sidebar {
+	transition: width .5s cubic-bezier(.22, 1, .36, 1) !important;
+}
+html:not([data-device=mobile]) body.dragging.ssb-snap .panels-grid-sidebar:not(.ssb-ghost):has(> .sidebar.sidebar-collapsed) {
+	transition: grid-template-columns .42s cubic-bezier(.32, .72, 0, 1) !important;
+}
+html:not([data-device=mobile]) body.dragging.ssb-snap .panels-grid-sidebar:not(.ssb-ghost) > .sidebar.sidebar-collapsed {
+	transition: width .42s cubic-bezier(.32, .72, 0, 1) !important;
+}
+
+/* The chevron turns on the opening curve. */
+html:not([data-device=mobile]) .sidebar--toggler span {
+	transition: transform .5s cubic-bezier(.22, 1, .36, 1);
+}
+
+/* While the ghost (plugin.js) shows the rows as they were, the rows Thymer has just rebuilt wait under it. */
+.panels-grid-sidebar > .sidebar > :not(.sidebar--toggler) {
+	transition: opacity .28s ease-out;
+}
+.panels-grid-sidebar > .sidebar.ssb-hide > :not(.sidebar--toggler) {
+	opacity: 0;
+	transition: none;
+}
+
+/* The ghost: a copy of the sidebar's rows from before the toggle, fixed over the sidebar and clipped to its
+   width as it moves. It is a .panels-grid-sidebar so the rules written for the real one dress it too. */
+.panels-grid-sidebar.ssb-ghost {
+	position: fixed;
+	display: block !important;
+	overflow: hidden;
+	z-index: 8;
+	pointer-events: none;
+	background: transparent !important;
+	contain: layout paint;
+}
+.panels-grid-sidebar.ssb-ghost::before,
+.panels-grid-sidebar.ssb-ghost::after {
+	content: none !important;
+}
+.panels-grid-sidebar.ssb-ghost > .sidebar {
+	background: transparent !important;
+	transition: none !important;
+	animation: none !important;
+}
+.panels-grid-sidebar.ssb-ghost > .sidebar * {
+	animation: none !important;
+	transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html .panels-grid-sidebar,
+	html .panels-grid-sidebar > .sidebar,
+	html .panels-grid-sidebar > .sidebar > * {
+		transition: none !important;
+	}
+}

@@ -27,6 +27,7 @@ Personal plugins and a theme for [Thymer](https://thymer.com). Each one has its 
 | <img src="plugins/digital-garden/images/overview.png" width="200"> | [Digital Garden](plugins/digital-garden) | A sidebar plant that grows with today's word count, and 12 collectible flowers unlocked by lifetime words |
 | <img src="plugins/achievements/images/overview.png" width="120"> | [Mascot](plugins/achievements) | A small 3D knight at the top of the sidebar that watches the pointer, nods while you type and salutes |
 | | [HUD Sounds](plugins/hud-sounds) | Short synthesized sounds for tasks, lines, menus and page changes, panned to where they happen; nothing loaded |
+| | [BetterSidebar](plugins/better-sidebar) | The sidebar opens and closes on a curve, and its rows stay in place while it moves instead of vanishing |
 
 ## Better UI
 

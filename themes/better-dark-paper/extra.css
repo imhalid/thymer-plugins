@@ -1,0 +1,54 @@
+/* Hand-written additions to the copied Dark Paper rules; build.py puts the theme's html[data-theme] selector
+   in place of ROOT and Dark Paper's paper scan (its file name changes with Thymer's builds) in place of PATTERN. */
+
+/* The paper scan Dark Paper multiplies over the window is tan: on this sheet it would tint everything
+   brown. Grey, it darkens evenly and the charcoal stays charcoal. */
+ROOT body:before {
+	filter: grayscale(1);
+}
+
+/* The grain. Dark Paper lays the paper scan over the window with multiply, as Light Paper does; on a light
+   sheet that shows the paper's clouds and fibres, on a dark one it only tints it, since multiply scales
+   what is already near black. So the same scan is laid once more in soft-light, grey and centred on
+   middle grey: its lighter clouds lift the sheet a little and its darker ones sink it, the grain Light Paper
+   shows, without making the sheet lighter or darker overall. */
+ROOT::after {
+	content: "";
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	z-index: 99999;
+	background: PATTERN repeat;
+	filter: grayscale(1) brightness(.62) contrast(3.2);
+	mix-blend-mode: soft-light;
+	opacity: .5;
+}
+
+/* The chosen row of the command palette: Dark Paper puts cream on its light accent (2.5:1 here). A deeper
+   ink blue, between the accent's 300 and 400, keeps the cream legible (about 5:1). */
+ROOT {
+	--cmdpal-selected-bg-color: color-mix(in oklch, var(--color-primary-300) 55%, var(--color-primary-400));
+}
+
+/* The edge of the command palette and of dialogs drawn on it (the theme picker, …). Paper draws it as a
+   pencil line shaken by a noise filter: on a dark sheet the line wanders off the box at the corners, so
+   the dark box shows past it and the line breaks where it bends. Here it is a still graphite line on the
+   box's own corners. */
+ROOT .cmdpal--dialog:before,
+ROOT .cmdpal--inline:before,
+ROOT[data-mobile-type=tablet] .adaptive-sheet-host.adaptive-sheet-host--card:before {
+	filter: none;
+	outline: 0;
+	border: 1px solid color-mix(in oklch, var(--paper-line-strong) 80%, transparent);
+	border-radius: inherit;
+	box-sizing: border-box;
+}
+
+/* The page title. Dark Paper rims it with a 1px black stroke (and clips a texture tile to the letters,
+   hidden under their opaque fill): on a dark sheet or banner the stroke eats into the bold letters and
+   they read hollow and jagged. Here the title is plain paper white, with a soft shadow for banners. */
+ROOT h1.title {
+	background-image: none;
+	-webkit-text-stroke: 0;
+	text-shadow: 0 1px 2px rgb(0 0 0 / .35);
+}

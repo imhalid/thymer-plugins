@@ -7,6 +7,7 @@
 
 .cfx2-page {
   --c2: var(--ed-caret-self-fg, #3b82f6);
+  position: relative;
   max-width: 820px;
   margin: 0 auto;
   padding: 28px 24px 64px;
@@ -363,6 +364,235 @@
   font-size: 10px;
   opacity: 0.55;
   flex: none;
+}
+
+/* The gear on each tile, and the tune popup it opens */
+.cfx2-tilewrap {
+  position: relative;
+  display: flex;
+}
+
+.cfx2-tilewrap > .cfx2-tile {
+  flex: 1;
+  min-width: 0;
+}
+
+.cfx2-gear {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  cursor: pointer;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-size: 14px;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.15s, transform 0.15s, background 0.15s;
+}
+
+.cfx2-gear .ti {
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.cfx2-tilewrap:hover .cfx2-gear,
+.cfx2-tilewrap.tuned .cfx2-gear,
+.cfx2-tilewrap.tuning .cfx2-gear,
+.cfx2-gear:focus-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.cfx2-gear:hover {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.cfx2-gear:focus-visible {
+  outline: 2px solid var(--c2);
+  outline-offset: 1px;
+}
+
+.cfx2-tilewrap.tuning .cfx2-gear {
+  background: var(--c2);
+}
+
+.cfx2-tilewrap.tuning .cfx2-gear .ti {
+  transform: rotate(60deg);
+}
+
+/* a tuned caret: a small dot on its gear */
+.cfx2-tilewrap.tuned .cfx2-gear::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c2);
+  box-shadow: 0 0 0 2px var(--cfx2-pop-bg, rgba(0, 0, 0, 0.5));
+}
+
+.cfx2-pop {
+  position: fixed;
+  z-index: 1000;
+  width: 264px;
+  box-sizing: border-box;
+  padding: 12px 12px 10px;
+  border-radius: 14px;
+  background: var(--cfx2-pop-bg, #1d1e22);
+  border: 1px solid rgba(127, 127, 127, 0.22);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 16px 40px -12px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  opacity: 0;
+  transform: scale(0.97);
+  transform-origin: center;
+  transition: opacity 0.14s, transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1);
+  color: var(--cfx2-pop-ink, inherit);
+}
+
+/* beside the tile it tunes (its wrap is the anchor while it is open): to the right, or flipped to the left where the
+   screen ends; top to the tile's top, or flipped so its bottom meets the tile's near the foot of the screen */
+.cfx2-pop.anchored {
+  position-anchor: --cfx2-tune;
+  left: anchor(right);
+  top: anchor(top);
+  margin: 0 0 0 10px;
+  position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+  position-visibility: anchors-visible;
+}
+
+.cfx2-pop.in {
+  opacity: 1;
+  transform: none;
+}
+
+.cfx2-pop-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cfx2-pop-sw {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  flex: none;
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.3);
+}
+
+.cfx2-pop-name {
+  flex: 1;
+  font-weight: 650;
+  font-size: 13px;
+}
+
+.cfx2-pop-reset {
+  all: unset;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.14);
+}
+
+.cfx2-pop-reset:hover {
+  background: rgba(127, 127, 127, 0.24);
+}
+
+.cfx2-pop-reset:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cfx2-pop-sec {
+  margin: 8px 0 4px;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.cfx2-pop-sec span {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  opacity: 0.7;
+}
+
+.cfx2-sl {
+  display: grid;
+  grid-template-columns: 62px 1fr 46px;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+}
+
+.cfx2-sl-name {
+  opacity: 0.75;
+}
+
+.cfx2-sl-val {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+/* the custom slider: a track painted with the colours it gives, a round thumb filled with the colour chosen */
+.cfx2-sl-track {
+  position: relative;
+  height: 10px;
+  border-radius: 99px;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.25);
+  background-color: rgba(127, 127, 127, 0.15);
+}
+
+.cfx2-sl-mid {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  margin-left: -0.5px;
+  background: currentColor;
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.cfx2-sl-thumb {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 2.5px solid #fff;
+  background: var(--cfx2-thumb, transparent);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  transition: transform 0.12s;
+}
+
+.cfx2-sl-track:hover .cfx2-sl-thumb {
+  transform: scale(1.08);
+}
+
+.cfx2-sl-track.drag .cfx2-sl-thumb {
+  transform: scale(1.18);
+}
+
+.cfx2-sl-track:focus-visible .cfx2-sl-thumb {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28), 0 0 0 4px color-mix(in srgb, var(--c2) 45%, transparent);
 }
 
 /* Native caret hidden while CaretFx-v2 draws its own caret */

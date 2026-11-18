@@ -118,8 +118,108 @@ function mixOklab(a, b, t) {
 }
 
 function cssCol(c) {
+	if (TUNE) c = tunedCol(c, TUNE);
 	return `rgba(${c.r},${c.g},${c.b},${(c.a ?? 1).toFixed(4)})`;
 }
+
+// ---- Per-Caret Tune (OKLCH) -----------------------------------------------------------
+// Each caret may be tuned from the gear on its tile: its hues turned (h, degrees), its chroma scaled (c), its lightness
+// shifted (l) and its opacity scaled (a). The tune is relative, so a caret with a palette of its own (Mario, Marine, Mood
+// Face, Ink) keeps it, turned as a whole. It is set only while that caret draws (withTune), and every colour it paints goes
+// through cssCol, so that is where it is applied. Colours with next to no chroma (white gloss, black shadows, the text a
+// caret redraws) keep their hue and lightness and change only in opacity.
+
+const TUNE_ID = { h: 0, c: 1, l: 0, a: 1 };
+const TUNE_RANGE = { h: [-180, 180], c: [0, 2], l: [-0.4, 0.4], a: [0.15, 1] };
+let TUNE = null;
+const TUNE_MEMO = new WeakMap();
+
+/** A stored tune made safe, or null when it changes nothing. */
+function cleanTune(t) {
+	if (!t || typeof t !== 'object') return null;
+	const out = {};
+	for (const k of Object.keys(TUNE_ID)) {
+		const v = Number(t[k]);
+		out[k] = Number.isFinite(v) ? clamp(v, TUNE_RANGE[k][0], TUNE_RANGE[k][1]) : TUNE_ID[k];
+	}
+	return Object.keys(TUNE_ID).every((k) => Math.abs(out[k] - TUNE_ID[k]) < 1e-4) ? null : out;
+}
+
+/** The stored tunes (caret name -> tune), each made safe; carets whose tune changes nothing are left out. */
+function cleanTunes(map) {
+	const out = {};
+	if (map && typeof map === 'object') {
+		for (const [name, t] of Object.entries(map)) {
+			const c = cleanTune(t);
+			if (c && CARET_SPECS.some((sp) => sp.name === name)) out[name] = c;
+		}
+	}
+	return out;
+}
+
+/** Runs fn with `tune` applied to every colour it paints. */
+function withTune(tune, fn) {
+	const prev = TUNE;
+	TUNE = tune || null;
+	try { return fn(); } finally { TUNE = prev; }
+}
+
+function oklabToLin(L, a, b) {
+	const l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3);
+	const m = Math.pow(L - 0.1055613458 * a - 0.0638541728 * b, 3);
+	const s = Math.pow(L - 0.0894841775 * a - 1.2914855480 * b, 3);
+	return [
+		+4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+		-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+		-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+	];
+}
+
+/** An OKLCH colour as sRGB, its chroma lowered until it fits (rather than clipping each channel, which shifts the hue). */
+function oklchToRgb(L, C, hRad, alpha = 1) {
+	L = clamp01(L);
+	const fits = (c) => oklabToLin(L, c * Math.cos(hRad), c * Math.sin(hRad)).every((v) => v >= -1e-4 && v <= 1 + 1e-4);
+	let c = Math.max(0, C);
+	if (!fits(c)) {
+		let lo = 0, hi = c;
+		for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
+		c = lo;
+	}
+	const [r, g, b] = oklabToLin(L, c * Math.cos(hRad), c * Math.sin(hRad));
+	return { r: linToSrgb(r), g: linToSrgb(g), b: linToSrgb(b), a: alpha };
+}
+
+/** A colour as OKLCH: [L, C, hue in degrees]. */
+function colOklch(c) {
+	const [L, a, b] = rgbToOklab(c);
+	return [L, Math.hypot(a, b), ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360];
+}
+
+function tunedCol(c, t) {
+	let memo = TUNE_MEMO.get(t);
+	if (!memo) TUNE_MEMO.set(t, memo = new Map());
+	const key = (Math.round(c.r) << 16) | (Math.round(c.g) << 8) | Math.round(c.b);
+	let o = memo.get(key);
+	if (!o) {
+		o = c;
+		if (t.h !== 0 || t.c !== 1 || t.l !== 0) {
+			const [L, a, b] = rgbToOklab(c), C = Math.hypot(a, b);
+			const w = smoothstep((C - 0.015) / 0.035);   // how colourful it is: neutrals are left alone
+			if (w > 0) {
+				const h = Math.atan2(b, a) + (t.h * Math.PI) / 180;
+				const L2 = lerp(L, clamp01(L + t.l), w), C2 = lerp(C, C * t.c, w);
+				const hm = Math.atan2(lerp(b / C, Math.sin(h), w), lerp(a / C, Math.cos(h), w));
+				o = oklchToRgb(L2, C2, w >= 1 ? h : hm, 1);
+			}
+		}
+		if (memo.size > 4096) memo.clear();
+		memo.set(key, o);
+	}
+	return { r: o.r, g: o.g, b: o.b, a: (c.a ?? 1) * t.a };
+}
+
+/** A colour with a tune applied outside a draw (the confetti's tint, the tile's swatch). */
+function applyTune(c, t) { return t ? tunedCol(c, t) : c; }
 
 function hslCol(h, s, l) {
 	h = ((h % 360) + 360) % 360;
@@ -329,7 +429,7 @@ function glassGloss(ctx, box, dark, alpha = 1, gaze = 1, insetFrac = 0.22) {
 	ctx.lineTo(gx, box.y + box.h * 0.36);
 	ctx.lineWidth = 1.4;
 	ctx.lineCap = 'round';
-	ctx.strokeStyle = `rgba(255,255,255,${(a * alpha).toFixed(4)})`;
+	ctx.strokeStyle = cssCol(rgbaCol(255, 255, 255, a * alpha));
 	ctx.stroke();
 	ctx.restore();
 }
@@ -955,7 +1055,7 @@ class SlimeCaret {
 					}
 					ctx.lineCap = 'round';
 					ctx.lineWidth = 1.4;
-					ctx.strokeStyle = `rgba(255,255,255,${f.dark ? 0.55 : 0.8})`;
+					ctx.strokeStyle = cssCol(rgbaCol(255, 255, 255, f.dark ? 0.55 : 0.8));
 					ctx.stroke();
 					ctx.restore();
 				}
@@ -1638,17 +1738,17 @@ class TorchCaret {
 			const R = b.w < 260 ? Math.max(55, b.w * 0.55) : 250;
 			const dark = 0.7;
 			const rg = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, R);
-			rg.addColorStop(0, 'rgba(0,0,0,0)');
-			rg.addColorStop(0.4, `rgba(0,0,0,${(0.52 * dark).toFixed(4)})`);
-			rg.addColorStop(0.7, `rgba(0,0,0,${(0.91 * dark).toFixed(4)})`);
-			rg.addColorStop(1, `rgba(0,0,0,${dark})`);
+			rg.addColorStop(0, cssCol(rgbaCol(0, 0, 0, 0)));
+			rg.addColorStop(0.4, cssCol(rgbaCol(0, 0, 0, 0.52 * dark)));
+			rg.addColorStop(0.7, cssCol(rgbaCol(0, 0, 0, 0.91 * dark)));
+			rg.addColorStop(1, cssCol(rgbaCol(0, 0, 0, dark)));
 			ctx.fillStyle = rg;
 			ctx.fillRect(b.x, b.y, b.w, b.h);
 
 			const wg = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, R * 0.6);
-			wg.addColorStop(0, 'rgba(255,150,60,0.04)');
-			wg.addColorStop(0.45, 'rgba(255,150,60,0.012)');
-			wg.addColorStop(0.75, 'rgba(255,150,60,0)');
+			wg.addColorStop(0, cssCol(rgbaCol(255, 150, 60, 0.04)));
+			wg.addColorStop(0.45, cssCol(rgbaCol(255, 150, 60, 0.012)));
+			wg.addColorStop(0.75, cssCol(rgbaCol(255, 150, 60, 0)));
 			ctx.fillStyle = wg;
 			ctx.fillRect(b.x, b.y, b.w, b.h);
 		}
@@ -3942,7 +4042,7 @@ class CaretDemoTile {
 		this.t0 = 0;
 		this.n = 0;
 	}
-	render(nowMs, dark, theme, jellyOn) {
+	render(nowMs, dark, theme, jellyOn, tune = null) {
 		if (!this.t0) this.t0 = nowMs;
 		const dpr = window.devicePixelRatio || 1;
 		const cwCss = this.canvas.clientWidth || 140;
@@ -4030,7 +4130,7 @@ class CaretDemoTile {
 			f.jelly = this.jelly.body(nowMs, f);
 		}
 		ctx.beginPath(); ctx.rect(0, 0, cwCss, chCss); ctx.clip();
-		this.caret.draw(ctx, nowMs, f, k, null, null);
+		withTune(tune, () => this.caret.draw(ctx, nowMs, f, k, null, null));
 		ctx.restore();
 	}
 }
@@ -4254,7 +4354,7 @@ class ConfettiSystem {
 // ---- Main Thymer AppPlugin -----------------------------------------------------------
 
 class Plugin extends AppPlugin {
-	cfg = { caret: 'Slime', jelly: true, sleep: true, sleepAfterMs: 5000, kawaiiMode: 'auto', uwuMode: 'auto' };
+	cfg = { caret: 'Slime', jelly: true, sleep: true, sleepAfterMs: 5000, kawaiiMode: 'auto', uwuMode: 'auto', tune: {} };
 	canvas = null;
 	ctx = null;
 	caretStyle = null;
@@ -4285,6 +4385,7 @@ class Plugin extends AppPlugin {
 	demoTiles = [];
 	demoRaf = 0;
 	demoObserver = null;
+	tunePop = null;
 
 	onLoad() {
 		this.readConfig();
@@ -4393,6 +4494,7 @@ class Plugin extends AppPlugin {
 			sleepAfterMs: clamp(Number(merged.sleepAfterMs) || 5000, 1000, 120000),
 			kawaiiMode: KAWAII_MODES.some((m) => m.id === merged.kawaiiMode) ? merged.kawaiiMode : 'auto',
 			uwuMode: UWU_MODES.some((m) => m.id === merged.uwuMode) ? merged.uwuMode : 'auto',
+			tune: cleanTunes(merged.tune),
 		};
 		this.sleeper.sleepAfterMs = this.cfg.sleepAfterMs;
 		this.refreshPage();
@@ -4419,6 +4521,23 @@ class Plugin extends AppPlugin {
 			const spec = findCaretSpec(this.cfg.caret);
 			this.ui.addToaster({ title: 'CaretFx-v2', message: `Caret: ${spec.label || spec.name}`, dismissible: true, autoDestroyTime: 1400 });
 		}
+	}
+
+	/** The tune of a caret (by its spec name), or null when it has none. */
+	tuneFor(name) { return this.cfg.tune[name] || null; }
+
+	/**
+	 * Sets a caret's tune. While a slider is dragged only the live config changes (`save` false); the whole map is
+	 * written to storage when it is let go, since saveChoices merges only the top level.
+	 */
+	setTune(name, t, save = true) {
+		const tune = { ...this.cfg.tune };
+		const clean = cleanTune(t);
+		if (clean) tune[name] = clean; else delete tune[name];
+		this.cfg = { ...this.cfg, tune };
+		if (save) saveChoices({ tune });
+		this.markTuned();
+		this.kick();
 	}
 
 	activeCaret() {
@@ -4542,7 +4661,8 @@ class Plugin extends AppPlugin {
 
 	triggerConfettiAt(box) {
 		if (!box || !(box.w > 0) || !(box.h > 0)) return;
-		const tint = this.activeCaret().tint ? this.activeCaret().tint(this.dark) : cursorColor(this.dark);
+		const raw = this.activeCaret().tint ? this.activeCaret().tint(this.dark) : cursorColor(this.dark);
+		const tint = applyTune(raw, this.tuneFor(findCaretSpec(this.cfg.caret).name));
 		this.confetti.burst(box.x + box.w / 2, box.y + box.h / 2, box.h, performance.now(), tint);
 		this.kick();
 	}
@@ -5031,8 +5151,9 @@ class Plugin extends AppPlugin {
 			ctx.beginPath(); ctx.rect(clip.x, clip.y, clip.w, clip.h); ctx.clip();
 		}
 		const breath = this.cfg.sleep ? this.sleeper.breathe(nowMs, f) : null;
+		const tune = this.tuneFor(spec.name);
 		const drawBody = () => {
-			fxRate = caret.draw(ctx, nowMs, f, k, (ms) => this.scheduleAfter(ms), hideRanges) || 'idle';
+			fxRate = withTune(tune, () => caret.draw(ctx, nowMs, f, k, (ms) => this.scheduleAfter(ms), hideRanges)) || 'idle';
 		};
 		if (breath && !isTorch) {
 			ctx.save();
@@ -5046,7 +5167,7 @@ class Plugin extends AppPlugin {
 		}
 		if (this.cfg.sleep) {
 			const tint = caret.tint ? caret.tint(this.dark, theme) : accentCol;
-			this.sleeper.draw(ctx, nowMs, f, tint);
+			withTune(tune, () => this.sleeper.draw(ctx, nowMs, f, tint));
 		}
 		ctx.restore();
 
@@ -5134,14 +5255,21 @@ class Plugin extends AppPlugin {
 			}, { root: host.querySelector('.cfx2-scroll'), threshold: 0.05 });
 		}
 		for (const spec of CARET_SPECS) {
-			const tile = html(`<button class="cfx2-tile" data-caret="${spec.name}"><canvas class="cfx2-tile-cv"></canvas><div class="cfx2-tile-meta"><span class="cfx2-tile-name"></span><span class="cfx2-tile-tag"></span></div></button>`);
+			// the gear is the tile's sibling, not inside it: a button may not hold another
+			const wrap = html(`<div class="cfx2-tilewrap" data-caret="${spec.name}"><button class="cfx2-tile" data-caret="${spec.name}"><canvas class="cfx2-tile-cv"></canvas><div class="cfx2-tile-meta"><span class="cfx2-tile-name"></span><span class="cfx2-tile-tag"></span></div></button><span class="cfx2-gear" role="button" tabindex="0" aria-haspopup="dialog"><i class="ti ti-settings"></i></span></div>`);
+			const tile = wrap.querySelector('.cfx2-tile'), gear = wrap.querySelector('.cfx2-gear');
 			tile.querySelector('.cfx2-tile-name').textContent = spec.label || spec.name;
 			tile.querySelector('.cfx2-tile-tag').textContent = spec.tag || '';
 			tile.onclick = () => this.update({ caret: spec.name });
-			grid.appendChild(tile);
+			gear.setAttribute('aria-label', `Tune ${spec.label || spec.name}`);
+			gear.title = 'Tune colour';
 			const cv = tile.querySelector('canvas');
 			const demo = new CaretDemoTile(spec, cv);
-			this.demoTiles.push({ tile, demo, cv });
+			const toggle = (e) => { e.preventDefault(); e.stopPropagation(); this.toggleTune(spec, wrap, demo); };
+			gear.addEventListener('click', toggle);
+			gear.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') toggle(e); });
+			grid.appendChild(wrap);
+			this.demoTiles.push({ tile, demo, cv, spec });
 			this.demoObserver?.observe(cv);
 		}
 
@@ -5156,7 +5284,7 @@ class Plugin extends AppPlugin {
 		};
 
 		root.addEventListener('mousedown', (e) => {
-			if (document.activeElement === note && e.target.closest('.cfx2-tile, .cfx2-opt, .cfx2-submode, .cfx2-taskdemo')) e.preventDefault();
+			if (document.activeElement === note && e.target.closest('.cfx2-tile, .cfx2-gear, .cfx2-opt, .cfx2-submode, .cfx2-taskdemo')) e.preventDefault();
 		});
 
 		const loopDemos = (now) => {
@@ -5167,7 +5295,7 @@ class Plugin extends AppPlugin {
 			const theme = { accent, text };
 			for (const item of this.demoTiles) {
 				if (this.demoObserver && !visibleSet.has(item.cv)) continue;
-				item.demo.render(now, this.dark, theme, this.cfg.jelly);
+				item.demo.render(now, this.dark, theme, this.cfg.jelly, this.tuneFor(item.spec.name));
 			}
 			this.demoRaf = requestAnimationFrame(loopDemos);
 		};
@@ -5183,6 +5311,7 @@ class Plugin extends AppPlugin {
 		pg.root.querySelector('.cfx2-pill-name').textContent = active.label || active.name;
 		pg.root.querySelectorAll('.cfx2-opt').forEach((b) => b.setAttribute('aria-checked', String(!!this.cfg[b.dataset.key])));
 		pg.root.querySelectorAll('.cfx2-tile').forEach((b) => b.classList.toggle('on', b.dataset.caret === active.name));
+		this.markTuned();
 		const wrap = pg.root.querySelector('.cfx2-subwrap');
 		if (wrap) {
 			const isK = active.name === 'Kawaii', isU = active.name === 'UwU';
@@ -5301,7 +5430,186 @@ class Plugin extends AppPlugin {
 		Object.assign(caret.style, { display: 'block', left: `${r.x - bb.left}px`, top: `${r.y - bb.top}px`, height: `${r.h}px` });
 	}
 
+	// ---- Tune Popup (the gear on each tile) --------------------------------------------
+
+	/** Marks the tiles whose caret is tuned, so their gear stays in sight. */
+	markTuned() {
+		if (!this.page) return;
+		this.page.root.querySelectorAll('.cfx2-tilewrap').forEach((w) => w.classList.toggle('tuned', !!this.cfg.tune[w.dataset.caret]));
+	}
+
+	toggleTune(spec, wrap, demo) {
+		const open = this.tunePop;
+		this.closeTune();
+		if (open && open.spec === spec) return;
+		this.openTune(spec, wrap, demo);
+	}
+
+	closeTune() {
+		const t = this.tunePop;
+		if (!t) return;
+		this.tunePop = null;
+		t.off.forEach((f) => f());
+		t.el.remove();
+		t.wrap.classList.remove('tuning');
+		t.wrap.style.removeProperty('anchor-name');
+		t.gear.setAttribute('aria-expanded', 'false');
+	}
+
+	/**
+	 * A small popup under the gear: the caret's colour in OKLCH (its hues turned, its chroma scaled, its lightness moved,
+	 * each on a slider whose track is drawn in the colours it gives) and its opacity. Changes show at once on the tile and
+	 * on the caret; double-click a slider to put it back, Reset puts all back.
+	 */
+	openTune(spec, wrap, demo) {
+		const pg = this.page;
+		if (!pg) return;
+		const gear = wrap.querySelector('.cfx2-gear');
+		const name = spec.label || spec.name;
+		const el = document.createElement('div');
+		el.className = 'cfx2-pop';
+		el.setAttribute('role', 'dialog');
+		el.setAttribute('aria-label', `Tune ${name}`);
+		el.innerHTML = `<div class="cfx2-pop-head"><span class="cfx2-pop-sw"></span><span class="cfx2-pop-name"></span><button class="cfx2-pop-reset" type="button">Reset</button></div>
+<div class="cfx2-pop-sec">Colour <span>OKLCH</span></div><div class="cfx2-pop-color"></div>
+<div class="cfx2-pop-sec">Fine tune</div><div class="cfx2-pop-fine"></div>`;
+		el.querySelector('.cfx2-pop-name').textContent = name;
+		const bg = resolveBgCol(pg.root, this.dark);
+		el.style.setProperty('--cfx2-pop-bg', cssCol(withAlpha(bg, 1)));
+		const pcs = getComputedStyle(pg.root);   // what it would have inherited inside the page
+		el.style.setProperty('--cfx2-pop-ink', pcs.color);
+		el.style.setProperty('--c2', pcs.getPropertyValue('--c2'));
+		el.style.fontFamily = pcs.fontFamily;
+		document.body.appendChild(el);   // fixed, over the panel, so it is not cut off by the page's scroll box
+
+		// the caret's own colour, which the sliders' tracks start from
+		const accent = parseCssCol(getComputedStyle(pg.root).getPropertyValue('--c2')) || cursorColor(this.dark);
+		const raw = demo.caret.tint ? demo.caret.tint(this.dark, { accent, text: WHITE }) : accent;
+		const [bL, bC0, bH] = colOklch(raw || accent);
+		const bC = Math.max(bC0, 0.06);   // a grey caret still shows hues on the tracks
+		const cur = () => ({ ...TUNE_ID, ...(this.cfg.tune[spec.name] || {}) });
+		const ok = (L, C, H, a = 1) => `oklch(${(clamp01(L) * 100).toFixed(1)}% ${Math.max(0, C).toFixed(3)} ${(((H % 360) + 360) % 360).toFixed(1)} / ${a})`;
+		const now = () => { const t = cur(); return { t, L: bL + t.l, C: bC * t.c, H: bH + t.h }; };
+		const steps = (n, fn) => Array.from({ length: n + 1 }, (_, i) => fn(i / n)).join(', ');
+
+		const sliders = [];
+		const slider = (box, key, label, fmt, track, thumb) => {
+			const [min, max] = TUNE_RANGE[key];
+			const step = key === 'h' ? 1 : 0.01;
+			const row = document.createElement('div');
+			row.className = 'cfx2-sl';
+			row.innerHTML = `<span class="cfx2-sl-name"></span><div class="cfx2-sl-track" role="slider" tabindex="0"><div class="cfx2-sl-mid"></div><div class="cfx2-sl-thumb"></div></div><span class="cfx2-sl-val"></span>`;
+			row.querySelector('.cfx2-sl-name').textContent = label;
+			const tr = row.querySelector('.cfx2-sl-track'), th = row.querySelector('.cfx2-sl-thumb'), val = row.querySelector('.cfx2-sl-val');
+			tr.setAttribute('aria-label', label);
+			tr.setAttribute('aria-valuemin', String(min));
+			tr.setAttribute('aria-valuemax', String(max));
+			const mid = row.querySelector('.cfx2-sl-mid');
+			mid.style.left = `${((TUNE_ID[key] - min) / (max - min)) * 100}%`;   // where the caret's own value is
+			const set = (v, save) => {
+				v = clamp(Math.round(v / step) * step, min, max);
+				if (Math.abs(v - TUNE_ID[key]) < step * 0.5) v = TUNE_ID[key];
+				this.setTune(spec.name, { ...cur(), [key]: v }, save);
+				paint();
+			};
+			const fromX = (x) => { const r = tr.getBoundingClientRect(); return min + clamp01((x - r.left) / r.width) * (max - min); };
+			let dragging = false;
+			tr.addEventListener('pointerdown', (e) => {
+				e.preventDefault();
+				tr.focus({ preventScroll: true });
+				try { tr.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+				dragging = true;
+				tr.classList.add('drag');
+				set(fromX(e.clientX), false);
+			});
+			tr.addEventListener('pointermove', (e) => { if (dragging) set(fromX(e.clientX), false); });
+			const end = (e) => {
+				if (!dragging) return;
+				dragging = false;
+				try { tr.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+				tr.classList.remove('drag');
+				set(cur()[key], true);
+			};
+			tr.addEventListener('pointerup', end);
+			tr.addEventListener('pointercancel', end);
+			tr.addEventListener('dblclick', () => set(TUNE_ID[key], true));
+			tr.addEventListener('keydown', (e) => {
+				const big = e.shiftKey ? 10 : 1, v = cur()[key];
+				const to = { ArrowRight: v + step * big, ArrowUp: v + step * big, ArrowLeft: v - step * big, ArrowDown: v - step * big, Home: min, End: max }[e.key];
+				if (to === undefined) return;
+				e.preventDefault(); e.stopPropagation();
+				set(to, true);
+			});
+			sliders.push(() => {
+				const v = cur()[key];
+				const u = (v - min) / (max - min);
+				th.style.left = `${u * 100}%`;
+				tr.style.background = `linear-gradient(to right, ${track()})`;
+				th.style.setProperty('--cfx2-thumb', thumb ? thumb() : 'transparent');
+				val.textContent = fmt(v);
+				tr.setAttribute('aria-valuenow', String(v));
+				tr.setAttribute('aria-valuetext', fmt(v));
+			});
+			box.appendChild(row);
+		};
+		const color = el.querySelector('.cfx2-pop-color'), fine = el.querySelector('.cfx2-pop-fine');
+		const sign = (v, d) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`;
+		slider(color, 'h', 'Hue', (v) => `${sign(v, 0)}°`,
+			() => { const n = now(); return steps(12, (u) => ok(n.L, Math.max(n.C, 0.1), bH - 180 + 360 * u)); },
+			() => { const n = now(); return ok(n.L, n.C, n.H); });
+		slider(color, 'c', 'Chroma', (v) => `×${v.toFixed(2)}`,
+			() => { const n = now(); return steps(4, (u) => ok(n.L, bC * 2 * u, n.H)); },
+			() => { const n = now(); return ok(n.L, n.C, n.H); });
+		slider(color, 'l', 'Lightness', (v) => sign(v, 2),
+			() => { const n = now(); return steps(6, (u) => ok(bL - 0.4 + 0.8 * u, n.C, n.H)); },
+			() => { const n = now(); return ok(n.L, n.C, n.H); });
+		slider(fine, 'a', 'Opacity', (v) => `${Math.round(v * 100)}%`,
+			() => { const n = now(); return `${ok(n.L, n.C, n.H, 0)}, ${ok(n.L, n.C, n.H, 1)}`; },
+			() => { const n = now(); return ok(n.L, n.C, n.H, n.t.a); });
+
+		const sw = el.querySelector('.cfx2-pop-sw');
+		const paint = () => {
+			const n = now();
+			sw.style.background = ok(n.L, n.C, n.H, n.t.a);
+			sliders.forEach((f) => f());
+			el.querySelector('.cfx2-pop-reset').disabled = !this.cfg.tune[spec.name];
+		};
+		el.querySelector('.cfx2-pop-reset').addEventListener('click', () => { this.setTune(spec.name, null, true); paint(); });
+
+		// Beside the tile: on its right where the screen has room, else on its left; its top on the tile's, or its bottom
+		// on the tile's near the foot of the screen. CSS anchor positioning does it (plugin.css: .cfx2-pop.anchored) and
+		// keeps it there as the page scrolls; without it, the same is worked out here.
+		wrap.style.setProperty('anchor-name', '--cfx2-tune');
+		const anchored = CSS.supports?.('position-anchor: --cfx2-tune') && CSS.supports('position-try-fallbacks: flip-inline');
+		const place = () => {
+			if (anchored) return;
+			const wr = wrap.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight, gap = 10;
+			const vw = window.innerWidth, vh = window.innerHeight;
+			const right = wr.right + gap + w <= vw - 8 || wr.left - gap - w < 8;
+			el.dataset.side = right ? 'right' : 'left';
+			el.style.left = `${right ? wr.right + gap : wr.left - gap - w}px`;
+			el.style.top = `${clamp(wr.top + h <= vh - 8 ? wr.top : wr.bottom - h, 8, Math.max(8, vh - h - 8))}px`;
+		};
+		el.classList.add(anchored ? 'anchored' : 'placed');
+		paint();
+		place();
+
+		const off = [];
+		const on = (t, type, fn, opts) => { t.addEventListener(type, fn, opts); off.push(() => t.removeEventListener(type, fn, opts)); };
+		on(document, 'pointerdown', (e) => { if (!el.contains(e.target) && !gear.contains(e.target)) this.closeTune(); }, true);
+		on(document, 'keydown', (e) => { if (e.key === 'Escape' && this.tunePop?.el === el) { e.stopPropagation(); this.closeTune(); gear.focus(); } }, true);
+		on(window, 'resize', place);
+		if (!anchored) on(pg.root.closest('.cfx2-scroll') || window, 'scroll', place, { passive: true });
+		el.addEventListener('mousedown', (e) => { if (!e.target.closest('.cfx2-sl-track')) e.preventDefault(); });   // the scratch pad keeps its focus
+
+		wrap.classList.add('tuning');
+		gear.setAttribute('aria-expanded', 'true');
+		this.tunePop = { el, spec, wrap, gear, off };
+		requestAnimationFrame(() => el.classList.add('in'));
+	}
+
 	closePage() {
+		this.closeTune();
 		cancelAnimationFrame(this.demoRaf);
 		this.demoRaf = 0;
 		this.demoObserver?.disconnect();

@@ -291,24 +291,35 @@ class Plugin extends AppPlugin {
 		const away = inFocusMode();   // the card hides, and Thymer's rows and sidebar are as they were
 		w.classList.toggle('ach-away', away);
 		if (away) { this.takeOver(null, false); this.setPad(0); return; }
-		const sb = document.querySelector('.panels-grid-sidebar > .sidebar') || document.querySelector('.sidebar'), r = sb && sb.getBoundingClientRect();
+		const sb = document.querySelector('.panels-grid-sidebar > .sidebar') || document.querySelector('.sidebar'), r0 = sb && sb.getBoundingClientRect();
+		// BetterSidebar slides the whole sidebar out and in at its full width (--ssb-w on it while it moves), and closed it
+		// takes no room at all: the card rides along with the rows, and is gone while the sidebar is.
+		const slideW = sb ? parseFloat(sb.style.getPropertyValue('--ssb-w')) || 0 : 0;
+		const closing = !!sb && sb.classList.contains('sidebar-collapsed');
+		const gone = !!r0 && !slideW && r0.width < 20;   // also while Thymer is still building the sidebar, at no width
+		w.classList.toggle('ach-gone', gone);
+		if (gone) { this.takeOver(null, false); this.setPad(0); return; }
+		const r = slideW ? { left: r0.right - slideW, right: r0.right, top: r0.top, width: slideW, height: r0.height } : r0;
 		const ok = r && r.width > 20 && r.height > 100, mini = !!ok && r.width < 150;
 		w.classList.toggle('ach-mini', mini);
-		this.takeOver(r, ok && !mini);
+		// closing, Thymer's rows are already the (hidden) icon strip: leave them be, the copy that slides out has the full list
+		if (!(slideW && closing)) this.takeOver(r, ok && !mini);
 		// the card lines up with the sidebar's rows: the inside of the box Tasks sits in (Tasks itself may share its line, see Home)
 		const tasks = this.native.tasks && this.native.tasks.isConnected ? this.native.tasks : null;
 		let row = null;
-		if (tasks) {
+		if (slideW && this.rowAt) row = { left: r.left + this.rowAt.dl, width: this.rowAt.width };
+		else if (tasks) {
 			const box = tasks.parentElement, br = box.getBoundingClientRect(), cs = getComputedStyle(box);
 			const l = br.left + parseFloat(cs.paddingLeft || 0), r = br.right - parseFloat(cs.paddingRight || 0);
 			row = { left: l, width: r - l };
+			if (!slideW && !mini && ok) this.rowAt = { dl: l - r0.left, width: r - l };
 		}
 		const width = mini ? 46 : row && row.width > 100 ? Math.round(row.width) : ok ? Math.max(150, Math.min(230, r.width - 20)) : 124;
 		if (!mini && w.style.width !== width + 'px') w.style.width = width + 'px'; else if (mini) w.style.width = '';
 		const left = ok ? (row && !mini ? Math.round(row.left) : r.left + 10) : 12, top = ok ? r.top + 8 : 46;
 		if (w.style.left !== left + 'px') w.style.left = left + 'px';
 		if (w.style.top !== top + 'px') w.style.top = top + 'px';
-		this.setPad(ok ? Math.round(w.getBoundingClientRect().height + 14) : 0);
+		if (!(slideW && closing)) this.setPad(ok ? Math.round(w.getBoundingClientRect().height + 14) : 0);
 	}
 
 	/** The room made for the card at the top of the sidebar (0: none). */

@@ -1,210 +1,65 @@
 # thymer-plugins
 
-Personal plugins for [Thymer](https://thymer.com).
+Personal plugins and a theme for [Thymer](https://thymer.com). Each one has its own README with screenshots: click a name.
 
-| Plugin | What it does |
-| --- | --- |
-| [`caret-fx`](plugins/caret-fx) | Animated typing caret: glow, Neovide-style hop and trail, themed presets (Sakura, Autumn, Paper, Lightning, Holy, Prism, Health, Zephyr, Tide, Stitch, and Mizan: a live Stat of your writing pace over the caret, with a gradient button for a caret) with their own effects, plus motion smear, fresh ink, bracket tether and a caret that eats what you delete (ported from Cursor-Smith) |
-| [`achievements`](plugins/achievements) | Mascot: a small 3D knight drawn in plain WebGL in the top-left corner of the sidebar: its head follows the pointer, nods while you type, dozes off when you leave, and salutes when clicked; Thymer's workspace row and Search and Jump to sit under it. It used to come with writing achievements, which are gone |
-| [`digital-garden`](plugins/digital-garden) | Sidebar plant that grows with your daily word count, plus 12 collectible flowers (Common → Legendary) |
-| [`cursor-fx`](plugins/cursor-fx) | Mouse effects in ready-made presets (Frost, Arcane, Festival, Sweetheart, Quiet): a click effect (Arcane casts one of seven spells), a pointer trail and two colours, drawn from particle textures |
-| [`dontspy`](plugins/dontspy) | A lock in every panel's title bar (left of the split-view button) that hides the panel's text from onlookers except around the caret (its word, sentence or paragraph; while typing, only the last letter), in 9 looks (bars, mosaic, matrix, braille, hex, barcode, static, squiggle, marker) in a colour of your choice, with a settings page |
-| [`toolbox`](plugins/toolbox) | A small box with an arrow that floats above the text you select (it shows as soon as there is a selection, goes with it, Escape puts it away); it holds nothing yet, tools are added to a `TOOLS` list |
-| [`calendar-plus`](plugins/calendar-plus) | Thymer's date picker with its days as tiles that fill the grid, the days on which something changed in the workspace tinted in the accent colour (deeper the more changed), and a Today button that brings the calendar to this month and picks today |
-| [`home`](plugins/home) | A dashboard opened from a Home button beside Tasks: a full-width WebGL sky (a nebula, a neural field or a star atlas, in one of six biomes) in which every day you changed something is a star, brighter the more changed, days in a row joined by lines that pass light along; then the last 30 days, today's journal and recently edited pages |
-| [`bookmarks`](plugins/bookmarks) | A collection for saved sites with a view of cards under their category: each with the site's preview image as its cover, its favicon, domain and description, category chips to filter by, and an Add bookmark button whose dialog takes the link and what it is |
-| [`auto-banner`](plugins/auto-banner) | A page without a banner gets a picture drawn in the banner's place on a canvas (nothing is uploaded, the page is not changed): the title is the seed for one of 26 scenes (mountains, a lake, waves, a lighthouse, windmills, snow, rain, a volcano, islands, fireflies, an aurora, a nebula, cherry blossom, a fire lookout, a grass field, a pixel-art grove, ...), each moving a little in a way that belongs to it, in a palette that follows the time of day, in a fine dither or smooth, with clouds of lit puffs and the moon in tonight's phase |
-| [`watercolor-banner`](plugins/watercolor-banner) | Two drawings in pencil and watercolour for every page, drawn from the page (after lucumr.pocoo.org's header and footer). At the top, in place of a missing banner, one of seven scenes (mountains, a coast, a lighthouse at dusk whose beam turns, a meadow with gusts in the grass, a lake whose reflection wavers, a forest in drifting mist, dunes), picked by words in the title or tags or by the seed: one range per #tag in its pigment and form, trees, boats or cacti for tasks (painted in when done, and the more done the fairer the weather), cairns for headings, masts, a pier or a windmill for code, birds for quotes, a fence for lists, snow in winter and yellowed paper for old pages. At the bottom, behind the end of the page and edge to edge, a page of an engineer's sketchbook after lucumr's footer: big pastel washes, large drawings with their construction lines (gears in mesh with centre lines, a neural network, a flask with hatched liquid, a tree of nodes, a letter on its grid with a dimension, a window sketch, a listing, a numbered checklist, a chart, a coiled snake, a cloud, and the geometry studies), small studies, notes in a quick hand and the date, laid out by the title (another layout by command). An empty panel gets a sheet of numbered geometry studies around Thymer's start screen (a prism splitting light, a cube, a globe, a rotation matrix, the golden rectangle, a flow chart, a graph, the flower of life, ...), new every day and transparent so the screen's own background shows. Seeded 2D layers (wash and pencil) go through a WebGL shader for the wet edges, pigment at the rim, granulation and the paper's tooth, and paint in when first seen; on a dark theme the washes are light and the pencil chalk. It reuses the plugin slot BetterSidebar had in Thymer |
-| [`markdown-fix`](plugins/markdown-fix) | Draws what Thymer's Markdown import leaves as plain text: pipe tables become tables (bold, code and alignment kept) and ```` ```mermaid ```` blocks become diagrams, each with a button to show the source again; the notes themselves are not edited |
-| [`hud-sounds`](plugins/hud-sounds) | Short synthesized sounds for what happens in Thymer, from Spaceship IDE's sound board: a task done, a status, a new or deleted line, the command palette and the / and @ menus opening, moving through them and picking a row, another page opened; each panned to where it happens on screen, nothing loaded |
+## Writing and the caret
+
+| | Plugin | What it does |
+| --- | --- | --- |
+| <img src="plugins/caret-fx/images/overview.png" width="200"> | [Caret FX](plugins/caret-fx) | The caret as a coloured block with glow and smear, presets with their own effects (Lightning, Sakura, Prism, Combo, ...), and a settings page to try them on |
+| <img src="plugins/caretfx-v2/images/overview.png" width="200"> | [CaretFx-v2](plugins/caretfx-v2) | 24 carets ported from Ryudit (Slime, Mizan, CRT, Mario, Ink, Lock-on, ...), with live tiles, a colour tuner on each and modifiers |
+| <img src="plugins/cursor-fx/images/overview.png" width="200"> | [Cursor FX](plugins/cursor-fx) | Click effects and pointer trails in five presets (Frost, Arcane, Festival, Sweetheart, Quiet), drawn as WebGL particles |
+| <img src="plugins/dontspy/images/overview.png" width="200"> | [DontSpy](plugins/dontspy) | A lock in each panel's title bar that masks its text from onlookers, in nine looks, except around the caret |
+| <img src="plugins/smart-dates/images/overview.png" width="200"> | [Smart Dates](plugins/smart-dates) | Turkish and English date words in a line become Thymer date tags once the caret leaves the line |
+| <img src="plugins/markdown-fix/images/overview.png" width="200"> | [Markdown Fix](plugins/markdown-fix) | Draws the pipe tables and mermaid blocks that Thymer's Markdown import leaves as plain text, without editing the notes |
+| <img src="plugins/font-loader/images/overview.png" width="200"> | [Font Loader](plugins/font-loader) | Upload font files or pick system or web fonts for Thymer's interface, editor, headings and code |
+| <img src="plugins/toolbox/images/overview.png" width="200"> | [toolbox](plugins/toolbox) | A small box with an arrow above selected text; empty for now, tools are added to a `TOOLS` list |
+
+## Pages, dashboards and the sidebar
+
+| | Plugin | What it does |
+| --- | --- | --- |
+| <img src="plugins/home/images/overview.png" width="200"> | [Home](plugins/home) | A dashboard beside Tasks: a WebGL sky (nebula, neural field or star atlas, in six biomes), the last 30 days, today's journal and recent pages |
+| <img src="plugins/auto-banner/images/overview.png" width="200"> | [Auto Banner](plugins/auto-banner) | Pages without a banner get one of 26 animated scenes, picked by the title, in palettes that follow the time of day; nothing is uploaded |
+| <img src="plugins/watercolor-banner/images/overview.png" width="200"> | [Watercolor Banner](plugins/watercolor-banner) | A pencil-and-watercolour landscape at the top of each page, a sketchbook page at the bottom and geometry studies on the start screen, drawn from the page |
+| <img src="plugins/calendar-plus/images/overview.png" width="200"> | [Calendar Plus](plugins/calendar-plus) | Thymer's date picker with its days as tiles, tinted by how much changed that day, and a Today button |
+| <img src="plugins/bookmarks/images/overview.png" width="200"> | [Bookmarks](plugins/bookmarks) | A collection for saved sites: cards by category with covers and favicons, category chips and an Add bookmark dialog |
+| <img src="plugins/digital-garden/images/overview.png" width="200"> | [Digital Garden](plugins/digital-garden) | A sidebar plant that grows with today's word count, and 12 collectible flowers unlocked by lifetime words |
+| <img src="plugins/achievements/images/overview.png" width="120"> | [Mascot](plugins/achievements) | A small 3D knight at the top of the sidebar that watches the pointer, nods while you type and salutes |
+| | [HUD Sounds](plugins/hud-sounds) | Short synthesized sounds for tasks, lines, menus and page changes, panned to where they happen; nothing loaded |
+
+## Better UI
+
+Restyles of Thymer's own interface as dark tinted cards, made to go together.
+
+| | Plugin | What it does |
+| --- | --- | --- |
+| <img src="plugins/better-code/images/overview.png" width="200"> | [BetterCode](plugins/better-code) | Code blocks with line numbers, a language pill and a Copy button; a quieter start screen with a greeting and the date |
+| <img src="plugins/better-dialogs/images/overview.png" width="200"> | [BetterDialogs](plugins/better-dialogs) | Dialogs, confirmations and settings as dark tinted cards with a soft entrance and glowing buttons |
+| <img src="plugins/better-menus/images/overview.png" width="200"> | [BetterMenus](plugins/better-menus) | The / and @ menus, dropdowns and context menus with coloured icon chips; recently used blocks first |
+| <img src="plugins/better-palette/images/overview.png" width="200"> | [BetterPalette](plugins/better-palette) | The command palette restyled, with your recently used commands listed first |
+| <img src="plugins/better-refs/images/overview.png" width="200"> | [BetterRefs](plugins/better-refs) | Line references, backlink counts, the References section and the backlinks popup as tinted cards and chips |
+| <img src="plugins/better-search/images/overview.png" width="200"> | [BetterSearch](plugins/better-search) | The search panel as tinted cards, with the query's words highlighted in the results |
+| <img src="plugins/better-task/images/overview.png" width="200"> | [BetterTask](plugins/better-task) | Vector task status icons with colours, animations and bursts, subtask progress rings, Alt+click custom statuses and smart task paste |
+| <img src="plugins/better-toast/images/overview.png" width="200"> | [BetterToast](plugins/better-toast) | Toasts as dark tinted cards coloured by kind, stacked by their real height, sliding away when dismissed |
+| <img src="plugins/better-tooltip/images/overview.png" width="200"> | [BetterTooltip](plugins/better-tooltip) | Tooltips as small rounded pills with keyboard chips and a soft spring-in |
+| <img src="plugins/better-views/images/overview.png" width="200"> | [BetterViews](plugins/better-views) | Collection boards, tables, gallery and list cards as tinted cards with chip-style property pills |
+
+## Themes
+
+| | Theme | What it is |
+| --- | --- | --- |
+| <img src="themes/better-dark-paper/images/overview.png" width="200"> | [Better Dark Paper](themes/better-dark-paper) | Thymer's Dark Paper in charcoal night tones, without its green cast, built from Thymer's own CSS |
 
 ## Install a plugin
+
+Most of these are global plugins:
 
 1. In Thymer, create a new **global plugin** (Plugins → New → Global plugin).
 2. Open **Edit Code** and paste the contents of the plugin's `plugin.js` into the code tab.
 3. Paste the plugin's `plugin.css` into the **CSS** tab.
 4. Paste the plugin's `plugin.json` into the **Configuration** tab and save.
 
-## DontSpy
+Some differ: Bookmarks is a collection plugin, and Mascot and Cursor FX are pasted from a built file. Each plugin's README says how it is installed.
 
-A lock in each panel's title bar, left of the split-view button. A locked panel hides what is written in it: the real glyphs are made transparent with the CSS Custom Highlight API (the page's DOM is never touched) and a canvas over the window paints a mask in their place. What stays readable is a window around the caret: its word, sentence or paragraph, or everything; while you type, the word you are typing shows only its last letter, until you move the caret on with the arrow keys or a click (or, if chosen, after a pause).
-
-Looks: Bars, Mosaic, Matrix, Braille, Hex, Barcode, Static, Squiggle and Marker, in the text's own colour or one you pick. Click the lock to lock or unlock a panel; right-click it for quick options. `DontSpy: open settings` opens a page with a locked pad to try it on and a gallery of live samples. Other commands: lock or unlock this panel, lock or unlock all panels, next style. Choices are kept per device. Thymer's editor draws its caret and its selection as layers of their own, so the caret is found from its element and the selection's rectangles are painted again over the masks; selected text stays masked. The page title, sidebar and tabs are not hidden.
-
-## Calendar Plus
-
-Adds to Thymer's date picker wherever it opens (the journal's date popup, dates in properties and in the editor). The days are tiles that fill the grid instead of small numbers far apart; a day on which something changed in the workspace is tinted in the theme's accent colour, in four steps by how much changed, and pointing at it says how many changes. Today has an accent ring, the picked day the accent gradient. A Today button in the header (in place of Thymer's dot) brings the calendar to this month and picks today; picking is Thymer's own click on the day, so what it does stays Thymer's. What changed when is counted like Home counts it (a page on the day it was made, a line on the day it was written and the day it was last changed), read a few seconds after Thymer starts and again when a calendar opens after two minutes. The colours come from the theme's variables, so it fits any theme.
-
-## Mascot
-
-A character card at the top of the sidebar (the plugin is called Mascot in Thymer; its folder keeps its old name, `achievements`, from when it also counted 68 writing achievements, now removed).
-
-The card is a window onto the knight's head (low-poly, drawn with plain WebGL: the head turns to the pointer on its own while the body stays put, and nods while you type; it salutes when Thymer opens and when you click it, the model blending between its idle and salute poses). The portrait has no frame or background: the canvas fades out at the bottom (a CSS mask) and a few wide, faint god rays (a small fragment shader in the same WebGL context) fan down from the top left behind the knight, drifting slowly and shivering a little. It dozes off (head down) after three minutes without a key or pointer move, waking at the first one. Below it sits Thymer's own workspace row, and the card's Search and Jump to buttons press Thymer's own Search and Jump To rows (hidden while the card is on); the sidebar's content is pushed down to make room. In a narrow sidebar only the portrait shows, in Thymer's focus mode the card hides, and on a phone or tablet the plugin stays off. `Mascot: show or hide` hides the card (remembered per device).
-
-To install: paste `achievements.js` (the built plugin, model included) into a new global plugin's code tab and `plugin.css` into its CSS tab. To rebuild after editing `achievements.src.js`: `node build.mjs` (it embeds `knight.json`); with Thymer open and the workspace's MCP access set to readwrite, `python3 tools/costume2thymer/push_thymer.py` writes the build and the CSS into the plugin named Mascot, backing up the live one first.
-
-### Changing the mascot
-
-The knight is made from a [Kozmas](https://www.kozmas.gg) costume by `tools/costume2thymer`, so another costume is one command:
-
-```sh
-python3 plugins/achievements/tools/costume2thymer/costume2thymer.py https://www.kozmas.gg/costumes/proto-blade --push
-```
-
-It reads the costume's pieces from the page and downloads them (into the git-ignored `tools/costume2thymer/.cache/`), rebuilds the knight's skeleton and poses in headless Blender, writes `knight.json`, builds `achievements.js` and pushes it to Thymer through the desktop app's MCP server (backing up the live plugin first). Without `--push` it stops after writing `knight.json`; `--build` also builds. See `tools/costume2thymer/README.md`.
-
-## Digital Garden
-
-A sidebar plant grows with every word you write today and blooms with every task you finish. Hit the daily goal to keep a streak.
-
-Click the word counter in the status bar (or run `Daily Garden: open flower collection`) to open the collection. Flowers unlock by **lifetime words written**:
-
-| Rarity | Flowers (words) |
-| --- | --- |
-| Common | Daisy (100), Dandelion (300), White Clover (600) |
-| Uncommon | Tulip (1,200), Hibiscus (1,800), Sunflower (2,500) |
-| Rare | Lavender (5,000), Poppy (8,000) |
-| Epic | Orchid (15,000), Lotus (25,000) |
-| Legendary | Celestial Rose (50,000), Moonflower (100,000) |
-
-Click an unlocked flower to plant it in the sidebar garden. Progress is stored in the app's local storage, so it is per device. Thresholds live in the `FLOWERS` list at the top of `plugin.js`.
-
-The sidebar plant is hidden by default. Run `Daily Garden: toggle sidebar plant` to show or hide it; the choice is remembered on this device (the app's local storage). Without a choice, `"showSidebar": true` under `custom` in the plugin's Configuration JSON shows it. Word counting, the status bar counter and the collection work either way.
-
-Other commands: `Daily Garden: set daily word goal`, `Daily Garden: reset today's plant` (does not touch the collection).
-
-## Caret FX
-
-The caret itself takes your chosen color, even when you are not typing, and reacts while you type:
-
-- **Glow** – a soft halo opens round the caret on each keystroke (taller than wide, hugging the caret) and the caret flares for an instant
-- **Bounce** – caret hops with a damped spring
-- **Trail** – a comet ribbon the caret draws behind itself: the caret's full height where it is, narrowing and fading toward where it was, fluttering a little as it goes; it follows the caret along the line (typing, a word skipped with the arrow keys, a click farther on) reaching a few letters back (`trailReach`, in caret heights), a new line or a click elsewhere is one short-lived sweep that collapses toward the caret, and it fades within a second (`trailMs`). When the page scrolls it goes along with the text
-
-### Effects from Cursor-Smith
-
-Four more effects are ported from [Cursor-Smith](https://github.com/Sadsnake1/cursor-smith) by Sadsnake1, an Obsidian plugin (MIT). They are off until you choose them on the `Caret FX: open settings` page: Motion smear and Bracket tether are switches there, the other two are Special presets (one at a time, like Lightning).
-
-- **Motion smear** (a switch on the settings page) – the caret stretches as it moves and snaps back when it arrives, on a spring, to another line as well as along one. While you type, only its tail trails.
-- **Fresh ink** (Special preset) – the letters you just typed stay wet in the caret color and dry into the text over a second or two.
-- **Bracket tether** (a switch on the settings page, off until chosen, and it works alongside any preset) – the span between the matching brackets or quotes around the caret is marked in the style of the preset: a highlight behind the whole of it and what the preset does in it, always faint enough to read through. Colors and Fresh ink: a highlighter with a rule and a tick at each end. Lightning: a faint blue glow, and every second or two a bolt comes down into it - the highlight and the rule blaze white-blue, a second weaker flash follows - and the letters are struck outward from where it landed. Sakura, Autumn, Paper: a tint and a rule, now and then a petal or a leaf comes away and falls through the letters. Holy: a golden glow, glints twinkling all through it and a light passing over the letters. Prism: holographic foil behind it - pastel bands of aqua, lavender, pink, peach, yellow and mint sliding diagonally, a silver sheen sweeping over them - letters catching the light here and there, and a foil rule. Health: a green glow, pluses rising out of it. Zephyr: a gust sweeping over it, wisps of wind that end in curls along its edges, leaves carried along, and the letters in the gust really lean to the right and come back (the letters of the span are made transparent where they are, by a highlight in the plugin's CSS, and drawn on the canvas instead - upright in still air, slanted in the gust, which reads the span in order, line after line). Tide: under water - a blue tint that deepens toward the bottom of each line, a slow ripple of light passing over it and a quiet wave for a rule. Slime: swallowed by a jelly with a wobbling edge, a gloss, bubbles and drops. Combo: in the color of the rank, sparks rising, letters glowing from rank B. Back-man: a yellow wash and a plain rule. It follows a span that wraps onto more lines.
-- **Back-man** (Special preset) – while Backspace or Delete eats text, the caret becomes a little creature that takes one bite per letter and gulps it down. A word or a selection is one big bite.
-
-Their settings go under `custom` in the Configuration JSON, all optional:
-
-```json
-{
-  "smear": false,
-  "smearStiffness": 0.6,
-  "smearTrailingStiffness": 0.4,
-  "smearDamping": 0.8,
-  "inkMs": 1500,
-  "inkStrength": 0.8,
-  "tetherStrength": 0.35
-}
-```
-
-The plugin SDK has no caret, selection or text-layout API, so Fresh ink, Bracket tether and Back-man read the caret's line from the DOM: what was typed or deleted is worked out by comparing the line before and after each key.
-
-### The settings page
-
-Run `Caret FX: open settings` from the command palette: it opens a page in the panel you are working in, the way a note opens. On it:
-
-- **Try it** – a scratch area to type in, where the caret and its effects run for real (skip words, press Enter, delete something); what you type there is kept on this device
-- **Colors** – plain presets: Amber, Sunset, Rose, Violet, Ice, Ocean, Mint, Lime, Mono
-- **Special** – presets that bring their own effect:
-
-  | Preset | Effect |
-  | --- | --- |
-  | Lightning | blue crackles jump off the caret now and then while typing, and a bolt strikes when the caret changes line, with a flash where it lands |
-  | Sakura | pink petals drift off the caret; a new line shakes a few loose at once |
-  | Autumn | orange and red leaves fall, likewise |
-  | Paper | green leaves fall, likewise |
-  | Fresh ink | what you type stays wet in the caret color, then dries (see above) |
-  | Back-man | the caret eats what Backspace and Delete take (see above) |
-  | Holy | tiny golden star glints (a couple of pixels) twinkle slowly on and around the caret, in place, like light catching a gem, and the caret keeps glinting for a moment after you stop |
-  | Prism | a burst of light through glass: every letter flashes on the caret with a thin lens streak that runs through the colors of holographic foil (aqua, lavender, pink, peach, yellow, mint) round a white heart, and a pink lens-orb, and flings chunky glowing stars in those same pastels (some aqua ones with tails) that slow down, spin and fade, with pearly embers drifting among them; a new line or a jump is a big burst |
-  | Health | tiny glowing pluses, a few pixels across like Holy's glints, rise slowly out of the caret as you write, each with a short trail of light behind it, and a soft glow opens on the caret; in the preset's greens, or a red cross if you pick red colors |
-  | Zephyr | an anime-style wind skill: pointed, cel-shaded leaves are swept up round the caret and off behind it, fluttering, while thin speed lines streak back from the caret; a new line or a jump is a full gust |
-  | Tide | a stylized water skill: every letter flicks a small spray of teardrops (round head, tapering tail, white glint) out of the caret to arc up and fall back, and now and then a bubble drifts up and pops; a new line or a jump is a big splash |
-  | Combo | typing as a game: every letter in a run adds one to a counter above the caret that follows it on a spring, rolls its digits as they change and pops with each hit; it runs down if you pause (a bar under it flashes red when the run is nearly out). A new mark (NICE, GREAT, SUPER, ULTRA at 10, 25, 50, 100) sends a shockwave out from the caret, bursts into sparks and earns a rank letter (C, B, A, S) that stays beside the counter; the caret itself changes color with the count - red from 10, orange from 25, blue from 50, white-hot blue from 100 - and throws streaks of sparks and drifting embers, more of them the higher you go. A broken run of ten or more shatters and its pieces fall |
-
-  Holy, Prism, Health, Zephyr and Tide answer writing, not deleting.
-
-- **Effects** – seven switches: **Block cursor** (a box the width of the letter instead of the line caret), **Motion smear**, **Trail**, **Bounce**, **Sleepy caret** (after a while without writing - `sleepAfterMs`, 15000 - the caret sinks, dims and breathes, little z's float up from it, and any key or move wakes it with a stretch), **Confetti** (a task ticked off by a click or a key bursts into confetti from its checkbox - `confettiCount`, 46) and **Bracket tether** (see above). Sleepy caret, Confetti and Bracket tether are off until switched on
-- **Intensity** – a slider from 0.3× (subtle) to 2× (intense); it also scales petals, leaves, crackles, glints, prism stars and pluses
-
-Other commands: `Caret FX: next preset` cycles through every preset.
-
-What you choose on the page and with the commands (preset, switches, intensity) is remembered per device, in the app's local storage, and wins over the Configuration JSON, which is the place for defaults and tuning under `custom`:
-
-```json
-{
-  "color": "#ffb929",
-  "accent": "#ff3b1f",
-  "fx": null,
-  "bounce": true,
-  "trail": true,
-  "trailMs": 900,
-  "trailReach": 3,
-  "intensity": 1
-}
-```
-
-`fx` is `null`, `"lightning"`, `"sakura"`, `"autumn"`, `"paper"`, `"ink"`, `"backman"`, `"holy"`, `"prism"`, `"health"`, `"zephyr"`, `"tide"`, or `"combo"`; `style` is `"line"` or `"block"`; choosing a preset in the dialog sets it for you. Holy, Prism, Zephyr and Tide have a setting each, `"holySize"`, `"prismStrength"`, `"zephyrSize"` and `"tideSize"` (1 is normal).
-
-### How it works
-
-Thymer draws its caret as the left border of `div.listview-caret-self`, colored by the `--ed-caret-self-fg` CSS variable, so the plugin only overrides that variable and `caret-color` (inputs and modals). Effects are drawn on a transparent canvas above the app, and nothing in the editor's DOM is modified.
-
-### Credits
-
-The trail and lightning are Canvas 2D re-implementations of the Ghostty cursor shaders `cursor_blaze` (based on [this gist](https://gist.github.com/chardskarth/95874c54e29da6b5a36ab7b50ae2d088)) and `cursor_lightning`. Finding Thymer's caret element and variables, and measuring carets in inputs, follows the approach in [akaready/thymer-cursor-tweaks](https://github.com/akaready/thymer-cursor-tweaks).
-
-Motion smear, Fresh ink, Bracket tether and Back-man are ported from [Sadsnake1/cursor-smith](https://github.com/Sadsnake1/cursor-smith) (MIT, version 1.8.1) and adapted to Thymer's editor. Cursor-Smith's copyright and license notice are kept at the top of `plugin.js`, and each effect names the files it follows.
-
-## Cursor FX
-
-Effects for the mouse, in presets made to go together: each puts a click effect, a trail behind the pointer (a comet, fairy dust, or none), a size and two colours (a main one and an accent some parts take). Frost (a ripple, a comet), Arcane (one of seven spells each click: pentagram, heptagram, compass, nova, twin rings, vortex, sun sigil), Festival (fireworks), Sweetheart (hearts) and Quiet (a small ripple). The spells come in a shuffled order, never the same twice running. Pick a preset in `Cursor FX: choose preset…` (picking it plays it); `Cursor FX: next preset` and `Cursor FX: turn on or off` work from the command palette. The choice is kept per device.
-
-Everything is drawn from small grayscale CC0 textures (Kenney's Particle Pack and a Screaming Brain Studios noise, see `fx/LICENSE.md`) as instanced WebGL particles on one canvas that clicks pass through; it draws only while something is alive. On a dark theme the light adds up; on a light theme the colour is darkened and painted. It stays off on phones and tablets and with reduced motion.
-
-To install: paste `cursor-fx.js` (the built plugin, textures included) into a new global plugin's code tab and `plugin.css` into its CSS tab. To rebuild after editing `cursor-fx.src.js`: `node build.mjs`.
-
-## Home
-
-A dashboard of your own. A Home button sits beside Tasks in the sidebar (a copy of Thymer's Tasks row, so it looks the same; the two share the line, and stack when the sidebar is collapsed), and `Home: open` works from the command palette. Home opens in the panel you are working in, without the panel's title bar (it comes back when the panel shows something else).
-
-Its header, across the whole top of the panel, is deep space drawn with WebGL, in which every day on which something changed in the workspace is a star, bigger and brighter the more changed that day, the brightest with four diffraction spikes; days in a row are joined by soft lines along which pulses of light run from the older day to the newer, like data being sent. Today's star has a ring that breathes; pointing at a star tells its date and how much changed. A picker in the sky's corner chooses its shape:
-
-- **Nebula** – close in front of a cloud of glowing gas in layers at different depths, bright ionised hearts, dark dust drifting in front; the camera slides slowly along it (the near layers pass the far ones), from today's end to the oldest and back. The days are young stars on a stream that winds through it.
-- **Neural** – a living field of glowing filaments, like a nervous system, across the whole sky (a port of [zozuar's shader](https://twitter.com/zozuar/status/1625182758745128981), on Shadertoy as [mlBXRK](https://www.shadertoy.com/view/mlBXRK)), in the biome's colours; the days are points scattered over it, the oldest at the left, and each lights up as a filament passes it.
-- **Star atlas** – a flat chart on deep blue paper, gas drifting behind it, with a fine grid and the dashed ecliptic; every week is a constellation labelled with its number and month. It pans slowly from today to the oldest week and back.
-
-and its biome, the colours any shape is drawn in: Nebula, Ember, Aurora, Ice, Gold or Abyss. The page follows the panel's width (not the window's): in a narrow panel the sky's centrepiece moves to the middle and the cards stack. Under the header: a bar for each of the last 30 days, today's journal, and the pages edited last. `Home: next sky shape` and `Home: next biome` work from the command palette; the shape and the biome are kept per device.
-
-What changed when is read from the workspace when Home opens (again after two minutes): a page counts on the day it was made, a line on the day it was written and the day it was last changed. Lines written while Home is open brighten today's star. Off on phones and tablets.
-
-To install: paste `plugin.js` into a new global plugin's code tab and `plugin.css` into its CSS tab.
-
-## Bookmarks
-
-The code of a **collection** (not a global plugin) for saved sites, with fields URL (url), Description (text) and Category (choice, one per bookmark). Its Bookmarks view lays them out as cards, one section per category in the order the Category field lists them: the record's banner is the card's cover, fading into the card (without one, a cover drawn for the site: soft shapes placed by its domain, ordered-dithered in the category's colour), then the favicon and the title on one line (the favicon is the title's initial when the site has none at `/favicon.ico`), the domain when the title does not already say it, and two lines of description. Each card takes the most vivid colour of its cover (or the category's, for a cover with little colour): it is tinted with it, and its edge takes it under the pointer. A click opens the site; the page button in the cover's corner, or a Cmd/Ctrl-click, opens the record in the other panel, and the trash button beside it (both show under the pointer) asks in a small dialog, with Cancel focused, before moving the bookmark to Thymer's trash. A chip per category, with its count, shows only that category; Thymer's own search bar above the view filters the cards.
-
-The Add bookmark button beside the chips (or `Bookmarks: add bookmark`) opens a dialog: the link (a link on the clipboard is filled in; the site's favicon appears beside it) and what it is, one tile per category with Other among them. Nothing is saved until both are given, so a bookmark never lands in Other by accident; the chosen chip, if any, is the tile chosen beforehand, and the button says where it goes ("Add to Dev"). Esc or a click outside closes it, Cmd/Ctrl+Enter adds, the arrow keys move between the tiles. The page is read for its title, description and preview image, which become the record's title, Description and banner, but most sites do not let a page in Thymer read them (CORS), and then the bookmark is saved with its domain as the title and no cover. A link already saved is not added twice.
-
-To install: create a collection, open **Edit as Code**, paste `plugin.json` into the Configuration tab (it holds the fields, the custom view and the Gallery, Table and List views), `plugin.js` into the code tab and `plugin.css` into the CSS tab.
-
-## Auto Banner
-
-A page without a banner of its own gets a picture at the top, in the banner's place, drawn from its title on a canvas while the page is shown. Nothing is generated into the workspace: no image is uploaded and the page is not changed, so turning the plugin off leaves every page as it was, and a page with a banner (its own or its collection's) keeps showing that. The title is the seed: which of the 26 scenes comes is left to chance, but the same title always gives the same one.
-
-The scenes, and how each moves: mountains (clouds drift, fog drifts between the ridges, birds now and then cross), hills, the sea (the sun shimmers on the water, a sail bobs on), a lake (its reflection wavers), waves (the rows roll in, the nearer the faster), dunes (sand blows off the crests), buttes and saguaros (a hawk circles), a sea of clouds (its banks drift), a forest in fog, a skyline (windows go on and off, an aeroplane blinks across), a synthwave grid (the floor runs towards you), a contour map (the sun goes slowly round it), an aurora (it folds), a nebula (stars twinkle, a shooting star passes), cherry blossom (branches sway, petals fall), flow lines (sparks run along them), a lighthouse (its beams sweep), windmills (the lattice sails turn), a snowed village (snow falls, chimneys smoke), rain (puddles ring, lightning far away), a volcano (smoke billows from it, embers are thrown up), palm islands (fronds sway) and fireflies (they wander and blink). Three are drawn in flat tones with crisp edges: a fire lookout among ranges of mountains and firs cut out of paper, each range paler the farther it is, its wires running down to poles (its lamp flickers at night); tall grass under towering clouds, like a still from an animated film (gusts run across it and turn its light side up, plumes nod, light flickers on the near grass); and a grove as pixel art, firs and bushes in clumps of leaves lit on the sun's side over meadows in flat bands (the trees sway). They were added later and take their share of the pages by a draw of their own, so the other pages keep the scene they had. It runs at 10 to 20 frames a second, dithered on the GPU (about a millisecond a frame), and stops while the strip is out of sight, the app is in the background or the system asks for reduced motion.
-
-The clouds are heaps of round puffs and long thin bands, each puff lit on the side the light comes from, with a dark seam where it meets the next, a flat shaded underside and a bright rim: white by day, warm underneath from a low sun at dawn and dusk, dark with a silver edge by the moon at night, grey in a storm. They turn their lit side to the sun as they pass it and sink into shadow away from it. The sea of clouds is banks of the same puffs, and the rain's sky a low ceiling of them hanging upside down. At night the moon is in tonight's phase, its seas on it and the rest of the disc faint in earthshine. The windmills are smock mills with a gallery, a cap and lattice sails, over polders with poplars, ditches and tulip rows; the volcano's smoke billows in shaded puffs, lit red from below.
-
-The palette follows the time of day (dawn, day, dusk, night): one of the scene's palettes that suits the hour, so a page shows the same scene at noon and at night, in other colours. The strip takes a banner's height while it shows a picture; the picture follows the title once it settles and the panel's width.
-
-Commands: `Auto Banner: another picture for this page` (another seed, kept on this device), `Auto Banner: back to this page's own picture`, `Auto Banner: switch between dither and smooth`, `Auto Banner: motion on or off`, `Auto Banner: follow the time of day or not`, `Auto Banner: turn on or off` (all kept per device). Under `custom` in the Configuration: `"exclude": ["Journal"]` skips collections by name, `"style": "smooth"` sets the default style.
-
-`preview.html` draws the scenes outside Thymer with `plugin.js` as it is (serve the `plugins` folder, e.g. `python3 -m http.server -d plugins`, and open `/auto-banner/preview.html`): every scene or one, in its own palettes or all of them, at a time or playing, with the moon in any phase.
+The screenshots were taken outside Thymer, with each plugin's own code and CSS running on a copy of Thymer's page and stylesheet with made-up content.

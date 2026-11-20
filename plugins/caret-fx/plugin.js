@@ -9,12 +9,18 @@
  * Backspace and Delete take) - are ported from Cursor-Smith by Sadsnake1
  * (https://github.com/Sadsnake1/cursor-smith, MIT License). See THIRD-PARTY NOTICE below.
  * They are off until chosen on the "Caret FX: open settings" page: Motion smear is a switch there (with the block
- * cursor); Fresh ink, Bracket tether and Back-man are special presets, like Lightning and the falling petals.
+ * cursor), and so is Bracket tether; Fresh ink and Back-man are special presets, like Lightning and the falling petals.
  *
- * Five special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
+ * Seven special presets are original to this plugin, with colors of their own like Sakura and Lightning: Holy
  * (tiny star glints that twinkle on the caret, like a gem), Prism (two crescents of spectrum flanking the caret, light
  * through a lens), Health (tiny pluses rising out of the caret as you write, each with a trail of light, as if you were gaining health) and Zephyr (an anime-style wind skill: speed lines and leaves swept up round the caret) and Tide
- * (a stylized water skill: sprays of teardrops and drifting bubbles). Pick them on the "Caret FX: open settings" page under Special.
+ * (a stylized water skill: sprays of teardrops and drifting bubbles), and Stitch (a running stitch sewn under the line
+ * as you write, in the caret's color), and Mizan (a small Mizan Stat over the caret as you
+ * write - a live sparkline of your pace, words a minute and a change badge, a border beam running round it - and a
+ * raised pill gliding on a spring when the caret jumps). Pick them on the "Caret FX: open settings" page under Special.
+ *
+ * Two more are switches like Motion smear: Sleepy caret (the caret dozes off when you stop writing, z's floating up,
+ * and wakes with a stretch) and Confetti (a task ticked off bursts into confetti from its checkbox). Both start off.
  *
  * Scope: the Thymer editor only. The plugin follows Thymer's own caret element
  * (div.listview-caret-self) and never touches the command palette, rename fields,
@@ -84,12 +90,11 @@ const PRESETS = [
 
 // The switches on the settings page, in its order: [key, label, caption]. 'style' is the block cursor (cfg.style is
 // 'block' when on); every other key is the id of an 'always' effect. An effect here has no toggle command of its own.
-// (Fresh ink, Bracket tether and Back-man are not here: they are special presets, one at a time like Lightning.)
+// (Fresh ink and Back-man are not here: they are special presets, one at a time like Lightning.)
 const PAGE_SWITCHES = [
-	['style', 'Block cursor', 'A box the width of the letter'],
-	['smear', 'Motion smear', 'Stretches as it moves, snaps back'],
-	['trail', 'Trail', 'A comet ribbon behind the caret'],
-	['bounce', 'Bounce', 'A hop on every letter'],
+	['sleep', 'Sleepy caret', 'Dozes off when you stop writing'],
+	['confetti', 'Confetti', 'A burst when you tick off a task'],
+	['tether', 'Bracket tether', 'A line under the span between matching brackets or quotes'],
 ];
 
 // The settings page
@@ -151,9 +156,12 @@ const lightVariant = (hex) => {
 	return hsvToHex({ h: c.h, s: Math.min(1, c.s * 1.15 + 0.1), v: c.v * 0.62 });
 };
 
-/** Thymer marks the theme on <html>/<body>; fall back to the body background luminance. */
+/** Thymer marks the theme on <html> (is-dark / is-light; theme-dark / theme-light on older builds); fall back to the
+ * body background luminance. (A custom theme may leave the body transparent, so the classes come first.) */
 function isDarkTheme() {
 	const h = document.documentElement.classList, b = document.body.classList;
+	if (h.contains('is-dark')) return true;
+	if (h.contains('is-light')) return false;
 	if (h.contains('theme-dark') || b.contains('theme-dark')) return true;
 	if (h.contains('theme-light') || b.contains('theme-light')) return false;
 	const m = (getComputedStyle(document.body).backgroundColor || '').match(/[\d.]+/g);
@@ -372,7 +380,11 @@ function lineEdit(before, after, caret) {
 //   - onSample(plugin, cur, info): after every look at the caret, moved or not, with cur null when there is no caret;
 //     info = { typed, moved, now }. For effects that watch the text (what was typed, what is bracketed).
 //   - onKey(plugin, e, now): on a keydown in the editor, before the editor has acted on it (the DOM is still as it was).
+//   - onTaskDone(plugin, box, now): a task was ticked off by a click or a key; box = { x, y, w, h } of its checkbox on screen.
+//   - onDrop(plugin): the effect is switched off or the plugin unloads (keepsState effects): clear timers it set.
 //   - onPulse(plugin, rect, now): optional; a gentle "show the current look" trigger (theme/config change).
+//   - caretCss(plugin): optional (signature); CSS for the line caret while the preset is on, added after its color
+//     (div.listview-caret-self is Thymer's caret, div.cfx-pcaret the settings page's). Not used with the block cursor.
 //   - onShift(plugin, dx, dy, now): optional; the page scrolled under a still caret, which moved by (dx, dy) on screen
 //     without moving in the text. An effect that keeps screen positions (the trail's path) moves them along; it is not a move.
 //   - draw(plugin, ctx, item, p, k, now, dt): p = progress 0..1, k = intensity, dt = ms since last frame.
@@ -478,180 +490,7 @@ EFFECTS.glow = {
 	},
 };
 
-// ---- Effect: Bounce (neovide-ish hop: a caret-sized ghost jumps up and settles with a damped spring) ----
-EFFECTS.bounce = {
-	id: 'bounce', label: 'Bounce', mode: 'always', defaults: {}, blend: 'lighter',
-	onMove(plugin, prev, cur, info) {
-		if (!info.typed) return;
-		plugin.items = plugin.items.filter((i) => i.effect !== 'bounce');
-		plugin.items.push({ effect: 'bounce', t0: info.now, dur: 260 });
-	},
-	draw(plugin, ctx, item, p, k) {
-		const rect = plugin.last;
-		if (!rect) return;
-		if (!plugin.dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing
-		const spring = Math.exp(-4 * p) * Math.sin(p * Math.PI * 2.5); // starts at the caret, no ghost
-		const lift = -rect.h * 0.42 * k * spring;
-		const stretch = 1 + 0.35 * spring * k;
-		const a = (1 - p) * 0.75 * Math.min(1, Math.abs(spring) * 3);
-		ctx.fillStyle = rgba(plugin.col(), a);
-		ctx.shadowColor = rgba(plugin.col(), a);
-		ctx.shadowBlur = 10 * k;
-		ctx.fillRect(rect.x - 0.5, rect.y + lift - (rect.h * (stretch - 1)) / 2, rect.w + 1, rect.h * stretch);
-		ctx.shadowBlur = 0;
-	},
-};
 
-// ---- Effect: Trail (a comet ribbon the caret draws behind itself) ----------------------------------------------------
-// The caret's path is kept for a moment and drawn as one ribbon: the caret's full height where it is now, narrowing to a
-// point and fading toward where it was, never taller than the caret, a soft halo in the accent color round it and a bright
-// thread down its middle. The
-// tail flutters a little as it fades, like a ribbon let go in the air. Typing draws it out letter by letter behind the
-// caret, and so does any move along the line (a word skipped, a click farther on); a move to another line (Enter, a click
-// elsewhere) is one sweep, short-lived, that collapses toward where the caret landed. A line up or down by arrow key lets
-// go of the ribbon, which fades where it is. When the page scrolls the ribbon goes along with the text.
-// Settings: trailMs (how long the ribbon lingers; 900 is normal), trailReach (how far back it reaches while typing, in caret
-// heights; 3 is normal - a sweep keeps its whole length), trailMinWidths (a move farther than this many caret
-// heights is a jump).
-const TRAIL_PIECE_PX = 9;     // the ribbon is drawn in pieces about this long, each with its own width and fade
-const TRAIL_MAX_PTS = 160;    // the most points of the path kept
-const TRAIL_EDGE_PX = 1.5;    // half the width of a stretch that runs straight up or down (it has no caret height to spread over)
-const TRAIL_HOLD = 0.35;      // the share of its time a piece of the ribbon stays at full strength before it eases away
-const TRAIL_END = 0.72;       // from this share of a ribbon's reach back, its tail eases out to nothing
-const TRAIL_SWEEP = 0.55;     // a sweep (to another line) lives this share of the ribbon's time: a flash of a blaze, not a stripe left on the page
-
-/** How long the ribbon lingers, from the settings. */
-const trailDur = (plugin) => clamp(Number(plugin.cfg.trailMs) || 900, 200, 5000);
-
-/** The item that holds the path of `host` (the plugin, or a preview host). */
-function trailOf(host) {
-	const item = host.ensureItem('trail');
-	if (!item.pts) { item.pts = []; item.broken = false; item.attached = false; }
-	return item;
-}
-
-/** A point of the path: the caret's left edge and middle, its height, when it was there; `gap` begins a new ribbon there. */
-const trailPoint = (r, t, gap) => ({ x: r.x + 1, y: r.y + r.h / 2, h: r.h, t, gap });
-
-/**
- * One ribbon of the path (two points or more, oldest first), resampled into short pieces. Each piece has its own half
- * height - the caret's at the head, down to nothing at the tail, by its age and by how far back along the ribbon it is -
- * its own fade, and its own flutter, a wave that grows toward the tail as the ribbon ages. Its edge runs up and down over
- * the caret's height where the ribbon runs along the line, and a little sideways where it runs up or down the page.
- * Three passes: the halo, the body, the thread.
- */
-function drawRibbon(ctx, ribbon, now, dur, reach, K, col, acc, core) {
-	const nodes = [];
-	for (let a = 0; a + 1 < ribbon.length; a++) {
-		const p = ribbon[a], q = ribbon[a + 1], n = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / TRAIL_PIECE_PX));
-		for (let s = a ? 1 : 0; s <= n; s++) { const f = s / n; nodes.push({ x: lerp(p.x, q.x, f), y: lerp(p.y, q.y, f), h: lerp(p.h, q.h, f), t: lerp(p.t, q.t, f) }); }
-	}
-	const last = nodes.length - 1;
-	let L = 0;
-	for (let a = last; a >= 0; a--) { if (a < last) L += Math.hypot(nodes[a + 1].x - nodes[a].x, nodes[a + 1].y - nodes[a].y); nodes[a].d = L; }   // the way back from the head
-	const span = Math.min(Math.max(L, nodes[last].h * 2), reach);   // a short ribbon (a letter or two) is hardly tapered at all; a long one is cut to its reach
-	for (let a = 0; a <= last; a++) {
-		const n = nodes[a], u = clamp01((now - n.t) / dur), s = Math.min(1, n.d / span);
-		const f = u < TRAIL_HOLD ? 1 : 1 - smoothStep((u - TRAIL_HOLD) / (1 - TRAIL_HOLD));   // full for a while, then eased away
-		n.hh = n.h * 0.46 * (0.08 + 0.92 * Math.sqrt(f) * Math.pow(1 - s, 0.7));   // a little inside the caret's height at the head
-		n.a = f * (1 - 0.5 * s) * (s < TRAIL_END ? 1 : 1 - smoothStep((s - TRAIL_END) / (1 - TRAIL_END)));   // and out to nothing at the end of its reach
-		n.yy = n.y + Math.sin(now * 0.012 + n.d * 0.08) * n.h * 0.18 * Math.min(1, u * 1.5) * s;
-		const b = nodes[Math.min(last, a + 1)], c = nodes[Math.max(0, a - 1)], dx = b.x - c.x, dy = b.y - c.y, len = Math.hypot(dx, dy);
-		let nx = 0, ny = 1;
-		if (len > 1e-6) { nx = -dy / len; ny = dx / len; if (ny < 0 || (ny === 0 && nx < 0)) { nx = -nx; ny = -ny; } }   // always the same side up, so a ribbon that turns back never twists
-		n.ex = nx * TRAIL_EDGE_PX; n.ey = ny;
-	}
-	const quad = (p, q, wp, wq, m) => {
-		ctx.beginPath();
-		ctx.moveTo(p.x - p.ex * m, p.yy - p.ey * wp); ctx.lineTo(q.x - q.ex * m, q.yy - q.ey * wq);
-		ctx.lineTo(q.x + q.ex * m, q.yy + q.ey * wq); ctx.lineTo(p.x + p.ex * m, p.yy + p.ey * wp);
-		ctx.closePath();
-		ctx.fill();
-	};
-	for (let a = 0; a < last; a++) {   // the halo, wide and faint
-		const p = nodes[a], q = nodes[a + 1], al = (p.a + q.a) / 2;
-		if (al < 0.01) continue;
-		ctx.fillStyle = rgba(acc, 0.18 * al * K);
-		quad(p, q, Math.min(p.hh * 1.25 + 0.5, p.h / 2), Math.min(q.hh * 1.25 + 0.5, q.h / 2), 2.2);   // never taller than the caret
-	}
-	for (let a = 0; a < last; a++) {   // the body
-		const p = nodes[a], q = nodes[a + 1], al = (p.a + q.a) / 2;
-		if (al < 0.01) continue;
-		ctx.fillStyle = rgba(col, 0.52 * al * K);
-		quad(p, q, p.hh, q.hh, 1);
-	}
-	ctx.lineWidth = 1;
-	ctx.lineCap = 'butt';
-	for (let a = 0; a < last; a++) {   // the thread
-		const p = nodes[a], q = nodes[a + 1], al = Math.pow((p.a + q.a) / 2, 1.6) * 0.9 * K;
-		if (al < 0.01) continue;
-		ctx.strokeStyle = rgba(core, al);
-		ctx.beginPath(); ctx.moveTo(p.x, p.yy); ctx.lineTo(q.x, q.yy); ctx.stroke();
-	}
-}
-
-EFFECTS.trail = {
-	id: 'trail', label: 'Trail', mode: 'always',
-	defaults: { trailMinWidths: 1.5, trailMs: 900, trailReach: 3 },
-	blend: 'lighter',
-	onMove(plugin, prev, cur, info) {
-		const item = trailOf(plugin), dur = trailDur(plugin), pts = item.pts, now = info.now;
-		const sameLine = Math.abs(info.dy) < cur.h * 0.6, far = info.dist > cur.h * plugin.cfg.trailMinWidths;
-		if (sameLine) {
-			// Along the line the ribbon simply follows the caret - a letter typed, a word skipped with the arrow keys, a click
-			// farther along: one ribbon, reaching a few letters back (a stub left at every word would not be a trail).
-			if (item.broken || !pts.length) { pts.push(trailPoint(prev, now - dur * 0.3, true)); item.broken = false; }
-			pts.push(trailPoint(cur, now, false));
-		} else if (far || info.typed) {
-			// Another line: a sweep, a short-lived ribbon of its own from where the caret was - given some age at once, so it
-			// collapses toward the caret from its first frame - to where it landed. The next move along the line starts afresh.
-			const life = dur * TRAIL_SWEEP;
-			pts.push({ ...trailPoint(prev, now - life * 0.4, true), sweep: true });
-			pts.push({ ...trailPoint(cur, now, false), sweep: true });
-			item.broken = true;
-		} else { item.broken = true; item.attached = false; return; }   // a line up or down by arrow key: nothing, the ribbon lets go
-		item.attached = true;   // the newest point is the caret
-		if (pts.length > TRAIL_MAX_PTS) pts.splice(0, pts.length - TRAIL_MAX_PTS);
-	},
-	onShift(plugin, dx, dy) {   // the page scrolled: the ribbon goes with the text
-		const item = plugin.items.find((it) => it.effect === 'trail' && !it.done);
-		if (item && item.pts) for (const q of item.pts) { q.x += dx; q.y += dy; }
-	},
-	onSample(plugin, cur) {   // the caret gone (another page): nothing may stay drawn where it was
-		if (cur) return;
-		const item = plugin.items.find((it) => it.effect === 'trail' && !it.done);
-		if (item) { item.pts = []; item.done = true; }
-	},
-	draw(plugin, ctx, item, p, k, now) {
-		const dur = trailDur(plugin), reach = Math.max(0.5, Number(plugin.cfg.trailReach) || 3);
-		// A point past its time goes - unless the point after it, in the same ribbon, is still alive: then it stays as the far
-		// end of that stretch, which fades toward the live end rather than vanishing whole.
-		const dead = (q) => now - q.t >= (q.sweep ? dur * TRAIL_SWEEP : dur), all = item.pts, pts = [];
-		for (let i = 0; i < all.length; i++) {
-			const q = all[i], next = all[i + 1];
-			if (!dead(q) || (next && !next.gap && !dead(next))) pts.push(q);
-			else if (q.gap && next) next.gap = true;   // the ribbon still begins where it began
-		}
-		item.pts = pts;
-		if (!pts.length) { item.done = true; return; }
-		const dark = plugin.dark, K = Math.min(k, 1.5) * (dark ? 1 : 0.55), col = plugin.col(), acc = plugin.acc(), core = dark ? '#ffffff' : lighten(col, 0.45);
-		if (!dark) ctx.globalCompositeOperation = 'source-over';   // adding light to a light page shows nothing: drawn as a (fainter) band of color instead
-		// While Motion smear carries the caret across (its leading point still on its way), the ribbon ends on the smear, not
-		// ahead of it at the place the caret will arrive.
-		const sm = plugin.fxState.smear, lead = sm && sm.lead && plugin.items.some((it) => it.effect === 'smear' && !it.done) ? sm.lead : null;
-		for (let i = 0; i < pts.length;) {   // ribbon by ribbon: a gap begins a new one
-			let j = i + 1;
-			while (j < pts.length && !pts[j].gap) j++;
-			if (j - i >= 2) {
-				const ribbon = pts.slice(i, j);
-				if (lead && item.attached && j === pts.length) { const head = ribbon[ribbon.length - 1]; ribbon[ribbon.length - 1] = { ...head, x: lead.x + 1, y: lead.y + head.h / 2 }; }
-				const sweep = ribbon.some((q) => q.sweep);
-				drawRibbon(ctx, ribbon, now, sweep ? dur * TRAIL_SWEEP : dur, sweep ? Infinity : reach * ribbon[ribbon.length - 1].h, K, col, acc, core);
-			}
-			i = j;
-		}
-	},
-};
 
 // ---- Effect: Lightning (signature) -------------------------------------------------------
 // Rare short crackles jump off the caret while typing; a big bolt is drawn when the caret changes line.
@@ -798,7 +637,52 @@ function caretBox(plugin) {
  * Fills and rings the current path the way the block cursor is drawn (.cfx-block): a tint, a 1.5 px ring and a soft
  * glow. `fill` and `ring` are 0..1 strengths; a Line caret is all fill and no ring.
  */
-function paintCaretBody(ctx, col, fill, ring) {
+/**
+ * Translucent lit glass rendering (CARET_SKILL §3):
+ * 1. Soft Halo: 3 strokes with widths [9, 6, 3.5] px and low alpha (0.035, 0.06, 0.09).
+ * 2. Lit Gradient Fill: top-to-bottom linear gradient (0.0 mix(col,white,0.45) @ 0.62*alpha, 0.4 @ 0.40*alpha, 0.65 @ 0.42*alpha, 1.0 @ 0.52*alpha).
+ * 3. Rim Stroke: 1.25px stroke in col at 0.95 * alpha.
+ * 4. Specular Gloss: 1.4px white vertical highlight near the upper-left (alpha 0.55 on dark bg, 0.8 on light bg).
+ */
+function glassBody(ctx, col, box, alpha = 1, dark = true) {
+	ctx.save();
+	ctx.lineJoin = 'round';
+	ctx.lineCap = 'round';
+	for (const [w, a] of [[9, 0.035], [6, 0.06], [3.5, 0.09]]) {
+		ctx.lineWidth = w;
+		ctx.strokeStyle = rgba(col, a * alpha);
+		ctx.stroke();
+	}
+	const y0 = box ? box.y : 0, bh = box ? Math.max(1, box.h) : 20;
+	const g = ctx.createLinearGradient(0, y0, 0, y0 + bh);
+	g.addColorStop(0.0, rgba(lighten(col, 0.45), 0.62 * alpha));
+	g.addColorStop(0.4, rgba(col, 0.40 * alpha));
+	g.addColorStop(0.65, rgba(col, 0.42 * alpha));
+	g.addColorStop(1.0, rgba(col, 0.52 * alpha));
+	ctx.fillStyle = g;
+	ctx.fill();
+	ctx.lineWidth = 1.25;
+	ctx.strokeStyle = rgba(col, 0.95 * alpha);
+	ctx.stroke();
+	if (box && box.w >= 4) {
+		ctx.clip();
+		const gx = box.x + Math.max(1.6, box.w * 0.22);
+		ctx.beginPath();
+		ctx.moveTo(gx, box.y + box.h * 0.14);
+		ctx.lineTo(gx, box.y + box.h * 0.36);
+		ctx.lineWidth = 1.4;
+		ctx.lineCap = 'round';
+		ctx.strokeStyle = `rgba(255,255,255,${(dark ? 0.55 : 0.8) * alpha})`;
+		ctx.stroke();
+	}
+	ctx.restore();
+}
+
+function paintCaretBody(ctx, col, fill, ring, box = null, dark = true) {
+	if (ring > 0 && box) {
+		glassBody(ctx, col, box, ring, dark);
+		return;
+	}
 	if (fill > 0) {
 		ctx.shadowColor = rgba(col, 0.45 * ring);
 		ctx.shadowBlur = 8 * ring;
@@ -807,81 +691,115 @@ function paintCaretBody(ctx, col, fill, ring) {
 		ctx.shadowBlur = 0;
 	}
 	if (ring > 0) {
-		ctx.lineWidth = 1.5;
+		ctx.lineWidth = 1.25;
 		ctx.lineJoin = 'round';
-		ctx.strokeStyle = rgba(col, ring);
+		ctx.strokeStyle = rgba(col, 0.95 * ring);
 		ctx.stroke();
 	}
 }
 
-// ---- Effect: Motion smear ------------------------------------------------------------------------------------------
-// From Cursor-Smith's src/paint/paint-smear.ts. The caret stretches as it moves and snaps back when it arrives. It is
-// drawn as a quad whose four corners are blends of two tracked points: a leading point on a spring (it may overshoot
-// and snap back, which is the feel) and a trailing point that lags behind it (an approach with no velocity of its own,
-// so it can neither rotate nor boomerang). Whichever face of the caret trails the move is decided by the area each
-// face sweeps, so the shape is a parallelogram in every frame. While it moves, Thymer's caret (or the block cursor) is
-// hidden and the quad is drawn in its place; when it has arrived, the real caret is shown again.
-// Not ported: Tapered trail, Max length and Conserve area, which Cursor-Smith leaves off by default.
-// Settings: smearStiffness (the leading point), smearTrailingStiffness, smearDamping, each 0..1.
-const SMEAR_MAX_STEP = 1 / 240;     // s: the spring is integrated in steps this small, so every frame rate swings alike
-const SMEAR_SETTLE_V = 30;          // px/s: slower than this and within half a pixel of the caret, the smear has arrived
-const SMEAR_KEY_STEP_CHARS = 2.5;   // a move along the row by at most this many letters is the keyboard's (typing, an arrow)...
-const SMEAR_KEY_STEP_MS = 200;      // ...and for this long after one the leading edge sits on the caret: only the tail trails
-const SMEAR_LINE_CHANGE = 0.6;      // a move to another line, by more than this share of a line, is not smeared (it would streak through the text between)
+/** Traces a closed rounded arbitrary-quad path with corner radius `r` (CARET_SKILL §2.6). */
+function traceRoundedQuad(ctx, corners, r) {
+	ctx.beginPath();
+	for (let i = 0; i < 4; i++) {
+		const prev = corners[(i + 3) % 4], cur = corners[i], next = corners[(i + 1) % 4];
+		const dPrev = Math.hypot(prev.x - cur.x, prev.y - cur.y);
+		const dNext = Math.hypot(next.x - cur.x, next.y - cur.y);
+		const d = Math.min(r, dPrev / 2, dNext / 2);
+		const p0x = dPrev > 1e-4 ? cur.x + ((prev.x - cur.x) / dPrev) * d : cur.x;
+		const p0y = dPrev > 1e-4 ? cur.y + ((prev.y - cur.y) / dPrev) * d : cur.y;
+		const p1x = dNext > 1e-4 ? cur.x + ((next.x - cur.x) / dNext) * d : cur.x;
+		const p1y = dNext > 1e-4 ? cur.y + ((next.y - cur.y) / dNext) * d : cur.y;
+		if (i === 0) ctx.moveTo(p0x, p0y); else ctx.lineTo(p0x, p0y);
+		ctx.quadraticCurveTo(cur.x, cur.y, p1x, p1y);
+	}
+	ctx.closePath();
+}
+
+// ---- Effect: Motion smear (Jelly Body, CARET_SKILL §2) -------------------------------------------------------------
+// Models the caret box as two faces chasing the target rect (rect.x, rect.y) on different springs:
+// - Leading face (lead): fast underdamped 2nd-order spring (snaps ahead, slight overshoot).
+// - Trailing face (trail): slower 1st-order exponential follower (lags behind).
+// Leading corners use the leading face, trailing corners use the trailing face; the tail tapers (pinches) inward
+// proportionally to lag, and corners are rounded with quadratic curves before rendering with glassBody.
+// Settings: smearStiffness (0.65), smearTrailingStiffness (0.15), smearDamping (0.4).
+const SMEAR_MAX_STEP = 1 / 240;     // s: sub-stepped at 240 Hz
+const SMEAR_CAP_LEN = 150;          // max px a face may lag behind target
 
 /**
- * One frame of the smear toward `rect` ({ x, y, w, h }), `dt` seconds on. `s` holds the two points, the centre the
- * caret had a frame ago and the direction of travel, held after the caret stops so the tail keeps pointing back the way
- * it came. `pinned` puts the leading point on the caret. Returns the corners (top-left, top-right, bottom-right,
- * bottom-left) and whether they are still on their way.
+ * One frame of the Jelly smear toward `rect` ({ x, y, w, h }), `dt` seconds on.
+ * Returns { corners, box, settled }.
  */
-function stepSmear(s, rect, dt, cfg, pinned) {
+function stepSmear(s, rect, dt, cfg) {
 	const { lead, trail } = s;
-	const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
-	const dx = cx - s.cx, dy = cy - s.cy, len = Math.hypot(dx, dy);
-	if (len > 0.01) s.dir = { x: dx / len, y: dy / len };
-	s.cx = cx; s.cy = cy;
+	const w = rect.w, h = rect.h;
+	const cx = rect.x + w / 2, cy = rect.y + h / 2;
+	const d = Math.hypot(cx - s.cx, cy - s.cy);
+	if (d > 0.01) {
+		s.dir = { x: (cx - s.cx) / d, y: (cy - s.cy) / d };
+		s.cx = cx; s.cy = cy;
+	}
 
-	const freqLead = 2 + clamp01(cfg.smearStiffness) * 38;
-	const freqTrail = 2 + clamp01(cfg.smearTrailingStiffness) * 38;
-	const damping = 0.15 + clamp01(cfg.smearDamping) * 1.15;
-	if (pinned) { lead.x = rect.x; lead.y = rect.y; lead.vx = lead.vy = 0; }
-	const steps = Math.max(1, Math.min(16, Math.ceil(dt / SMEAR_MAX_STEP))), h = dt / steps;
-	const k = freqLead * freqLead, damp = 2 * damping * freqLead, f = 1 - Math.exp(-freqTrail * h);
+	const wL = 2 + clamp01(cfg.smearStiffness ?? 0.65) * 38;
+	const wT = 2 + clamp01(cfg.smearTrailingStiffness ?? 0.15) * 38;
+	const zeta = 0.15 + clamp01(cfg.smearDamping ?? 0.4) * 1.15;
+	const steps = Math.min(16, Math.max(1, Math.ceil(dt * 240))), hh = dt / steps;
+	const f = 1 - Math.exp(-wT * hh);
 	for (let i = 0; i < steps; i++) {
-		lead.vx += (k * (rect.x - lead.x) - damp * lead.vx) * h;
-		lead.vy += (k * (rect.y - lead.y) - damp * lead.vy) * h;
-		lead.x += lead.vx * h;
-		lead.y += lead.vy * h;
+		lead.vx += (wL * wL * (rect.x - lead.x) - 2 * zeta * wL * lead.vx) * hh;
+		lead.x += lead.vx * hh;
+		lead.vy += (wL * wL * (rect.y - lead.y) - 2 * zeta * wL * lead.vy) * hh;
+		lead.y += lead.vy * hh;
 		trail.x += (lead.x - trail.x) * f;
 		trail.y += (lead.y - trail.y) * f;
 	}
 	if (![lead.x, lead.y, lead.vx, lead.vy, trail.x, trail.y].every(Number.isFinite)) {
 		lead.x = trail.x = rect.x; lead.y = trail.y = rect.y; lead.vx = lead.vy = 0;
 	}
+	const capFace = (pt) => {
+		const rx = pt.x - rect.x, ry = pt.y - rect.y, dist = Math.hypot(rx, ry);
+		if (dist > SMEAR_CAP_LEN) { pt.x = rect.x + (rx / dist) * SMEAR_CAP_LEN; pt.y = rect.y + (ry / dist) * SMEAR_CAP_LEN; }
+	};
+	capFace(lead);
+	capFace(trail);
 
-	// The rear face of the caret trails and the front face leads. Which is which is the area each face sweeps - the
-	// sides sweep h*|dx|, the top and bottom w*|dy| - blended by their share (to the fourth power, so one clearly
-	// dominant axis wins outright), never by a branch: a branch is where the quad used to snap between two shapes.
-	const dir = s.dir;
-	const hx = (rect.h * (dir ? Math.abs(dir.x) : 0)) ** 4, wy = (rect.w * (dir ? Math.abs(dir.y) : 0)) ** 4;
+	const dx = s.dir ? s.dir.x : 1, dy = s.dir ? s.dir.y : 0;
+	const hx = Math.pow(h * Math.abs(dx), 4), wy = Math.pow(w * Math.abs(dy), 4);
 	const u = hx + wy > 0 ? hx / (hx + wy) : 0.5;
-	const sgnX = dir ? Math.sign(dir.x) : 0, sgnY = dir ? Math.sign(dir.y) : 0;
-	const tvx = (lead.x - trail.x) * freqTrail, tvy = (lead.y - trail.y) * freqTrail;   // the trailing point's speed
-	let moving = false;
-	const corners = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([fx, fy]) => {
-		const ox = fx * rect.w, oy = fy * rect.h;
-		const front = dir ? (ox > 0 ? 1 : -1) * sgnX * u + (oy > 0 ? 1 : -1) * sgnY * (1 - u) : 0;   // +1 front face .. -1 rear face
-		const lag = (1 - front) / 2;                                                                  // 0 at the leading point .. 1 at the trailing one
-		const vx = lead.vx + (tvx - lead.vx) * lag, vy = lead.vy + (tvy - lead.vy) * lag;
-		const c = { x: lead.x + (trail.x - lead.x) * lag + ox, y: lead.y + (trail.y - lead.y) * lag + oy };
-		if (Math.abs(c.x - rect.x - ox) > 0.5 || Math.abs(c.y - rect.y - oy) > 0.5 || Math.abs(vx) > SMEAR_SETTLE_V || Math.abs(vy) > SMEAR_SETTLE_V) moving = true;
-		return c;
-	});
-	if (moving) return { corners, moving };
-	// Arrived: onto the caret exactly, with no velocity left to creep back into motion.
-	lead.x = trail.x = rect.x; lead.y = trail.y = rect.y; lead.vx = lead.vy = 0;
-	return { corners: [[0, 0], [1, 0], [1, 1], [0, 1]].map(([fx, fy]) => ({ x: rect.x + fx * rect.w, y: rect.y + fy * rect.h })), moving };
+	const offs = [[0, 0, -1, -1], [w, 0, 1, -1], [w, h, 1, 1], [0, h, -1, 1]];
+	const corners = new Array(4), lag = new Array(4);
+	let maxLag = 0;
+	for (let i = 0; i < 4; i++) {
+		const [ox, oy, sx, sy] = offs[i];
+		const front = sx * Math.sign(dx) * u + sy * Math.sign(dy) * (1 - u);
+		const fr = (1 - front) / 2;
+		const x = lead.x + (trail.x - lead.x) * fr + ox;
+		const y = lead.y + (trail.y - lead.y) * fr + oy;
+		corners[i] = { x, y };
+		lag[i] = Math.hypot(x - (rect.x + ox), y - (rect.y + oy));
+		if (lag[i] > maxLag) maxLag = lag[i];
+	}
+
+	if (maxLag < 0.5 && Math.hypot(lead.vx, lead.vy) < 8) {
+		lead.x = trail.x = rect.x; lead.y = trail.y = rect.y; lead.vx = lead.vy = 0;
+		return { corners: offs.map(([ox, oy]) => ({ x: rect.x + ox, y: rect.y + oy })), box: rect, settled: true };
+	}
+
+	const reach = clamp01((maxLag - 4) / 20);
+	let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+	for (let i = 0; i < 4; i++) {
+		const offx = corners[i].x - cx, offy = corners[i].y - cy;
+		const along = offx * dx + offy * dy;
+		const px = offx - along * dx, py = offy - along * dy;
+		const k = maxLag > 0 ? (lag[i] / maxLag) * reach * 0.7 : 0;
+		corners[i].x -= px * k;
+		corners[i].y -= py * k;
+		if (corners[i].x < minX) minX = corners[i].x;
+		if (corners[i].y < minY) minY = corners[i].y;
+		if (corners[i].x > maxX) maxX = corners[i].x;
+		if (corners[i].y > maxY) maxY = corners[i].y;
+	}
+	return { corners, box: { x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY) }, settled: false };
 }
 
 function finishSmear(plugin, item) {
@@ -893,24 +811,17 @@ function finishSmear(plugin, item) {
 function caretTaken(plugin) { return backManBusy(plugin) || !!(EFFECTS[plugin.cfg.fx] && EFFECTS[plugin.cfg.fx].ownsCaret); }
 
 EFFECTS.smear = {
-	id: 'smear', label: 'Motion smear', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
-	defaults: { smearStiffness: 0.6, smearTrailingStiffness: 0.4, smearDamping: 0.8 },
+	id: 'smear', label: 'Motion smear', mode: 'always', toggleable: false, defaultOn: true, keepsState: true, blend: 'source-over',
+	defaults: { smearStiffness: 0.65, smearTrailingStiffness: 0.15, smearDamping: 0.4 },
 	onMove(plugin, prev, cur, info) {
 		if (caretTaken(plugin)) return;   // the creature, or the jelly, has the caret
 		const S = plugin.state('smear');
-		const dx = Math.abs(cur.x - prev.x), dy = Math.abs(cur.y - prev.y);
-		// A letter's step: along the row (a little jitter in the text's box allowed) by at most a couple of letters, measured
-		// against the line height as well as the letter under the caret, which may be a narrow one when the one just typed was wide.
-		if (dy < cur.h * 0.5 && dx > 0.5 && dx <= SMEAR_KEY_STEP_CHARS * Math.max(cur.cw, cur.h * 0.5)) S.stepT = info.now;
-		if (dy > cur.h * SMEAR_LINE_CHANGE) {
-			// Another line: the caret is simply there.
-			if (S.lead) { S.lead = { x: cur.x, y: cur.y, vx: 0, vy: 0 }; S.trail = { x: cur.x, y: cur.y }; }
-			return;
-		}
 		if (plugin.items.some((i) => i.effect === 'smear' && !i.done)) return;   // already under way: it chases the caret by itself
 		S.lead = { x: prev.x, y: prev.y, vx: 0, vy: 0 };
 		S.trail = { x: prev.x, y: prev.y };
-		S.cx = prev.x + prev.w / 2; S.cy = prev.y + prev.h / 2; S.dir = null;
+		S.cx = prev.x + prev.w / 2; S.cy = prev.y + prev.h / 2;
+		const dx = cur.x - prev.x, dy = cur.y - prev.y, d = Math.hypot(dx, dy);
+		S.dir = d > 0.01 ? { x: dx / d, y: dy / d } : { x: 1, y: 0 };
 		plugin.items.push({ effect: 'smear', t0: info.now, dur: Infinity });
 	},
 	onShift(plugin, dx, dy) {   // the page scrolled: the smear's points go along, so nothing seems to have moved
@@ -921,19 +832,19 @@ EFFECTS.smear = {
 	draw(plugin, ctx, item, p, k, now, dt) {
 		const S = plugin.state('smear'), rect = caretBox(plugin);
 		if (!rect || !S.lead || caretTaken(plugin)) return finishSmear(plugin, item);
-		const { corners, moving } = stepSmear(S, rect, dt / 1000, plugin.cfg, now - (S.stepT || 0) < SMEAR_KEY_STEP_MS);
-		if (!moving) return finishSmear(plugin, item);
+		const dtSec = Math.min(0.05, Math.max(0.001, (dt || 16) / 1000));
+		const { corners, box, settled } = stepSmear(S, rect, dtSec, plugin.cfg);
+		if (settled) return finishSmear(plugin, item);
 		plugin.hideCaret('smear', true);   // hidden only in a frame that draws the quad, so the caret never blinks out between the two
 		item.hidesCaret = true;
-		const block = plugin.cfg.style === 'block';
 		ctx.save();
-		ctx.beginPath();
-		corners.forEach((c, i) => (i ? ctx.lineTo(c.x, c.y) : ctx.moveTo(c.x, c.y)));
-		ctx.closePath();
-		paintCaretBody(ctx, plugin.col(), block ? 0.42 : 1, block ? 1 : 0);
+		traceRoundedQuad(ctx, corners, Math.min(rect.w, rect.h) * 0.25);
+		glassBody(ctx, plugin.col(), box, 1, plugin.dark);
 		ctx.restore();
 	},
 };
+
+
 
 // ---- Effect: Fresh ink ---------------------------------------------------------------------------------------------
 // From Cursor-Smith's src/effects/effects-ink.ts, where it is part of Typewriter. The characters just typed stay wet in
@@ -1103,6 +1014,7 @@ EFFECTS.ink = {
 // It is a plain depth count over one line's text, not a syntax-aware match, and decorative: nothing edits from it.
 // Differences from Cursor-Smith: a Thymer line is its own block, so there are no blockquote markers or code fences to
 // cut a span at, and angle brackets are left out (in notes "<" and ">" are comparisons far more often than tags).
+// How it is drawn follows the preset (see TETHER_STYLES): a plain line, crackling lightning, petals, glints, a spectrum, a pulse...
 // Settings: tetherStrength (0..1, the line's opacity).
 const BRACKET_OPEN = { '(': ')', '[': ']', '{': '}' };
 const BRACKET_CLOSE = { ')': '(', ']': '[', '}': '{' };
@@ -1197,7 +1109,7 @@ function tetherSpan(lineText, pos) {
 
 /**
  * The rules to draw under characters [from, to] of `line`: one per visual line the span covers, top to bottom, each
- * { left, right, bottom }. The text measures itself - a span that wraps comes back already split at its wrap points -
+ * { left, right, top, bottom }. The text measures itself - a span that wraps comes back already split at its wrap points -
  * and the boxes of one baseline (a bold stretch, a link) are folded into a single rule rather than a dashed row.
  */
 function tetherSegments(line, from, to) {
@@ -1205,14 +1117,14 @@ function tetherSegments(line, from, to) {
 	for (const r of line.rects(from, to + 1)) {
 		const bottom = r.y + r.h;
 		const row = rows.find((o) => Math.abs(o.bottom - bottom) < 1.5);
-		if (row) { row.left = Math.min(row.left, r.x); row.right = Math.max(row.right, r.x + r.w); }
-		else rows.push({ left: r.x, right: r.x + r.w, bottom });
+		if (row) { row.left = Math.min(row.left, r.x); row.right = Math.max(row.right, r.x + r.w); row.top = Math.min(row.top, r.y); }
+		else rows.push({ left: r.x, right: r.x + r.w, top: r.y, bottom });
 	}
 	return rows.sort((a, b) => a.bottom - b.bottom || a.left - b.left);
 }
 
 EFFECTS.tether = {
-	id: 'tether', label: 'Bracket tether', mode: 'signature', preset: { name: 'Bracket tether', color: '#e879f9', accent: '#86198f' }, keepsState: true, blend: 'source-over',
+	id: 'tether', label: 'Bracket tether', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
 	defaults: { tetherStrength: 0.35 },
 	onSample(plugin, cur) {
 		const S = plugin.state('tether');
@@ -1226,35 +1138,544 @@ EFFECTS.tether = {
 			span = S.span;
 		}
 		const segs = span ? tetherSegments(cl.line, span.from, span.to) : null;
-		const sig = segs ? segs.map((s) => `${Math.round(s.left)},${Math.round(s.right)},${Math.round(s.bottom)}`).join('|') : '';
-		if (sig === S.sig) return;
-		S.sig = sig;
+		const sig = segs ? segs.map((s) => `${Math.round(s.left)},${Math.round(s.right)},${Math.round(s.top)},${Math.round(s.bottom)}`).join('|') : '';
+		const style = TETHER_STYLES[plugin.cfg.fx] || TETHER_STYLES.default, gk = sig + '#' + (span ? S.key : '') + (style.glyphs ? 'g' : '');
+		if (gk === S.gk) return;
+		S.gk = gk;
 		S.segs = segs && segs.length ? segs : null;
+		S.glyphs = S.segs && style.glyphs && span.to - span.from < TETHER_GLYPHS_MAX ? tetherGlyphs(cl.line, span.from, span.to) : null;   // the letters, for the styles that light them
+		if (S.segs) tetherLay(S);
+		S.bg = S.glyphs && style.patch ? tetherBackground(cl.line.el) : null;   // what a letter is painted out with, for the styles that redraw letters in the place of their own
+		S.len = S.segs ? S.segs.reduce((n, s) => n + s.right - s.left, 0) : 0;
+		if (!S.segs) { S.parts = []; tetherUnhide(S); }
 		// A still item: it is redrawn whenever a frame runs, and asks for none of its own.
-		if (S.segs) plugin.ensureItem('tether').rest = true;
+		if (S.segs) plugin.ensureItem('tether').rest = !style.animated;
 		plugin.kick();
 	},
-	draw(plugin, ctx, item, p, k) {
-		const segs = plugin.state('tether').segs;
-		if (!segs) { item.done = true; return; }
-		const alpha = clamp01(plugin.cfg.tetherStrength * Math.min(k, 1.5));
-		let total = 0;
-		for (const s of segs) total += s.right - s.left;
-		if (alpha <= 0.01 || total < 2) return;   // the caret sits on its own match, an empty pair: nothing to underline
+	onDrop(plugin) { tetherUnhide(plugin.fxState.tether); },
+	onShift(plugin, dx, dy) {   // the page scrolled: the pieces in the air go with the text (the rules themselves are measured afresh at the next look)
+		const S = plugin.fxState.tether;
+		if (S && S.parts) for (const q of S.parts) { q.x += dx; q.y += dy; }
+	},
+	draw(plugin, ctx, item, p, k, now, dt) {
+		const S = plugin.state('tether');
+		if (!S.segs) { tetherUnhide(S); item.done = true; return; }
+		const alpha = clamp01(plugin.cfg.tetherStrength * Math.min(k, 1.5)), style = TETHER_STYLES[plugin.cfg.fx] || TETHER_STYLES.default;
+		item.rest = !style.animated;   // an animated style asks for frames while the caret is inside a span
+		if (style !== TETHER_STYLES.zephyr) tetherUnhide(S);
+		if (alpha <= 0.01 || S.len < 2) { tetherUnhide(S); return; }   // the caret sits on its own match, an empty pair: nothing to mark
+		const s = Math.min(0.05, Math.max(0, (dt || 16) / 1000));
+		if (!S.parts) S.parts = [];
+		S.parts = S.parts.filter((q) => now - q.t0 < q.life);
+		for (const q of S.parts) { q.x += q.vx * s; q.y += q.vy * s; q.vx += (q.ax || 0) * s; q.vy += (q.ay || 0) * s; q.rot += (q.spin || 0) * s; }
 		ctx.save();
-		ctx.lineWidth = 1.5;
-		ctx.lineCap = 'round';
-		ctx.strokeStyle = rgba(plugin.col(), alpha);
-		ctx.beginPath();
-		segs.forEach((s, i) => {
-			const y = s.bottom + TETHER_DROP;
-			ctx.moveTo(s.left, y);
-			ctx.lineTo(s.right, y);
-			if (i === 0) { ctx.moveTo(s.left, y); ctx.lineTo(s.left, y - TETHER_TICK); }
-			if (i === segs.length - 1) { ctx.moveTo(s.right, y); ctx.lineTo(s.right, y - TETHER_TICK); }
-		});
-		ctx.stroke();
+		try { style.draw(plugin, ctx, S, now, s, Math.min(2.5, alpha / 0.35)); } catch (err) { tetherUnhide(S); throw err; }   // whatever goes wrong, the page's own letters come back
 		ctx.restore();
+	},
+};
+
+// How the span is marked follows the preset. Each style washes the whole of it - a highlight behind the text, faint enough
+// to read through - and then does what the preset does: petals fall through it, glints twinkle in it, letters light up in
+// turn, a jelly swallows it, water fills it. The canvas lies over the page, so what is drawn over a letter is drawn with
+// care: a wash is a few hundredths of alpha, and a letter that glows is that letter again, in its own font, on itself.
+// A style is { animated, glyphs, draw(plugin, ctx, S, now, dt, m) }: `animated` asks for frames of its own while the caret
+// is inside a span, `glyphs` has the letters measured, S holds segs (a rule per visual line: left, right, top, bottom),
+// glyphs, parts (pieces in the air) and acc (what each emitter has stored up), dt is in seconds and m the strength setting
+// (1 at its default of 0.35).
+const TETHER_GLYPHS_MAX = 700;   // a longer span has no letters lit one by one
+const TETHER_PARTS_MAX = 36;
+const TETHER_STYLES = {};
+const tetherY = (s) => s.bottom + TETHER_DROP;
+
+/** Lays the span's rules end to end: each gets `cum`, how far along the span it begins, and each letter its `pos`, how far along the span it is - so that what sweeps through a span reads it in order, line after line. */
+function tetherLay(S) {
+	let cum = 0;
+	for (const s of S.segs) { s.cum = cum; cum += s.right - s.left; }
+	if (!S.glyphs) return;
+	for (const g of S.glyphs) {
+		const mid = g.top + g.h / 2;
+		let row = S.segs[S.segs.length - 1];
+		for (const s of S.segs) if (mid <= s.bottom + 2) { row = s; break; }
+		g.pos = row.cum + clamp(g.x + g.w / 2 - row.left, 0, row.right - row.left);
+	}
+}
+
+/** How far along the span (its rules laid end to end) a point of rule `s` at `x` is. */
+const tetherAlong = (s, x) => (s.cum || 0) + clamp(x - s.left, 0, s.right - s.left);
+
+/** Where a sweep of `speed` px a second is along a span of `len` px: it comes in 60 px before the start and goes out 60 px past the end, then again. */
+const tetherSweep = (now, len, speed) => ((now * speed * 0.001) % (len + 120)) - 60;
+
+/** The two ends of a span: [x, y] of the start of its first rule and of the end of its last. */
+const tetherEnds = (segs) => [[segs[0].left, tetherY(segs[0])], [segs[segs.length - 1].right, tetherY(segs[segs.length - 1])]];
+
+let TETHER_SCRATCH = null;
+const tetherScratch = () => TETHER_SCRATCH || (TETHER_SCRATCH = document.createElement('canvas').getContext('2d'));
+
+/** The letters of characters [from, to] of `line`, each with where it is drawn, the baseline it sits on, and the font and color it is drawn in. */
+function tetherGlyphs(line, from, to) {
+	const ctx = tetherScratch(), hosts = new Map(), metrics = new Map(), out = [], text = line.text;
+	for (let i = from; i <= to && i < text.length; i++) {
+		let ch = text[i];
+		if (!ch.trim()) continue;
+		if (ch >= '\ud800' && ch <= '\udbff') ch = text.slice(i, i + 2);   // a surrogate pair is one letter
+		else if (ch >= '\udc00' && ch <= '\udfff') continue;
+		const r = line.charRect(i, ch.length);
+		if (!r) continue;
+		const host = line.styleHost(i);
+		let st = hosts.get(host);
+		if (!st) { const cs = getComputedStyle(host); st = { font: `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`, color: cs.color }; hosts.set(host, st); }
+		let mt = metrics.get(st.font);
+		if (!mt) { ctx.font = st.font; const t = ctx.measureText('M'); mt = { a: t.fontBoundingBoxAscent ?? 11, d: t.fontBoundingBoxDescent ?? 3 }; metrics.set(st.font, mt); }
+		let k = line.nodes.length - 1;
+		while (k > 0 && line.starts[k] > i) k--;
+		out.push({ idx: i, ch, node: line.nodes[k], off: i - line.starts[k], x: r.x, w: r.w, h: r.h, top: r.y, y: r.y + mt.a + (r.h - mt.a - mt.d) / 2, st, n: out.length, h1: hash(out.length * 1.93 + from * 0.37), h2: hash(out.length * 4.71 + 9.1) });
+	}
+	return out;
+}
+
+/** Lets go of the letters Zephyr has hidden (they are drawn by the canvas while they lean). */
+function tetherUnhide(S) {
+	if (S && S.hlKey !== undefined) { S.hlKey = undefined; try { CSS.highlights.delete('cfx-gust'); } catch (e) { /* none to delete */ } }
+}
+
+/** The color of the page behind `el` as a CSS color, or null when it cannot be told (a gradient, an image). Any color syntax the browser reads is read, by painting it on a pixel. */
+function tetherBackground(el) {
+	const ctx = tetherScratch();
+	for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+		const cs = getComputedStyle(n);
+		if (cs.backgroundImage && cs.backgroundImage !== 'none') return null;
+		const c = cs.backgroundColor;
+		if (!c || c === 'transparent') continue;
+		ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'copy'; ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1); ctx.restore();
+		const px = ctx.getImageData(0, 0, 1, 1).data;
+		if (px[3] >= 250) return `rgb(${px[0]},${px[1]},${px[2]})`;
+		if (px[3] > 0) return null;   // a see-through color: what is behind it is not known from here
+	}
+	return null;
+}
+
+/** One letter drawn again over itself: with `o.color` instead of its own, a glow (`o.blur`), a shift (`o.dx`) and a lean (`o.skew`, to the right at the top); `o.exact` leaves it off the pixel grid, for letters that are moving. */
+function tetherGlyph(ctx, g, a, o = {}) {
+	if (a < 0.02) return;
+	const dpr = window.devicePixelRatio || 1;
+	ctx.save();
+	ctx.font = g.st.font; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+	ctx.globalAlpha = Math.min(1, a); ctx.fillStyle = o.color || g.st.color;
+	if (o.blur) { ctx.shadowColor = o.glow || o.color || g.st.color; ctx.shadowBlur = o.blur; }
+	ctx.translate(o.exact ? g.x + (o.dx || 0) : Math.round((g.x + (o.dx || 0)) * dpr) / dpr, o.exact ? g.y : Math.round(g.y * dpr) / dpr);
+	if (o.skew) ctx.transform(1, 0, -o.skew, 1, 0, 0);
+	ctx.fillText(g.ch, 0, 0);
+	ctx.restore();
+}
+
+/** The path of a rule's highlight: the line's box, a little proud of the text, its corners rounded. */
+function tetherPill(ctx, s, pad = 2) {
+	const x = s.left - pad, y = s.top - 1, w = s.right - s.left + pad * 2, h = s.bottom - s.top + 3;
+	ctx.beginPath();
+	if (ctx.roundRect) ctx.roundRect(x, y, w, h, Math.min(5, h / 2)); else ctx.rect(x, y, w, h);
+}
+
+/** Fills every rule's highlight with `fill` (a style, or a function of the rule that gives one). */
+function tetherWash(ctx, segs, fill) {
+	for (const s of segs) { tetherPill(ctx, s); ctx.fillStyle = typeof fill === 'function' ? fill(s) : fill; ctx.fill(); }
+}
+
+/** Clips to the highlights, for what must stay inside the span. */
+function tetherClip(ctx, segs) {
+	ctx.beginPath();
+	for (const s of segs) { const x = s.left - 2, y = s.top - 1, w = s.right - s.left + 4, h = s.bottom - s.top + 3; ctx.rect(x, y, w, h); }
+	ctx.clip();
+}
+
+/** A point inside the span, chosen by width: { s, x }. `u` and `v` are 0..1. */
+function tetherPoint(S, u, v) {
+	let at = u * S.len;
+	for (const s of S.segs) { const w = s.right - s.left; if (at <= w || s === S.segs[S.segs.length - 1]) return { s, x: s.left + Math.min(at, w), y: s.top + (s.bottom - s.top) * v }; at -= w; }
+	return null;
+}
+
+/** Lets an emitter that makes `rate` pieces a second (per 120 px of span) throw the pieces it has stored up: `make(point)` each. */
+function tetherEmit(S, key, rate, dt, make) {
+	S.acc = S.acc || {};
+	S.acc[key] = (S.acc[key] || 0) + rate * dt * Math.max(0.5, Math.min(4, S.len / 120));
+	while (S.acc[key] >= 1) {
+		S.acc[key] -= 1;
+		if (S.parts.length >= TETHER_PARTS_MAX) continue;
+		const q = make(tetherPoint(S, Math.random(), Math.random()));
+		if (q) S.parts.push(q);
+	}
+}
+
+/** Strokes the plain rule of each segment, with the ticks at the two ends. */
+function tetherRule(ctx, segs, ticks) {
+	ctx.beginPath();
+	segs.forEach((s, i) => {
+		const y = tetherY(s);
+		ctx.moveTo(s.left, y); ctx.lineTo(s.right, y);
+		if (ticks && i === 0) { ctx.moveTo(s.left, y); ctx.lineTo(s.left, y - TETHER_TICK); }
+		if (ticks && i === segs.length - 1) { ctx.moveTo(s.right, y); ctx.lineTo(s.right, y - TETHER_TICK); }
+	});
+	ctx.stroke();
+}
+
+/** A four-pointed glint of radius `r` at (x, y), filled with the current fill style. */
+function tetherGlint(ctx, x, y, r) {
+	ctx.beginPath();
+	ctx.moveTo(x, y - r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.quadraticCurveTo(x, y, x, y + r); ctx.quadraticCurveTo(x, y, x - r, y); ctx.quadraticCurveTo(x, y, x, y - r);
+	ctx.fill();
+}
+
+/** A leaf or petal of length `len` (width `wid`) at (x, y) turned by `rot`: two curves meeting at both tips. */
+function tetherPetal(ctx, x, y, len, wid, rot) {
+	ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+	ctx.beginPath(); ctx.moveTo(-len / 2, 0); ctx.quadraticCurveTo(0, -wid, len / 2, 0); ctx.quadraticCurveTo(0, wid, -len / 2, 0); ctx.fill();
+	ctx.restore();
+}
+
+/** A plus of arm `r` at (x, y), stroked with the current stroke style. */
+function tetherPlus(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.moveTo(x, y - r); ctx.lineTo(x, y + r); ctx.stroke(); }
+
+/** The fade of a piece over its life: in quickly, out slowly. */
+const tetherLife = (q, now) => { const f = (now - q.t0) / q.life; return Math.min(1, f * 8) * (1 - Math.pow(f, 2)); };
+
+// Colors with no preset of their own, and Fresh ink: a highlighter and the plain rule.
+TETHER_STYLES.default = {
+	draw(plugin, ctx, S, now, dt, m) {
+		tetherWash(ctx, S.segs, rgba(plugin.col(), 0.16 * m));
+		ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.strokeStyle = rgba(plugin.col(), 0.35 * m);
+		tetherRule(ctx, S.segs, true);
+	},
+};
+
+// Lightning: a storm over the span. Most of the time it is a faint blue glow; every second or two a bolt comes down into it, the
+// rule and the highlight blaze white-blue and die away - a second, weaker flash a moment after the first - and the letters are
+// struck outward from where the bolt landed, a few at a time.
+TETHER_STYLES.lightning = {
+	animated: true, glyphs: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m), CYC = 2400, c = Math.floor(now / CYC), ts = now - c * CYC - (400 + hash(c * 3.7) * 900);
+		const f = ts < 0 ? 0 : ts < 160 ? Math.exp(-ts / 70) : 0.7 * Math.exp(-(ts - 160) / 110), shape = c * 2 + (ts > 160 ? 1 : 0);   // the flash, and which of its two beats this is
+		tetherWash(ctx, S.segs, rgba(acc, (0.06 + 0.2 * f) * m));
+		ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+		ctx.strokeStyle = rgba(acc, 0.28 * a); ctx.lineWidth = 1;
+		tetherRule(ctx, S.segs, false);
+		if (f < 0.03) return;
+		const jag = (s, y, k) => {   // a jagged line along a rule, the same for the length of one beat
+			const n = Math.max(2, Math.round((s.right - s.left) / 7)), pts = [];
+			for (let i = 0; i <= n; i++) pts.push([s.left + ((s.right - s.left) * i) / n, y + (i === 0 || i === n ? 0 : (hash(shape * 13.7 + i * 3.1 + k) * 2 - 1) * 1.8)]);
+			ctx.beginPath(); pts.forEach(([x, yy], i) => (i ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy)));
+		};
+		S.segs.forEach((s, si) => {
+			ctx.shadowColor = rgba(acc, f * a); ctx.shadowBlur = 8;
+			jag(s, tetherY(s), si * 50); ctx.lineWidth = 2.6; ctx.strokeStyle = rgba(acc, 0.6 * f * a); ctx.stroke();
+			ctx.shadowBlur = 0;
+			jag(s, tetherY(s), si * 50); ctx.lineWidth = 1; ctx.strokeStyle = rgba('#eaf4ff', Math.min(1, f * 1.1) * a); ctx.stroke();
+		});
+		const strike = tetherPoint(S, hash(c * 9.1), 0.5);
+		if (strike) {   // the bolt itself: down from above the span to where it lands, with a fork
+			const top = strike.s.top - 13, n = 6;
+			let x = strike.x + (hash(c * 2.3) - 0.5) * 16, y = top;
+			ctx.beginPath(); ctx.moveTo(x, y);
+			for (let i = 1; i <= n; i++) { x += (strike.x - x) / (n - i + 1) + (i < n ? (hash(shape * 7.7 + i * 5.3) - 0.5) * 9 : 0); y = top + ((strike.y - top) * i) / n; ctx.lineTo(x, y); }
+			ctx.shadowColor = rgba(acc, f * a); ctx.shadowBlur = 8; ctx.lineWidth = 2.2; ctx.strokeStyle = rgba(acc, 0.55 * f * a); ctx.stroke();
+			ctx.shadowBlur = 0; ctx.lineWidth = 1; ctx.strokeStyle = rgba('#ffffff', Math.min(1, f * 1.2) * a); ctx.stroke();
+			if (S.glyphs && S.glyphs.length) {   // the letters it strikes, spreading out from the landing, not all of them
+				const front = Math.max(0, ts) * 0.5, reach = Math.max(60, S.len * 0.6), at = tetherAlong(strike.s, strike.x);
+				for (const g of S.glyphs) {
+					const d = Math.abs(g.pos - at);
+					if (d > front || hash(g.n * 1.7 + c * 4.1) < 0.4) continue;
+					tetherGlyph(ctx, g, Math.min(1, 1.1 * f * (1 - 0.7 * d / reach) * a), { color: '#eaf4ff', blur: 9, glow: acc });
+				}
+			}
+		}
+	},
+};
+
+// Sakura, Autumn, Paper: a tint behind the span, a rule, and now and then a petal or a leaf comes away from the top of it and
+// falls, swaying, through the letters and out below.
+const tetherFalling = (tint, round, palette) => ({
+	animated: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m), colors = palette ? palette(col, acc) : [col, acc];
+		tetherWash(ctx, S.segs, rgba(tint(col, acc), 0.2 * m));
+		ctx.lineWidth = 1; ctx.strokeStyle = rgba(acc, 0.3 * a); ctx.lineCap = 'round';
+		tetherRule(ctx, S.segs, false);
+		tetherEmit(S, 'fall', 2.2, dt, (pt) => pt && ({ x: pt.x, y: pt.s.top + 1, vx: (Math.random() - 0.3) * 10, vy: 16 + Math.random() * 12, ay: 0, rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * 3, size: 4 + Math.random() * 3, t0: now, life: 2800 + Math.random() * 1400, c: Math.random() < 0.5 ? 0 : 1, ph: Math.random() * 6.28 }));
+		for (const q of S.parts) {
+			const al = tetherLife(q, now) * a;
+			if (al < 0.03) continue;
+			ctx.fillStyle = rgba(colors[q.c], 0.9 * al);
+			tetherPetal(ctx, q.x + Math.sin(q.ph + (now - q.t0) * 0.0023) * 5, q.y, q.size, q.size * (round ? 0.6 : 0.42) * (0.5 + 0.5 * Math.abs(Math.cos(q.rot * 2))), q.rot + Math.sin(q.ph + (now - q.t0) * 0.003) * 0.6);
+		}
+	},
+});
+TETHER_STYLES.sakura = tetherFalling((col, acc) => acc, true);
+TETHER_STYLES.autumn = tetherFalling((col, acc) => col, false, (col, acc) => [col, acc, lighten(col, 0.25)]);
+TETHER_STYLES.paper = tetherFalling((col) => col, false, (col, acc) => [acc, lighten(acc, 0.3)]);
+
+// Holy: a golden glow behind the span, glints that twinkle all through it, and a light that passes over the letters.
+TETHER_STYLES.holy = {
+	animated: true, glyphs: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m);
+		for (const s of S.segs) {
+			const g = ctx.createLinearGradient(s.left - 2, 0, s.right + 2, 0);
+			g.addColorStop(0, rgba(acc, 0.07 * m)); g.addColorStop(0.5, rgba(acc, 0.24 * m)); g.addColorStop(1, rgba(acc, 0.07 * m));
+			tetherPill(ctx, s); ctx.fillStyle = g; ctx.fill();
+		}
+		ctx.lineWidth = 1.4; ctx.lineCap = 'round'; ctx.strokeStyle = rgba(col, 0.55 * a); ctx.shadowColor = rgba(acc, 0.8 * a); ctx.shadowBlur = 6;
+		tetherRule(ctx, S.segs, false);
+		if (S.glyphs && S.glyphs.length) {   // a light moving left to right over the letters, lighting each as it passes
+			const span = Math.max(40, S.len), wx = tetherSweep(now, span, 110), wid = 18 + Math.min(span, 300) * 0.07;
+			for (const g of S.glyphs) {
+				const d = (g.pos - wx) / wid, w = Math.exp(-d * d);
+				if (w > 0.05) tetherGlyph(ctx, g, 0.85 * w * a, { color: lighten(col, 0.4), blur: 7, glow: acc });
+			}
+		}
+		ctx.shadowBlur = 5;
+		const n = Math.max(2, Math.round(S.len / 38));
+		for (let i = 0; i < n; i++) {   // glints: each at a place of its own for a moment, then another
+			const cyc = 2000 + 900 * hash(i * 3.1), t = now + hash(i * 7.7) * 5000, c = Math.floor(t / cyc), f = (t % cyc) / cyc, pt = tetherPoint(S, hash(c * 5.3 + i * 11.7), hash(c * 2.9 + i * 4.3));
+			if (!pt) continue;
+			const tw = Math.sin(Math.PI * f);
+			ctx.fillStyle = rgba(lighten(col, 0.3), tw * a); tetherGlint(ctx, pt.x, pt.y, 1.5 + 3.2 * tw);
+		}
+		tetherEnds(S.segs).forEach(([x, y], e) => { const tw = 0.6 + 0.4 * Math.sin(now * 0.0035 + e * 2); ctx.fillStyle = rgba(col, 0.95 * a); tetherGlint(ctx, x, y - 1.5, 3.4 * tw + 1); });
+		ctx.shadowBlur = 0;
+	},
+};
+
+// Prism: holographic foil - pastel bands of aqua, lavender, pink, peach, yellow and mint running diagonally across the span, slowly
+// sliding, a silver sheen sweeping over them, letters that catch the light here and there, and the same foil for a rule.
+const HOLO = ['#8ff0e6', '#9fb6ff', '#d7a6ff', '#ffa9d6', '#ffcfa3', '#fff1a0', '#b7f2a8', '#8ff0e6'];
+const HOLO_DEEP = ['#0e9f94', '#3b5bdb', '#8a3ffc', '#d6336c', '#e8590c', '#a37800', '#2b8a3e'];   // the same colors for letters on a light page, where light ones would fade
+const HOLO_PERIOD = 150;   // px: one run through the colors, across
+/** A gradient of the foil over [x0, x1] at height y, slanted, shifted by `phase` (0..1 a period) and `a` strong. */
+function holoGradient(ctx, x0, x1, y, slant, phase, a) {
+	const P = HOLO_PERIOD, start = x0 - P + phase * P, n = Math.ceil((x1 - start) / P) + 1, g = ctx.createLinearGradient(start, y, start + n * P, y + n * P * slant);
+	for (let k = 0; k < n; k++) for (let i = 0; i < HOLO.length - 1; i++) g.addColorStop(Math.min(1, (k + i / (HOLO.length - 1)) / n), rgba(HOLO[i], a));
+	g.addColorStop(1, rgba(HOLO[0], a));
+	return g;
+}
+TETHER_STYLES.prism = {
+	animated: true, glyphs: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const a = Math.min(1, m), dark = plugin.dark, phase = (now * 0.00007) % 1, sheenAt = tetherSweep(now, Math.max(40, S.len), 160);
+		for (const s of S.segs) {
+			if (dark) { tetherPill(ctx, s); ctx.fillStyle = `rgba(255,255,255,${0.08 * m})`; ctx.fill(); }   // silver underneath
+			ctx.globalCompositeOperation = dark ? 'lighter' : 'multiply';   // light added to a dark page glows; on a light one the foil is a tint the letters show through
+			tetherPill(ctx, s); ctx.fillStyle = holoGradient(ctx, s.left, s.right, s.top, 0.45, phase, (dark ? 0.26 : 0.8) * m); ctx.fill();
+			ctx.globalCompositeOperation = 'source-over';
+			const sheen = s.left + sheenAt - (s.cum || 0), g = ctx.createLinearGradient(sheen - 30, 0, sheen + 30, 0);   // a band of silver light
+			g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, `rgba(255,255,255,${(dark ? 0.2 : 0.4) * m})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+			tetherPill(ctx, s); ctx.fillStyle = g; ctx.fill();
+		}
+		if (S.glyphs) for (const g of S.glyphs) {   // each letter has a rhythm of its own and catches the light at the top of it
+			const f = Math.pow(Math.max(0, Math.sin(now * (0.0012 + 0.0016 * g.h2) + g.h1 * 6.28)), 7);
+			if (f > 0.05) { const k = Math.floor((g.h1 * 7 + now * 0.0004) % 7), c = HOLO[k]; tetherGlyph(ctx, g, 0.95 * f * a, { color: dark ? lighten(c, 0.35) : HOLO_DEEP[k], blur: dark ? 9 : 5, glow: c }); }
+		}
+		ctx.lineCap = 'round'; ctx.lineWidth = 1.7;
+		for (const s of S.segs) { const y = tetherY(s); ctx.strokeStyle = holoGradient(ctx, s.left, s.right, y, 0, phase, 0.95 * a); ctx.beginPath(); ctx.moveTo(s.left, y); ctx.lineTo(s.right, y); ctx.stroke(); }
+	},
+};
+
+// Health: a green glow behind the span, a plain rule, and pluses rising out of it.
+TETHER_STYLES.health = {
+	animated: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m);
+		tetherWash(ctx, S.segs, rgba(acc, 0.15 * m));
+		ctx.lineCap = 'round'; ctx.lineWidth = 1.4; ctx.strokeStyle = rgba(col, 0.6 * a);
+		tetherRule(ctx, S.segs, false);
+		tetherEmit(S, 'plus', 2.4, dt, (pt) => pt && ({ x: pt.x, y: pt.y, vx: (Math.random() - 0.5) * 6, vy: -(14 + Math.random() * 12), size: 1.8 + Math.random() * 1.6, t0: now, life: 1500 + Math.random() * 700, ph: Math.random() * 6.28 }));
+		ctx.shadowColor = rgba(acc, 0.9 * a); ctx.shadowBlur = 4; ctx.lineWidth = 1.1;
+		for (const q of S.parts) { const al = tetherLife(q, now) * a; if (al < 0.03) continue; ctx.strokeStyle = rgba(lighten(col, 0.2), 0.95 * al); tetherPlus(ctx, q.x + Math.sin(q.ph + (now - q.t0) * 0.004) * 2, q.y, q.size); }
+		ctx.shadowBlur = 0;
+	},
+};
+
+/**
+ * A wisp of wind, drawn as the anime ones are: a long soft ribbon, thin at the tail and strongest at the head, that ripples as
+ * it goes and ends in a small curl (up when `side` is -1, down when 1). `x`, `y` is the tail, `len` how far it runs, `ph` where
+ * the ripple is: it runs along the wisp from tail to head as `ph` grows.
+ */
+function drawWindWisp(ctx, x, y, len, color, a, width, side, ph) {
+	if (a < 0.03) return;
+	const r = Math.max(2.5, len * 0.12), g = ctx.createLinearGradient(x, 0, x + len + r, 0);
+	g.addColorStop(0, rgba(color, 0)); g.addColorStop(0.5, rgba(color, a * 0.7)); g.addColorStop(1, rgba(color, a));
+	ctx.strokeStyle = g; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+	ctx.beginPath();
+	let ey = y;
+	for (let px = 0; px <= len + 0.1; px += 3) {
+		ey = y + side * (1.2 + 2.4 * (px / len)) * Math.sin(px * 0.11 - ph);
+		px ? ctx.lineTo(x + px, ey) : ctx.moveTo(x + px, ey);
+	}
+	if (side > 0) ctx.arc(x + len, ey + r, r, -Math.PI / 2, -Math.PI / 2 + 4.3, false); else ctx.arc(x + len, ey - r, r, Math.PI / 2, Math.PI / 2 - 4.3, true);   // the curl: a small loop that goes on forward, then round
+	ctx.stroke();
+}
+
+// Zephyr: a breeze through the span - a lighter band of air sweeping over it, streaks of wind, a few leaves carried along, and
+// the letters in the gust leaning to the right and coming back (the letters of the span are hidden where they are and drawn again, upright in still air and slanted in the gust).
+TETHER_STYLES.zephyr = {
+	animated: true, glyphs: true, patch: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m), span = Math.max(40, S.len), gp = tetherSweep(now, span, 70), gw = 26 + Math.min(span, 300) * 0.08;
+		const lean = S.glyphs ? S.glyphs.map((g) => { const d = (g.pos - gp) / gw; return Math.exp(-d * d * 0.7); }) : [];
+		// The letters of the span are taken out of the page - made transparent where they are, all at once, by a highlight
+		// (::highlight(cfx-gust) in the plugin's CSS) - and drawn on the canvas instead, upright where the air is still and
+		// leaning in the gust. Hiding only the letters in the gust would change the highlight at every few frames, which makes
+		// the page restyle its text each time. Failing that (no highlights), the letters in the gust are painted out with the
+		// page's color, or only echoed.
+		const hl = typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight !== 'undefined';
+		let hidden = false;
+		if (hl && S.glyphs) {
+			if (S.hlKey !== S.gk) {
+				S.hlKey = S.gk;
+				const byNode = new Map();
+				for (const g of S.glyphs) { if (!g.node || !g.node.isConnected) continue; const e = byNode.get(g.node); if (e) e[1] = g.off + g.ch.length; else byNode.set(g.node, [g.off, g.off + g.ch.length]); }
+				const ranges = [];
+				for (const [node, [from, to]] of byNode) { const r = document.createRange(); try { r.setStart(node, from); r.setEnd(node, to); ranges.push(r); } catch (e) { /* the text moved on */ } }
+				if (ranges.length) CSS.highlights.set('cfx-gust', new Highlight(...ranges)); else CSS.highlights.delete('cfx-gust');
+			}
+			hidden = true;
+		} else {
+			tetherUnhide(S);   // no letters to draw in their place (a span too long for that): the page's own are left as they are
+			if (S.bg && S.glyphs) S.glyphs.forEach((g, i) => { if (lean[i] > 0.05) { ctx.fillStyle = S.bg; ctx.fillRect(g.x - 0.5, g.top, g.w + 1, g.h); hidden = true; } });
+		}
+		tetherWash(ctx, S.segs, rgba(acc, 0.15 * m));
+		ctx.save();
+		tetherClip(ctx, S.segs);
+		for (const s of S.segs) {   // the gust: a soft slanted band, in the line it has reached
+			const gx = s.left + gp - s.cum;
+			if (gx < s.left - gw - 8 || gx > s.right + gw + 8) continue;
+			const g = ctx.createLinearGradient(gx - gw, 0, gx + gw, 0);
+			g.addColorStop(0, rgba(col, 0)); g.addColorStop(0.5, rgba(col, 0.22 * m)); g.addColorStop(1, rgba(col, 0));
+			ctx.fillStyle = g;
+			ctx.beginPath(); ctx.moveTo(gx - gw + 6, s.top - 2); ctx.lineTo(gx + gw + 6, s.top - 2); ctx.lineTo(gx + gw - 6, s.bottom + 3); ctx.lineTo(gx - gw - 6, s.bottom + 3); ctx.closePath(); ctx.fill();
+		}
+		ctx.lineCap = 'round';
+		S.segs.forEach((s, si) => {   // wisps of wind, along the top and the bottom of the line (not through the letters). Each flows the whole length of the line at its own gentle pace, its body rippling as it goes, a curl at its head, and fades only as it leaves; the next one comes at another height
+			const len = s.right - s.left, n = Math.max(2, Math.round(len / 55));
+			for (let i = 0; i < n; i++) {
+				const h = hash(i * 2.9 + si * 31), size = 36 + 24 * hash(i * 7.1 + si), speed = 32 + 24 * h, travel = len + size + 20, u = (now * 0.001 * speed) / travel + h, k = Math.floor(u), t = u - k;
+				const r = hash(i * 3.7 + si * 5.1 + k * 11.3), env = smoothStep(t / 0.1) * smoothStep((1 - t) / 0.1);
+				const hx = s.left - 10 + t * travel, y0 = s.top + (s.bottom - s.top) * (r < 0.5 ? 0.05 + 0.3 * r : 0.65 + 0.3 * (r - 0.5)) + Math.sin(now * 0.0016 + h * 6.28) * 1.4;
+				drawWindWisp(ctx, hx - size, y0, size, (h < 0.5 ? col : acc), a * (0.55 + 0.4 * h) * env, 0.9 + 0.5 * h, r < 0.5 ? -1 : 1, now * 0.004 + h * 6.28);
+			}
+		});
+		ctx.restore();
+		ctx.strokeStyle = rgba(acc, 0.35 * a); ctx.lineWidth = 1;
+		tetherRule(ctx, S.segs, false);
+		if (S.glyphs && hl) {   // the letters of the span, in place of the page's own: upright in a run of one font and color, each of those in the gust on its own, leaning
+			const dpr = window.devicePixelRatio || 1, vh = window.innerHeight + 20;
+			let font = null, color = null;
+			ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+			S.glyphs.forEach((g, i) => {
+				if (g.top > vh || g.top + g.h < -20) return;
+				if (lean[i] > 0.004) { tetherGlyph(ctx, g, 1, { dx: 2.6 * lean[i], skew: 0.34 * lean[i], exact: true }); return; }
+				if (g.st.font !== font) { font = g.st.font; ctx.font = font; }
+				if (g.st.color !== color) { color = g.st.color; ctx.fillStyle = color; }
+				ctx.fillText(g.ch, Math.round(g.x * dpr) / dpr, Math.round(g.y * dpr) / dpr);
+			});
+			ctx.restore();
+		} else if (S.glyphs) S.glyphs.forEach((g, i) => { if (lean[i] > 0.05) tetherGlyph(ctx, g, hidden ? 1 : 0.5 * lean[i] * a, { dx: 2.6 * lean[i], skew: 0.34 * lean[i], exact: true }); });
+		tetherEmit(S, 'leaf', 0.8, dt, (pt) => pt && ({ x: S.segs[0].left - 4, y: pt.y, vx: 28 + Math.random() * 20, vy: (Math.random() - 0.5) * 12, rot: Math.random() * 6.28, spin: 3 + Math.random() * 4, size: 3.5 + Math.random() * 2.5, t0: now, life: Math.max(1500, (span + 30) / 38 * 1000), ph: Math.random() * 6.28, c: Math.random() < 0.5 ? 0 : 1 }));
+		for (const q of S.parts) { const al = tetherLife(q, now) * a; if (al < 0.03 || q.x > S.segs[S.segs.length - 1].right + 6) continue; ctx.fillStyle = rgba(q.c ? acc : col, 0.9 * al); tetherPetal(ctx, q.x, q.y + Math.sin(q.ph + (now - q.t0) * 0.007) * 3, q.size, q.size * 0.45, q.rot); }
+	},
+};
+
+// Tide: the span is under water - a blue tint that deepens toward the bottom of each line, a slow ripple of light passing over it
+// and a quiet wave for a rule. Nothing else: on a span of many lines it stays calm.
+TETHER_STYLES.tide = {
+	animated: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m), span = Math.max(40, S.len), rp = tetherSweep(now, span, 70), rw = 30 + Math.min(span, 300) * 0.1;
+		for (const s of S.segs) {
+			const g = ctx.createLinearGradient(0, s.top, 0, s.bottom + 3);
+			g.addColorStop(0, rgba(col, 0.12 * m)); g.addColorStop(1, rgba(acc, 0.24 * m));
+			tetherPill(ctx, s); ctx.fillStyle = g; ctx.fill();
+		}
+		ctx.save();
+		tetherClip(ctx, S.segs);
+		for (const s of S.segs) {   // the ripple of light, in the line it has reached
+			const rx = s.left + rp - s.cum;
+			if (rx < s.left - rw || rx > s.right + rw) continue;
+			const g = ctx.createLinearGradient(rx - rw, 0, rx + rw, 0);
+			g.addColorStop(0, rgba(col, 0)); g.addColorStop(0.5, rgba(lighten(col, 0.4), 0.16 * m)); g.addColorStop(1, rgba(col, 0));
+			ctx.fillStyle = g; ctx.fillRect(rx - rw, s.top - 2, rw * 2, s.bottom - s.top + 5);
+		}
+		ctx.restore();
+		ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 1.4; ctx.strokeStyle = rgba(col, 0.7 * a);
+		for (const s of S.segs) { ctx.beginPath(); for (let x = s.left; x <= s.right + 0.1; x += 2) { const y = tetherY(s) + 1 + Math.sin((x - now * 0.02) * 0.4) * 1; x === s.left ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke(); }
+	},
+};
+
+// Slime: as if swallowed by it - a jelly round the whole span with a wobbling edge and a gloss, bubbles inside, and drops
+// that swell under it and let go.
+TETHER_STYLES.slime = {
+	animated: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col(), acc = plugin.acc(), a = Math.min(1, m);
+		for (const s of S.segs) {
+			const L = s.left - 3, R = s.right + 3, T = s.top - 1, B = s.bottom + 2.5, mid = (T + B) / 2, pts = [];
+			const wob = (x, k) => Math.sin(x * 0.13 + now * 0.0038 * k) * 1.3 + Math.sin(x * 0.29 - now * 0.0027 * k) * 0.7;
+			for (let x = L + 3; x < R - 2; x += 6) pts.push([x, T + wob(x, 1) - 0.5]);
+			pts.push([R + 2 + Math.sin(now * 0.004) * 0.8, mid]);
+			for (let x = R - 3; x > L + 2; x -= 6) pts.push([x, B + wob(x, -1) * 0.8 + 0.5]);
+			pts.push([L - 2 - Math.sin(now * 0.004 + 1) * 0.8, mid]);
+			const n = pts.length, md = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+			ctx.beginPath(); let m0 = md(pts[n - 1], pts[0]); ctx.moveTo(m0[0], m0[1]);
+			for (let i = 0; i < n; i++) { const e = md(pts[i], pts[(i + 1) % n]); ctx.quadraticCurveTo(pts[i][0], pts[i][1], e[0], e[1]); }
+			ctx.closePath();
+			ctx.fillStyle = rgba(col, 0.26 * m); ctx.fill();
+			ctx.lineWidth = 1.5; ctx.strokeStyle = rgba(acc, 0.6 * a); ctx.stroke();
+			ctx.strokeStyle = `rgba(255,255,255,${0.35 * a})`; ctx.lineWidth = 1.6; ctx.lineCap = 'round';   // the gloss
+			ctx.beginPath(); ctx.moveTo(L + 8, T + 2.2 + wob(L, 1) * 0.3); ctx.lineTo(Math.min(R - 8, L + 8 + (R - L) * 0.45), T + 2.2 + wob(L + 30, 1) * 0.3); ctx.stroke();
+			// the drops: each swells below the jelly, hangs by a thread, lets go and falls
+			const nd = s === S.segs[S.segs.length - 1] ? Math.max(1, Math.round((s.right - s.left) / 60)) : 0;   // drops only under the last line of the span
+			for (let i = 0; i < nd; i++) {
+				const h = hash(i * 6.1 + s.top * 0.13), cyc = 3000 + 1500 * h, t = now + h * 9000, f = (t % cyc) / cyc, x = s.left + (s.right - s.left) * (0.12 + 0.76 * h);
+				ctx.fillStyle = rgba(col, 0.5 * a); ctx.strokeStyle = rgba(col, 0.5 * a);
+				if (f < 0.72) { const len = 1 + 7 * Math.pow(f / 0.72, 2), r = 1.2 + 1.2 * (f / 0.72); ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(x, B); ctx.lineTo(x, B + len); ctx.stroke(); ctx.beginPath(); ctx.arc(x, B + len + r * 0.6, r, 0, Math.PI * 2); ctx.fill(); }
+				else { const u = (f - 0.72) / 0.28; ctx.globalAlpha = 1 - u; ctx.beginPath(); ctx.ellipse(x, B + 9 + u * 16, 2.1, 2.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+			}
+		}
+		tetherEmit(S, 'bub', 2, dt, (pt) => pt && ({ x: pt.x, y: pt.s.bottom, vx: 0, vy: -(8 + Math.random() * 8), size: 1 + Math.random() * 1.6, t0: now, life: 1300 + Math.random() * 800, top: pt.s.top, ph: Math.random() * 6.28 }));
+		ctx.lineWidth = 0.8;
+		for (const q of S.parts) { const al = tetherLife(q, now) * a; if (al < 0.03 || q.y < q.top) continue; ctx.strokeStyle = `rgba(255,255,255,${0.7 * al})`; ctx.beginPath(); ctx.arc(q.x + Math.sin(q.ph + (now - q.t0) * 0.005) * 1.4, q.y, q.size, 0, Math.PI * 2); ctx.stroke(); }
+	},
+};
+
+// Combo: a highlight in the color of the rank that heats with it, sparks rising off the top from rank C, and from B the letters glow in turn.
+TETHER_STYLES.combo = {
+	animated: true, glyphs: true,
+	draw(plugin, ctx, S, now, dt, m) {
+		const it = plugin.items.find((q) => q.effect === 'combo' && !q.done), tier = comboTier(it ? it.n : 0), c = comboHue(tier, now), a = Math.min(1, m), L = plugin.dark ? 0 : -22;
+		const hsl = (al, dl = 0) => `hsla(${c[0]}, ${c[1]}%, ${c[2] + L + dl}%, ${al})`, flick = 0.85 + 0.15 * Math.sin(now * 0.02 * (1 + tier));
+		tetherWash(ctx, S.segs, hsl((0.14 + 0.04 * tier) * flick * m));
+		ctx.lineCap = 'round';
+		ctx.lineWidth = 1.4 + 0.35 * tier; ctx.strokeStyle = hsl((0.55 + 0.1 * tier) * flick * a); ctx.shadowColor = hsl(0.9 * a); ctx.shadowBlur = 3 + 3 * tier;
+		tetherRule(ctx, S.segs, true);
+		ctx.shadowBlur = 0;
+		if (tier >= 2 && S.glyphs) {   // a glow that runs through the letters, left to right and round again
+			const span = Math.max(40, S.len), wx = tetherSweep(now, span, 70 + 25 * tier), wid = 16 + Math.min(span, 300) * 0.06;
+			for (const g of S.glyphs) { const d = (g.pos - wx) / wid, w = Math.exp(-d * d); if (w > 0.06) tetherGlyph(ctx, g, 0.85 * w * a, { color: hsl(1, 12), blur: 7, glow: hsl(1) }); }
+		}
+		if (tier >= 1) tetherEmit(S, 'spark', 1.5 * tier, dt, (pt) => pt && ({ x: pt.x, y: pt.s.top, vx: (Math.random() - 0.5) * 24, vy: -(24 + Math.random() * 30), ay: 30, size: 0.8 + Math.random() * 1.1, t0: now, life: 600 + Math.random() * 500 }));
+		ctx.shadowColor = hsl(0.9 * a); ctx.shadowBlur = 5;
+		for (const q of S.parts) { const al = tetherLife(q, now) * a; if (al < 0.03) continue; ctx.fillStyle = hsl(al, 8); ctx.beginPath(); ctx.arc(q.x, q.y, q.size, 0, Math.PI * 2); ctx.fill(); }
+		ctx.shadowBlur = 0;
+	},
+};
+
+// Back-man: a yellow wash and a plain rule.
+TETHER_STYLES.backman = {
+	draw(plugin, ctx, S, now, dt, m) {
+		const col = plugin.col();
+		tetherWash(ctx, S.segs, rgba(col, 0.16 * m));
+		ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.strokeStyle = rgba(col, 0.6 * Math.min(1, m));
+		tetherRule(ctx, S.segs, false);
 	},
 };
 
@@ -1642,7 +2063,7 @@ EFFECTS.backman = {
 };
 
 // =====================================================================================
-// SPECIAL PRESETS ORIGINAL TO CARET FX: Holy, Prism, Health, Zephyr, Tide
+// SPECIAL PRESETS ORIGINAL TO CARET FX: Holy, Prism, Health, Zephyr, Tide, Stitch
 //
 // Written for this plugin, not ported. They are special presets like Sakura and Lightning: each brings its own colors and
 // is picked in the settings page's Special grid (or by "next preset"), one at a time. Like the falling petals they
@@ -1788,8 +2209,9 @@ EFFECTS.holy = {
 
 // ---- Effect: Prism -------------------------------------------------------------------------------------------------
 // A burst of light through glass: each letter sets off a flash on the caret with a thin anamorphic lens streak through it
-// (cold blue-white) and a small violet lens-orb on the streak, and flings a few chunky glowing stars out - gold and orange
-// mostly, now and then cyan with a tail - that slow down, spin and fade, with embers drifting among them. A new line or a
+// (a run of the holographic foil's pastels - aqua, lavender, pink, peach, yellow, mint - round a white heart) and a small pink
+// lens-orb on the streak, and flings a few chunky glowing stars out in those same colors, now and then aqua with a tail, that
+// slow down, spin and fade, with pearly embers drifting among them. A new line or a
 // jump is a big burst. Everything is additive light.
 // Settings: prismStrength (1 is normal).
 const PRISM_GAP_MS = 80;                 // the least time between two bursts, so a fast typist does not bury the page in them
@@ -1797,7 +2219,7 @@ const PRISM_STARS_MAX = 18;              // the most stars alive at once
 const PRISM_EMBERS_MAX = 26;             // the most embers alive at once
 const PRISM_STAR_MS = [750, 1150];       // how long a star flies
 const PRISM_FLASH_MS = 380;              // how long the flash and its streak last
-const PRISM_HUES = [[44, 100, 62], [44, 100, 62], [30, 100, 58], [30, 100, 58], [190, 100, 66], [270, 100, 72]];   // gold, orange, cyan, violet: [h, s, l]
+const PRISM_HUES = [[172, 85, 72], [228, 100, 80], [275, 100, 82], [330, 100, 78], [28, 100, 78], [52, 100, 72], [108, 75, 76]];   // holographic foil - aqua, lavender, violet, pink, peach, yellow, mint: [h, s, l]
 
 /** The outline of a five-pointed star of outer radius `r`, turned by `rot`. */
 function traceStar(ctx, r, rot) {
@@ -1828,10 +2250,10 @@ function prismSprite(i, dark) {
 	g.translate(S / 2, S / 2);
 	if (i < 0) {   // an ember: a soft orange dot
 		const light = dark ? 62 : 42, grad = g.createRadialGradient(0, 0, 0, 0, 0, R);
-		grad.addColorStop(0, `hsl(36, 100%, ${light + 12}%)`);
-		grad.addColorStop(0.3, `hsla(36, 100%, ${light + 12}%, 0.9)`);
-		grad.addColorStop(0.5, 'hsla(30, 100%, 60%, 0.35)');
-		grad.addColorStop(1, 'hsla(30, 100%, 60%, 0)');
+		grad.addColorStop(0, `hsl(190, 100%, ${light + 24}%)`);
+		grad.addColorStop(0.3, `hsla(190, 100%, ${light + 22}%, 0.9)`);
+		grad.addColorStop(0.5, 'hsla(305, 100%, 78%, 0.35)');
+		grad.addColorStop(1, 'hsla(305, 100%, 78%, 0)');
 		g.fillStyle = grad;
 		g.fillRect(-R, -R, 2 * R, 2 * R);
 	} else {   // a chunky star with rounded points, its glow, and a bright heart
@@ -1867,7 +2289,7 @@ function kindlePrism(host, rect, big, now) {
 		const hi = Math.floor(Math.random() * PRISM_HUES.length), hue = PRISM_HUES[hi], a = Math.random() * Math.PI * 2, v = (60 + Math.random() * 90) * u;
 		item.stars.push({
 			x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 15 * u, r: (2.6 + Math.random() * 3.4) * u, hue, hi,
-			spin: (Math.random() - 0.5) * 6, rot: Math.random() * 6.28, tail: hue[0] === 190, t0: now + i * 25, life: lerp(PRISM_STAR_MS[0], PRISM_STAR_MS[1], Math.random()),
+			spin: (Math.random() - 0.5) * 6, rot: Math.random() * 6.28, tail: hi === 0, t0: now + i * 25, life: lerp(PRISM_STAR_MS[0], PRISM_STAR_MS[1], Math.random()),
 		});
 	}
 	for (let i = 0; i < (big ? 10 : 2) && item.embers.length < PRISM_EMBERS_MAX; i++) {
@@ -1892,23 +2314,24 @@ function drawPrism(plugin, ctx, item, now, k) {
 	if (flash >= 0 && flash < 1) {   // the flash, its anamorphic streak and the lens-orb on it
 		const f = 1 - flash, a = f * f * power * (item.big ? 1.3 : 1), reach = h * (item.big ? 4.5 : 3) * (0.6 + 0.4 * flash + 0.3);
 		const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, h * 1.1);
-		glow.addColorStop(0, `rgba(255,${dark ? 240 : 200},200,${0.55 * a})`);
-		glow.addColorStop(1, 'rgba(255,170,60,0)');
+		glow.addColorStop(0, `rgba(255,${dark ? 240 : 215},${dark ? 250 : 235},${0.55 * a})`);
+		glow.addColorStop(1, 'rgba(190,150,255,0)');
 		ctx.fillStyle = glow;
 		ctx.fillRect(cx - h * 1.1, cy - h * 1.1, h * 2.2, h * 2.2);
 		const g = ctx.createLinearGradient(cx - reach, cy, cx + reach, cy);
-		g.addColorStop(0, 'rgba(90,170,255,0)');
-		g.addColorStop(0.42, `hsla(205, 100%, ${light + 8}%, ${0.75 * a})`);
+		const holo = (h) => `hsla(${h}, 100%, ${light + 12}%, ${0.75 * a})`;   // the streak runs through the foil's colors: aqua, lavender and pink to either side of the white heart
+		g.addColorStop(0, 'rgba(160,200,255,0)');
+		g.addColorStop(0.2, holo(172)); g.addColorStop(0.32, holo(228)); g.addColorStop(0.42, holo(330));
 		g.addColorStop(0.5, `rgba(255,255,255,${a})`);
-		g.addColorStop(0.58, `hsla(205, 100%, ${light + 8}%, ${0.75 * a})`);
-		g.addColorStop(1, 'rgba(90,170,255,0)');
+		g.addColorStop(0.58, holo(52)); g.addColorStop(0.68, holo(28)); g.addColorStop(0.8, holo(108));
+		g.addColorStop(1, 'rgba(160,255,230,0)');
 		ctx.fillStyle = g;
 		ctx.fillRect(cx - reach, cy - 1.1 * u, reach * 2, 2.2 * u);
 		ctx.fillRect(cx - 0.8 * u, cy - reach * 0.22, 1.6 * u, reach * 0.44);   // and a short vertical one across it
 		const ox = cx + reach * 0.7, orb = ctx.createRadialGradient(ox, cy, 0, ox, cy, 5 * u);
-		orb.addColorStop(0, `hsla(265, 100%, 78%, ${0.7 * a})`);
-		orb.addColorStop(0.6, `hsla(265, 100%, 70%, ${0.25 * a})`);
-		orb.addColorStop(1, 'hsla(265, 100%, 70%, 0)');
+		orb.addColorStop(0, `hsla(305, 100%, 82%, ${0.7 * a})`);
+		orb.addColorStop(0.6, `hsla(275, 100%, 78%, ${0.25 * a})`);
+		orb.addColorStop(1, 'hsla(275, 100%, 78%, 0)');
 		ctx.fillStyle = orb;
 		ctx.fillRect(ox - 5 * u, cy - 5 * u, 10 * u, 10 * u);
 	}
@@ -1950,7 +2373,7 @@ function drawPrism(plugin, ctx, item, now, k) {
 
 EFFECTS.prism = {
 	id: 'prism', label: 'Prism', mode: 'signature', keepsState: true, blend: 'lighter',
-	preset: { name: 'Prism', color: '#bfe9ff', accent: '#ff9a2e' },
+	preset: { name: 'Prism', color: '#c9ecff', accent: '#e0a8ff' },
 	defaults: { prismStrength: 1 },
 	onMove(plugin, prev, cur, info) {
 		const big = info.typed ? info.dy >= cur.h * 0.8 : info.dist > cur.h * 4;   // a new line, or a jump
@@ -2381,18 +2804,430 @@ EFFECTS.tide = {
 };
 
 
+// ---- Effect: Stitch ------------------------------------------------------------------------------------------------
+// A running stitch sewn along the line as you write, as if the words were being stitched down: each letter puts the
+// thread under itself, the newest stitch pulled through as you watch, a needle-hole at either end of each. The stitches
+// hold a moment, then the thread is drawn out and they fade, the oldest first; Backspace unpicks the ones it passes
+// back over, and a new line ties a small cross-stitch knot where the last one ended. The thread is the caret's own
+// color. It lies just under the letters, above the line's own rule.
+// Settings: stitchSize (1 is normal).
+const STITCH_HOLD_MS = 1500;    // how long a stitch stays whole after it is sewn
+const STITCH_FADE_MS = 700;     // how long the thread takes to draw out
+const STITCH_SEW_MS = 130;      // how long the newest stitch takes to pull through
+const STITCH_MAX = 160;         // the most lengths of thread kept at once
+const STITCH_KNOT_MS = 2200;    // how long a knot stays before it fades with the thread
+/** The thread's color: the caret's. */
+const stitchThread = (plugin) => plugin.col();
+
+/** The item that holds the thread of `host` (the plugin, or a preview host). */
+function stitchOf(host) {
+	const item = host.ensureItem('stitch');
+	if (!item.runs) { item.runs = []; item.knots = []; }
+	return item;
+}
+
+/** Where the thread lies under a caret `rect`: just below its foot, between the letters and the line's rule. */
+const stitchY = (rect) => rect.y + rect.h + 1.5;
+
+/** Sews thread from `x0` to `x1` along the line at `y`. */
+function sewStitch(host, x0, x1, y, now) {
+	const item = stitchOf(host);
+	if (x1 - x0 < 0.5) return;
+	item.runs.push({ x0, x1, y, t0: now });
+	if (item.runs.length > STITCH_MAX) item.runs.splice(0, item.runs.length - STITCH_MAX);
+}
+
+function drawStitch(plugin, ctx, item, now, k) {
+	const life = STITCH_HOLD_MS + STITCH_FADE_MS;
+	item.runs = item.runs.filter((r) => now - r.t0 < life);
+	item.knots = item.knots.filter((q) => now - q.t0 < STITCH_KNOT_MS + STITCH_FADE_MS);
+	if (!item.runs.length && !item.knots.length) { item.done = true; return; }
+	const rect = plugin.last, h = Math.max(rect ? rect.h : 20, 14), u = h / 20 * (plugin.cfg.stitchSize ?? 1);
+	const dash = 5 * u, gap = 3.4 * u, period = dash + gap, width = Math.max(1.1, 1.3 * u);
+	const thread = stitchThread(plugin), hi = lighten(thread, 0.5), dark = plugin.dark;
+	const shadow = dark ? 'rgba(0,0,0,0.5)' : 'rgba(40,24,10,0.22)', hole = dark ? 'rgba(0,0,0,0.55)' : 'rgba(30,18,8,0.3)';
+	const power = Math.min(1, 0.75 + 0.25 * k);
+	const fade = (t0, hold) => { const age = now - t0; return age < hold ? 1 : Math.max(0, 1 - (age - hold) / STITCH_FADE_MS); };
+	// How far each line has been sewn so far (the newest length still being pulled through), so a stitch begun under one
+	// letter runs on under the next one as it is written.
+	const reach = new Map();
+	for (const r of item.runs) {
+		const key = Math.round(r.y), x1 = r.x0 + (r.x1 - r.x0) * Math.min(1, (now - r.t0) / STITCH_SEW_MS);
+		reach.set(key, Math.max(reach.get(key) ?? -Infinity, x1));
+	}
+	ctx.save();
+	ctx.lineCap = 'round';
+	for (const r of item.runs) {
+		const a = fade(r.t0, STITCH_HOLD_MS) * power;
+		if (a <= 0.01) continue;
+		const end = reach.get(Math.round(r.y));
+		ctx.globalAlpha = a;
+		// The stitches that begin under this length of thread, on the seam's one pattern: each stitch is drawn once, by
+		// the length it begins in, and runs on as far as the line has been sewn.
+		for (let s = Math.ceil(r.x0 / period) * period; s < r.x1; s += period) {
+			const a1 = Math.min(s + dash, end);
+			if (a1 - s < 0.6) continue;
+			const y = r.y + Math.sin(s * 0.9) * 0.25;   // a hand-sewn seam is never quite straight
+			ctx.lineWidth = width;
+			ctx.beginPath();   // its shadow on the page
+			ctx.moveTo(s, y + 0.7); ctx.lineTo(a1, y + 0.7);
+			ctx.strokeStyle = shadow;
+			ctx.stroke();
+			ctx.beginPath();   // the thread
+			ctx.moveTo(s, y); ctx.lineTo(a1, y);
+			ctx.strokeStyle = thread;
+			ctx.stroke();
+			if (a1 - s > width * 1.6) {   // the light along its twist
+				ctx.beginPath();
+				ctx.moveTo(s + width * 0.5, y - width * 0.2); ctx.lineTo(a1 - width * 0.5, y - width * 0.2);
+				ctx.strokeStyle = rgba(hi, 0.6);
+				ctx.lineWidth = width * 0.34;
+				ctx.stroke();
+			}
+			ctx.fillStyle = hole;   // the needle-holes it goes in and out of
+			for (const hx of a1 >= s + dash ? [s - width * 0.6, s + dash + width * 0.6] : [s - width * 0.6]) {
+				ctx.beginPath();
+				ctx.arc(hx, y, Math.max(0.45, 0.45 * u), 0, Math.PI * 2);
+				ctx.fill();
+			}
+		}
+	}
+	ctx.lineWidth = width;
+	for (const q of item.knots) {   // a knot: a small cross-stitch where a line of stitching was tied off
+		const a = fade(q.t0, STITCH_KNOT_MS) * power;
+		if (a <= 0.01) continue;
+		const s = 2.6 * u;
+		ctx.globalAlpha = a;
+		for (const [off, col] of [[0.7, shadow], [0, thread]]) {
+			ctx.beginPath();
+			ctx.moveTo(q.x - s, q.y - s + off); ctx.lineTo(q.x + s, q.y + s + off);
+			ctx.moveTo(q.x + s, q.y - s + off); ctx.lineTo(q.x - s, q.y + s + off);
+			ctx.strokeStyle = col;
+			ctx.lineWidth = width;
+			ctx.stroke();
+		}
+	}
+	ctx.restore();
+}
+
+EFFECTS.stitch = {
+	id: 'stitch', label: 'Stitch', mode: 'signature', keepsState: true, blend: 'source-over',
+	preset: { name: 'Stitch', color: '#e3a33a', accent: '#8a5a2b' },
+	defaults: { stitchSize: 1 },
+	onMove(plugin, prev, cur, info) {
+		if (!prev) return;
+		const now = info.now;
+		if (isWriting(info)) { sewStitch(plugin, prev.x, cur.x, stitchY(cur), now); return; }
+		if (!info.typed) return;
+		const item = stitchOf(plugin);
+		if (info.dx < -0.5 && Math.abs(info.dy) < 1) {   // Backspace: the stitches it passes back over are unpicked
+			const y = stitchY(cur);
+			item.runs = item.runs.filter((r) => Math.abs(r.y - y) > 1 || r.x0 < cur.x - 0.5);
+			for (const r of item.runs) if (Math.abs(r.y - y) <= 1 && r.x1 > cur.x) r.x1 = cur.x;
+		} else if (info.dy >= cur.h * 0.8) {   // a new line: a knot where the stitching ended
+			if (item.runs.some((r) => now - r.t0 < STITCH_HOLD_MS)) item.knots.push({ x: prev.x + 3, y: stitchY(prev), t0: now });
+		}
+	},
+	onShift(plugin, dx, dy) {   // the page scrolled: the seam goes with the text
+		const item = plugin.items.find((it) => it.effect === 'stitch' && !it.done);
+		if (!item) return;
+		for (const r of item.runs || []) { r.x0 += dx; r.x1 += dx; r.y += dy; }
+		for (const q of item.knots || []) { q.x += dx; q.y += dy; }
+	},
+	onSample(plugin, cur) {   // the caret gone (another page): nothing may stay drawn where it was
+		if (cur) return;
+		const item = plugin.items.find((it) => it.effect === 'stitch' && !it.done);
+		if (item) { item.runs = []; item.knots = []; item.done = true; }
+	},
+	draw(plugin, ctx, item, p, k, now) { drawStitch(plugin, ctx, item, now, k); },
+	preview(plugin, pv, caret, now) {
+		if (now < (pv.stitchNext || 0)) return;
+		pv.stitchNext = now + 160;
+		const x = pv.stitchX ?? caret.x;
+		sewStitch(pv, x, x + 9, stitchY(caret), now);
+		pv.stitchX = x + 9 > caret.x + 140 ? caret.x : x + 9;
+	},
+};
+
+
+// ---- Effect: Mizan -------------------------------------------------------------------------------------------------
+// Writing as a dashboard, in the language of Mizan, the component library from pano-ui:
+// while you write, a small Stat floats over the caret on Mizan's frosted glass - a live sparkline of your pace over
+// the last keys (Sparkline.tsx: a 1.6px line, the area under it in the series color fading down, a dot on the last
+// value), the pace in words per minute in tabular figures, and a change badge (Stat's: ▲ green when you speed up
+// against the start of the run, ▼ red when you slow down). A border beam (border-beam.css) runs round its edge,
+// quicker the faster you write. It follows the caret on Mizan's ease and fades when you stop. When the caret jumps
+// (a click, the arrows, a new line) a raised pill in the selection gradient glides there on Mizan's spring, the way
+// Segmented's pill slides to the option you pick.
+const MIZAN_POINTS = 28;         // the sparkline's length, in keys
+const MIZAN_HOLD_MS = 1100;      // the Stat staying up after the last key...
+const MIZAN_FADE_MS = 450;       // ...then fading out
+const MIZAN_IN_MS = 180;         // and opening, the first time
+const MIZAN_GLIDE_MS = 250;      // Segmented's pill: transform 0.25s var(--spring)
+const MIZAN_BEAM_MS = 4000;      // border-beam's --beam-duration; it runs up to four times as fast at speed
+
+/** CSS's cubic-bezier() as a function of time: x is solved for the curve's parameter (Newton), y is returned. */
+function cubicBezier(x1, y1, x2, y2) {
+	const bx = (t) => 3 * x1 * t * (1 - t) * (1 - t) + 3 * x2 * t * t * (1 - t) + t * t * t;
+	const by = (t) => 3 * y1 * t * (1 - t) * (1 - t) + 3 * y2 * t * t * (1 - t) + t * t * t;
+	const dbx = (t) => 3 * x1 * (1 - t) * (1 - t) + 6 * (x2 - x1) * t * (1 - t) + 3 * (1 - x2) * t * t;
+	return (x) => {
+		if (x <= 0) return 0;
+		if (x >= 1) return 1;
+		let t = x;
+		for (let i = 0; i < 8; i++) {
+			const d = dbx(t);
+			if (Math.abs(d) < 1e-6) break;
+			t = clamp01(t - (bx(t) - x) / d);
+		}
+		return by(t);
+	};
+}
+const mizanSpring = cubicBezier(0.3, 1.2, 0.4, 1);   // --spring: overshoots a little, then settles
+const mizanEase = cubicBezier(0.2, 0.8, 0.2, 1);     // --ease
+
+// Mizan's tokens for the Stat, per theme (tokens.css): the glass (--pop), its outline (--shadow-pop), text, muted text
+// and the change colors (--down is good, --up is bad; a faster pace is good)
+const MIZAN_TOKENS = {
+	dark: { pop: 'rgba(44,44,47,0.92)', ring: 'rgba(255,255,255,0.08)', edgeTop: 'rgba(255,255,255,0.16)', edgeBottom: 'rgba(255,255,255,0.03)',
+		text: '#f5f5f7', muted: '#a1a1a6', good: '#4cd97b', bad: '#ff6b5e', shadow: 'rgba(0,0,0,0.55)' },
+	light: { pop: 'rgba(255,255,255,0.94)', ring: 'rgba(0,0,0,0.06)', edgeTop: 'rgba(0,0,0,0.10)', edgeBottom: 'rgba(0,0,0,0.04)',
+		text: '#1d1d1f', muted: '#6e6e73', good: '#1d7d44', bad: '#c63527', shadow: 'rgba(0,0,0,0.16)' },
+};
+const MIZAN_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Inter, system-ui, sans-serif';
+
+/** The item that holds the Stat and the glide of `host` (the plugin, or a preview host). */
+function mizanOf(host) {
+	const item = host.ensureItem('mizan');
+	if (!item.pace) { item.pace = []; item.keys = []; item.lastAt = -1e9; item.openAt = -1e9; item.glide = null; item.x = null; item.y = null; item.beam = 0; }
+	return item;
+}
+
+/** A key was written at `now`: the pace (words a minute, five letters a word) over the last keys goes on the line. */
+function mizanKey(item, now) {
+	if (now - item.lastAt > MIZAN_HOLD_MS + MIZAN_FADE_MS) { item.openAt = now; item.pace = []; item.keys = []; item.base = null; }   // a new run
+	item.lastAt = now;
+	item.keys.push(now);
+	item.keys = item.keys.filter((t) => now - t < 3000);
+	if (item.keys.length < 3) return;   // two keys are no pace yet
+	const wpm = ((item.keys.length - 1) / 5) * (60000 / (now - item.keys[0]));
+	const prev = item.pace.length ? item.pace[item.pace.length - 1] : wpm;
+	item.pace.push(prev + (wpm - prev) * 0.35);   // smoothed, as a chart of it would be
+	if (item.pace.length > MIZAN_POINTS) item.pace.shift();
+	if (item.base == null && item.pace.length >= 4) item.base = item.pace[item.pace.length - 1];   // the run's opening pace, for the badge
+}
+
+function mizanPath(ctx, x, y, w, h, r) {
+	ctx.beginPath();
+	if (ctx.roundRect) ctx.roundRect(x, y, w, h, Math.max(0, Math.min(r, w / 2, h / 2))); else ctx.rect(x, y, w, h);
+}
+
+/** The Stat's sparkline in the box (x, y, w, h): the area, the line, the dot (Sparkline.tsx), the grid dots under it. */
+function mizanSpark(ctx, values, x, y, w, h, color, tk) {
+	ctx.fillStyle = tk.muted;
+	ctx.globalAlpha = 0.35;
+	for (let gx = x; gx <= x + w; gx += 4) { ctx.beginPath(); ctx.arc(gx, y + h + 0.5, 0.5, 0, Math.PI * 2); ctx.fill(); }   // --grid: round-capped dots
+	ctx.globalAlpha = 1;
+	if (values.length < 2) return;
+	const lo = Math.min(...values), hi = Math.max(...values), range = Math.max(hi - lo, 12);
+	const mid = (lo + hi) / 2;
+	const px = (i) => x + (i / (MIZAN_POINTS - 1)) * w + (MIZAN_POINTS - values.length) * (w / (MIZAN_POINTS - 1));
+	const py = (v) => y + h / 2 - ((v - mid) / range) * h * 0.9;
+	ctx.beginPath();
+	values.forEach((v, i) => (i ? ctx.lineTo(px(i), py(v)) : ctx.moveTo(px(i), py(v))));
+	const lastX = px(values.length - 1), lastY = py(values[values.length - 1]);
+	ctx.save();
+	ctx.lineTo(lastX, y + h); ctx.lineTo(px(0), y + h); ctx.closePath();
+	const area = ctx.createLinearGradient(0, y, 0, y + h);   // fill-opacity 0.3 under a white mask fading 0.9 to 0.05
+	area.addColorStop(0, rgba(color, 0.27));
+	area.addColorStop(1, rgba(color, 0.015));
+	ctx.fillStyle = area;
+	ctx.fill();
+	ctx.restore();
+	ctx.beginPath();
+	values.forEach((v, i) => (i ? ctx.lineTo(px(i), py(v)) : ctx.moveTo(px(i), py(v))));
+	ctx.strokeStyle = color;
+	ctx.lineWidth = 1.6;
+	ctx.lineJoin = 'round';
+	ctx.lineCap = 'round';
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.arc(lastX, lastY, 2.2, 0, Math.PI * 2);
+	ctx.fillStyle = color;
+	ctx.fill();
+}
+
+function drawMizan(plugin, ctx, item, now, k, dt) {
+	const since = now - item.lastAt, fade = (since - MIZAN_HOLD_MS) / MIZAN_FADE_MS;
+	const glide = item.glide ? (now - item.glide.t0) / MIZAN_GLIDE_MS : 1;
+	if (glide >= 1) item.glide = null;
+	if (fade >= 1 && !item.glide) { item.done = true; return; }
+	const rect = plugin.last;
+	if (!rect) return;
+	const dark = plugin.dark, tk = dark ? MIZAN_TOKENS.dark : MIZAN_TOKENS.light, top = plugin.col(), bottom = plugin.acc();
+	const power = Math.min(k, 1.5);
+	ctx.save();
+
+	if (item.glide) {   // the pill gliding from where the caret was, raised: the selection gradient, a sheen on top
+		const s = mizanSpring(glide), from = item.glide.from;
+		const w = Math.max(rect.w, 2.5), h = lerp(from.h, rect.h, s);
+		const x = lerp(from.x + from.w / 2, rect.x + rect.w / 2, s) - w / 2, y = lerp(from.y, rect.y, s);
+		ctx.globalAlpha = Math.min(1, power * (glide < 0.7 ? 1 : 1 - (glide - 0.7) / 0.3));
+		ctx.strokeStyle = rgba(top, dark ? 0.3 : 0.24);   // and the field's ring round it (--ring)
+		ctx.lineWidth = 4;
+		mizanPath(ctx, x - 3, y - 2, w + 6, h + 4, w / 2 + 3);
+		ctx.stroke();
+		const g = ctx.createLinearGradient(0, y, 0, y + h);
+		g.addColorStop(0, top);
+		g.addColorStop(1, bottom);
+		ctx.fillStyle = g;
+		mizanPath(ctx, x, y, w, h, w / 2);
+		ctx.fill();
+		ctx.fillStyle = 'rgba(255,255,255,0.28)';   // --sheen-accent
+		ctx.fillRect(x + w * 0.25, y + 1, w * 0.5, 1);
+		ctx.globalAlpha = 1;
+	}
+
+	if (fade < 1 && item.pace.length) {   // the Stat
+		const show = mizanEase((now - item.openAt) / MIZAN_IN_MS) * (1 - easeInOutSine(clamp01(fade)));
+		const wpm = Math.round(item.pace[item.pace.length - 1]);
+		const change = item.base ? (wpm - item.base) / item.base : 0;
+		const tone = Math.abs(change) < 0.03 ? null : change > 0 ? 'good' : 'bad';
+		const badge = item.base == null ? '' : tone ? `${change > 0 ? '▲' : '▼'} ${Math.round(Math.abs(change) * 100)}%` : '■ 0%';
+		ctx.font = `600 12px ${MIZAN_FONT}`;
+		const numW = ctx.measureText(String(wpm)).width;
+		ctx.font = `500 11px ${MIZAN_FONT}`;
+		const unitW = ctx.measureText('wpm').width;
+		ctx.font = `600 10.5px ${MIZAN_FONT}`;
+		const badgeW = badge ? ctx.measureText(badge).width + 12 : 0;
+		const H = 26, sparkW = 46, pad = 9, gap = 7;
+		const W = pad + sparkW + gap + numW + 3 + unitW + (badge ? gap + badgeW + 5 : pad);
+		// over the caret, a little to its left; under it when there is no room above; inside the editor
+		const clip = plugin.clipRect ? plugin.clipRect() : null;
+		let tx = rect.x - W * 0.35, ty = rect.y - H - 8;
+		if (clip) {
+			if (ty < clip.y + 4) ty = rect.y + rect.h + 8;
+			tx = clamp(tx, clip.x + 6, clip.x + clip.w - W - 6);
+		}
+		if (item.x === null || now - item.openAt < 20) { item.x = tx; item.y = ty; }   // a new run starts where it is wanted
+		const follow = 1 - Math.pow(1 - 0.22, (dt || 16) / 16);   // Mizan's ease, a frame at a time
+		item.x += (tx - item.x) * follow;
+		item.y += (ty - item.y) * follow;
+		const x = Math.round(item.x), y = Math.round(item.y + (1 - show) * 4);   // it rises 4px as it opens, like a tooltip
+		ctx.globalAlpha = show * Math.min(1, power);
+
+		ctx.save();   // the glass and its elevation
+		ctx.shadowColor = tk.shadow;
+		ctx.shadowBlur = 18;
+		ctx.shadowOffsetY = 6;
+		ctx.fillStyle = tk.pop;
+		mizanPath(ctx, x, y, W, H, H / 2);
+		ctx.fill();
+		ctx.restore();
+		ctx.lineWidth = 1;   // the edge, brighter on top (the light comes from above)
+		const edge = ctx.createLinearGradient(0, y, 0, y + H);
+		edge.addColorStop(0, tk.edgeTop);
+		edge.addColorStop(1, tk.edgeBottom);
+		ctx.strokeStyle = edge;
+		mizanPath(ctx, x + 0.5, y + 0.5, W - 1, H - 1, H / 2);
+		ctx.stroke();
+
+		// the border beam: a lit stretch of the edge running round it, faster with the pace
+		item.beam = (item.beam + ((dt || 16) / MIZAN_BEAM_MS) * (1 + Math.min(3, wpm / 40))) % 1;
+		if (ctx.createConicGradient) {
+			const beam = ctx.createConicGradient(item.beam * Math.PI * 2, x + W / 2, y + H / 2);
+			const head = dark ? lighten(top, 0.55) : top;
+			beam.addColorStop(0, rgba(top, 0));
+			beam.addColorStop(0.06, rgba(top, 0.45));
+			beam.addColorStop(0.1, rgba(head, 0.95));
+			beam.addColorStop(0.14, rgba(top, 0.45));
+			beam.addColorStop(0.2, rgba(top, 0));
+			beam.addColorStop(1, rgba(top, 0));
+			ctx.strokeStyle = beam;
+			ctx.lineWidth = 1.2;
+			mizanPath(ctx, x + 0.5, y + 0.5, W - 1, H - 1, H / 2);
+			ctx.stroke();
+		}
+
+		let cx = x + pad;
+		mizanSpark(ctx, item.pace, cx, y + 7, sparkW, H - 15, top, tk);
+		cx += sparkW + gap;
+		ctx.textBaseline = 'middle';
+		ctx.font = `600 12px ${MIZAN_FONT}`;
+		ctx.fillStyle = tk.text;
+		ctx.fillText(String(wpm), cx, y + H / 2 + 0.5);
+		cx += numW + 3;
+		ctx.font = `500 11px ${MIZAN_FONT}`;
+		ctx.fillStyle = tk.muted;
+		ctx.fillText('wpm', cx, y + H / 2 + 0.5);
+		cx += unitW + gap;
+		if (!badge) { ctx.restore(); return; }
+		const toneColor = tone ? tk[tone] : tk.muted;   // Badge: its color at 10-12% under it, a pill
+		ctx.fillStyle = rgba(toneColor, dark ? 0.16 : 0.12);
+		mizanPath(ctx, cx, y + 5, badgeW, H - 10, (H - 10) / 2);
+		ctx.fill();
+		ctx.font = `600 10.5px ${MIZAN_FONT}`;
+		ctx.fillStyle = toneColor;
+		ctx.fillText(badge, cx + 6, y + H / 2 + 0.5);
+	}
+	ctx.restore();
+}
+
+EFFECTS.mizan = {
+	id: 'mizan', label: 'Mizan', mode: 'signature', keepsState: true, blend: 'source-over',
+	preset: { name: 'Mizan', color: '#2d8afc', accent: '#0371e0' },
+	defaults: {},
+	onMove(plugin, prev, cur, info) {
+		const item = mizanOf(plugin), now = info.now;
+		if (prev && isWriting(info)) { mizanKey(item, now); return; }
+		if (info.typed) { item.lastAt = now; return; }   // Backspace, Enter: still writing, the Stat stays up
+		if (prev && info.dist > cur.h * 0.5) item.glide = { from: { x: prev.x, y: prev.y, w: prev.w, h: prev.h }, t0: now };
+	},
+	onShift(plugin, dx, dy) {   // the page scrolled: the glide goes with where it began, the Stat with the caret
+		const item = plugin.items.find((it) => it.effect === 'mizan' && !it.done);
+		if (!item) return;
+		if (item.glide) { item.glide.from.x += dx; item.glide.from.y += dy; }
+		if (item.x !== null) { item.x += dx; item.y += dy; }
+	},
+	onSample(plugin, cur) {   // the caret gone (another page): nothing may stay drawn where it was
+		if (cur) return;
+		const item = plugin.items.find((it) => it.effect === 'mizan' && !it.done);
+		if (item) { item.pace = []; item.glide = null; item.lastAt = -1e9; item.done = true; }
+	},
+	// The caret itself is a matte raised control in the selection gradient, as button.css draws .btn.solid: lit from
+	// above, a sheen along its top, a contact shadow in its own color under it, and no glow. Thymer's caret is a
+	// left border; its width goes to nothing and the caret's own box takes the fill.
+	caretCss(plugin) {
+		const top = plugin.col(), bottom = plugin.acc();
+		const look = `width: 3px !important; border-radius: 1.5px !important; background: linear-gradient(180deg, ${top}, ${bottom}) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 1px 2px ${rgba(bottom, 0.45)} !important;`;
+		return `div.listview-caret-self { --ed-caret-self-border-width: 0px; ${look} }
+div.cfx-pcaret { border-left-width: 0 !important; ${look} }`;
+	},
+	draw(plugin, ctx, item, p, k, now, dt) { drawMizan(plugin, ctx, item, now, k, dt); },
+	preview(plugin, pv, caret, now) {
+		if (now < (pv.mizanNext || 0)) return;
+		pv.mizanNext = now + 120 + Math.random() * 120;
+		mizanKey(mizanOf(pv), now);
+	},
+};
+
 // ---- Effect: Slime (jelly rectangle caret) -------------------------------------------------------------------------
 // The caret is always a rectangle - the box of the letter it stands on - made of jelly: its base stays put and its body
 // is a little chain of springs, so the top lags behind and rocks like a bone in a rig. Standing still it sways gently
 // from side to side and breathes; every letter (or step) kicks it the way it moves, so it leans, stretches, overshoots
-// and wobbles back; a new line or a jump squashes it flat and lets it spring up. Drawn as one soft shape: the sides
-// bend with the sway and bulge out when it is squashed.
+// and wobbles back; a new line or a jump squashes it flat and lets it spring up, and the body is drawn out from where it
+// was to where it landed, its foot arriving first and its top after it. Drawn as one soft shape: the sides bend with the
+// sway and bulge out when it is squashed.
 // Settings: slimeIdle (how far it sways at rest; 1 is normal, 0 holds it still).
 const SLIME_STEP = 1 / 240;   // s: the springs are integrated in steps this small, so every frame rate wobbles alike
 
-/** The spring state of the jelly of `item`: m (the middle's sideways offset), t (the top's, chasing m), sx and sy (scales), each with its velocity. */
+/**
+ * The spring state of the jelly of `item`: m (the middle's sideways offset), t (the top's, chasing m), sx and sy (scales),
+ * each with its velocity; and the way it is still on its journey to a new line or place: the foot's offset from the caret
+ * (ax, ay) and the top's (bx, by), which chases the foot's.
+ */
 function slimeState(item) {
-	return item.S || (item.S = { m: 0, vm: 0, j: 0, vj: 0, t: 0, vt: 0, sx: 1, vx: 0, sy: 1, vy: 0 });
+	return item.S || (item.S = { m: 0, vm: 0, j: 0, vj: 0, t: 0, vt: 0, sx: 1, vx: 0, sy: 1, vy: 0, ax: 0, ay: 0, avx: 0, avy: 0, bx: 0, by: 0, bvx: 0, bvy: 0 });
 }
 
 /** A kick from the caret moving from `prev` to `cur`: lean the way it went, stretch along the move; squash for a leap. */
@@ -2404,11 +3239,40 @@ function wobbleSlime(plugin, prev, cur) {
 	if (Math.abs(dy) > cur.h * 0.6 || dist > cur.h * 2.5) {   // a new line or a jump: lands flat, then springs up
 		S.sy = 0.55; S.sx = 1.4; S.vy = 6; S.vx = -4;
 		S.vm += dir * 110; S.vj += dir * 130; S.vt += dir * 160;
+		S.ax -= dx; S.ay -= dy; S.bx -= dx; S.by -= dy;   // the jelly stays where it was and is drawn across to the caret
 	} else {
 		S.vm += dir * 45; S.vj += dir * 60; S.vt += dir * 80;
 		S.sx = Math.min(1.35, S.sx + 0.16); S.sy = Math.max(0.7, S.sy - 0.1);
 	}
 	plugin.kick();
+}
+
+/**
+ * The jelly drawn out between where its head is and where its tail still is (`tx`, `ty` from the head): the tail is the
+ * head's own shape, `scale` smaller (a jelly pulled long gets thinner, it does not keep its width), and the body is the
+ * hull of the two, its corners rounded off. Leaves the path closed, for the caller to paint.
+ */
+function slimeDrip(ctx, head, tx, ty, scale) {
+	let cx = 0, cy = 0;
+	for (const q of head) { cx += q.x / head.length; cy += q.y / head.length; }
+	const all = head.concat(head.map((q) => ({ x: cx + (q.x - cx) * scale + tx, y: cy + (q.y - cy) * scale + ty })));
+	all.sort((a, b) => a.x - b.x || a.y - b.y);
+	const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+	const hull = [];
+	for (const pass of [all, all.slice().reverse()]) {   // Andrew's monotone chain: the lower hull, then the upper
+		const start = hull.length;
+		for (const q of pass) {
+			while (hull.length >= start + 2 && cross(hull[hull.length - 2], hull[hull.length - 1], q) <= 0) hull.pop();
+			hull.push(q);
+		}
+		hull.pop();
+	}
+	const n = hull.length, mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+	if (n < 3) return;
+	const m0 = mid(hull[n - 1], hull[0]);
+	ctx.moveTo(m0.x, m0.y);
+	for (let i = 0; i < n; i++) { const m = mid(hull[i], hull[(i + 1) % n]); ctx.quadraticCurveTo(hull[i].x, hull[i].y, m.x, m.y); }
+	ctx.closePath();
 }
 
 function drawSlime(plugin, ctx, item, now, dt) {
@@ -2419,7 +3283,7 @@ function drawSlime(plugin, ctx, item, now, dt) {
 	// What the middle is pulled toward: nothing but the rest sway, which is two slow waves out of step.
 	const drive = idle * w * (0.13 * Math.sin(now * 0.0057) + 0.05 * Math.sin(now * 0.0093 + 1));
 	const breathe = 1 + idle * 0.03 * Math.sin(now * 0.0057 + 1);
-	const wm = 20, zm = 0.2, wj = 24, wt = 30, zt = 0.16, ws = 26, zs = 0.2;   // spring speeds (rad/s) and dampings: underdamped, so it overshoots
+	const wm = 20, zm = 0.2, wj = 24, wt = 30, zt = 0.16, ws = 26, zs = 0.2, wf = 24, wb = 15, zf = 0.8;   // spring speeds (rad/s) and dampings: underdamped, so it overshoots
 	let left = Math.min((dt || 16) / 1000, 0.05);
 	while (left > 1e-6) {
 		const s = Math.min(SLIME_STEP, left);
@@ -2429,6 +3293,10 @@ function drawSlime(plugin, ctx, item, now, dt) {
 		S.vt += (-wt * wt * (S.t - S.j) - 2 * zt * wt * S.vt) * s; S.t += S.vt * s;
 		S.vx += (-ws * ws * (S.sx - 1) - 2 * zs * ws * S.vx) * s; S.sx += S.vx * s;
 		S.vy += (-ws * ws * (S.sy - breathe) - 2 * zs * ws * S.vy) * s; S.sy += S.vy * s;
+		S.avx += (-wf * wf * S.ax - 2 * zf * wf * S.avx) * s; S.ax += S.avx * s;   // the foot comes in first...
+		S.avy += (-wf * wf * S.ay - 2 * zf * wf * S.avy) * s; S.ay += S.avy * s;
+		S.bvx += (-wb * wb * (S.bx - S.ax) - 2 * zf * wb * S.bvx) * s; S.bx += S.bvx * s;   // ...and the top after it
+		S.bvy += (-wb * wb * (S.by - S.ay) - 2 * zf * wb * S.bvy) * s; S.by += S.bvy * s;
 	}
 	item.hidesCaret = true;
 	plugin.hideCaret('slime', true);   // only the jelly is seen, never the line caret under it
@@ -2441,13 +3309,18 @@ function drawSlime(plugin, ctx, item, now, dt) {
 	const L = edge(-1), R = edge(1).reverse();
 	const curve = (pts) => { for (let i = 1; i < pts.length - 1; i++) ctx.quadraticCurveTo(pts[i].x, pts[i].y, (pts[i].x + pts[i + 1].x) / 2, (pts[i].y + pts[i + 1].y) / 2); ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y); };
 	ctx.save();
-	ctx.translate(cx, base);
+	ctx.translate(cx + S.ax, base + S.ay);   // the body's head: the part that is first to arrive
 	ctx.beginPath();
-	ctx.moveTo(L[0].x, L[0].y);
-	curve(L);
-	ctx.lineTo(R[0].x, R[0].y);
-	curve(R);
-	ctx.closePath();
+	const tx = S.bx - S.ax, ty = S.by - S.ay, reach = Math.hypot(tx, ty);
+	if (reach < 0.5) {
+		ctx.moveTo(L[0].x, L[0].y);
+		curve(L);
+		ctx.lineTo(R[0].x, R[0].y);
+		curve(R);
+		ctx.closePath();
+	} else {
+		slimeDrip(ctx, [...L, ...R], tx, ty, 1 / (1 + reach / (3 * h)));
+	}
 	paintCaretBody(ctx, plugin.col(), 0.45, 1);
 	ctx.restore();
 	plugin.kick();   // it never rests: standing still it is still swaying
@@ -2473,17 +3346,26 @@ EFFECTS.slime = {
 // Typing as a game: every letter in a run adds one to a counter that floats above the caret and pops with each hit. The
 // run lives while the next letter comes within a moment; stop and it breaks. The higher the count, the hotter the caret:
 //   0-9    the caret as it is, white counter
-//   10     the caret turns red and sparks fly off it
-//   25     orange, more sparks
-//   50     blue, with blue sparks
-//   100    white-hot blue, sparks all over
-// Each mark is announced (NICE, GREAT, SUPER, ULTRA) with a flash and a glow that stays; a thin bar under the counter shows how long the run has
-// left, and a broken run of ten or more drops away as its number falls.
+//   10     rank C: the caret turns red and sparks fly off it
+//   25     rank B: orange, more sparks
+//   50     rank A: blue, with blue sparks
+//   100    rank S: white-hot blue, sparks all over
+// A new mark is announced (NICE, GREAT, SUPER, ULTRA) with a shockwave that races out from the caret, a flash, a burst of sparks and
+// its rank letter, which lands beside the counter and stays. The counter follows the caret on a spring, its digits roll as
+// they change and it shakes a little at the higher ranks; a thin bar under it shows how long the run has left (and flashes
+// red when it is nearly out). A broken run of ten or more shatters: the number comes apart and its pieces fall.
 // Settings: comboWindowMs (how long a run waits for the next letter; 1400 is normal).
-const COMBO_TIERS = [{ at: 0, hue: null, word: '' }, { at: 10, hue: 8, word: 'NICE' }, { at: 25, hue: 30, word: 'GREAT' }, { at: 50, hue: 215, word: 'SUPER' }, { at: 100, hue: -1, word: 'ULTRA' }];   // hue -1: white-hot blue, shifting toward violet
+const COMBO_TIERS = [
+	{ at: 0, hue: null, word: '', rank: '' }, { at: 10, hue: 8, word: 'NICE', rank: 'C' }, { at: 25, hue: 30, word: 'GREAT', rank: 'B' },
+	{ at: 50, hue: 215, word: 'SUPER', rank: 'A' }, { at: 100, hue: -1, word: 'ULTRA', rank: 'S' },   // hue -1: white-hot blue, shifting toward violet
+];
 const COMBO_SPARKS_PER_S = [0, 7, 14, 22, 40];   // sparks a second, by tier, on top of those a letter throws
-const COMBO_SPARKS_MAX = 60;
+const COMBO_SPARKS_MAX = 90;
 const COMBO_TINTS = [null, '#ff4d3a', '#ff9a2e', '#4da3ff', '#bfe3ff'];   // the caret's color by tier (null: its own)
+const COMBO_SHARDS = 7;         // the pieces a broken number comes apart in
+const COMBO_WAVE_MS = 650;      // a shockwave's life
+const COMBO_ROLL_MS = 150;      // a digit that changes rolls in over this long
+const COMBO_FOLLOW = 24;        // rad/s: how quickly the counter catches up with the caret (a spring, nearly critically damped)
 
 /** The tier a count has reached: an index into COMBO_TIERS. Pure. */
 const comboTier = (n) => COMBO_TIERS.reduce((t, c, i) => (n >= c.at ? i : t), 0);
@@ -2497,15 +3379,35 @@ function comboHue(tier, now) {
 /** The item that holds the run of `host` (the plugin, or a preview host). */
 function comboOf(host) {
 	const item = host.ensureItem('combo');
-	if (item.n === undefined) { item.n = 0; item.lastAt = 0; item.popAt = -1e9; item.wordAt = -1e9; item.word = ''; item.flashAt = -1e9; item.flashTier = 0; item.fallen = []; item.sparks = []; item.acc = 0; }
+	if (item.n === undefined) {
+		Object.assign(item, { n: 0, prevN: 0, lastAt: 0, popAt: -1e9, wordAt: -1e9, word: '', flashAt: -1e9, flashTier: 0, rankAt: -1e9, seed: 0, size: 18, fallen: [], sparks: [], rings: [], acc: 0, placed: false, ax: 0, ay: 0, avx: 0, avy: 0 });
+	}
 	return item;
 }
 
-/** Flicks `n` sparks up out of the flame at (x, y) of the tier `tier`. */
+/** Throws one spark: `vx`, `vy` px/s at the start; `ember` ones are slow, big and drift up for a second or more. */
+function comboSpark(item, x, y, vx, vy, r, tier, now, ember) {
+	if (item.sparks.length >= COMBO_SPARKS_MAX) return;
+	item.sparks.push({ x, y, vx, vy, r, cool: tier >= 3, t0: now, life: ember ? 900 + Math.random() * 700 : 500 + Math.random() * 600, ph: Math.random() * 6.28, ember });
+}
+
+/** Flicks `n` sparks up out of the caret at (x, y) of the tier `tier`: mostly quick streaks, from the second rank some embers that float. */
 function comboSparks(item, x, y, h, tier, n, now) {
-	for (let i = 0; i < n && item.sparks.length < COMBO_SPARKS_MAX; i++) {
-		const a = -Math.PI / 2 + (Math.random() - 0.5) * (tier >= 3 ? 2.4 : 1.7), v = (35 + Math.random() * 70) * (h / 24) * (tier >= 4 ? 1.4 : 1);
-		item.sparks.push({ x: x + (Math.random() - 0.5) * h * 0.25, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: (0.6 + Math.random() * 1.1) * (h / 24), cool: tier >= 3, t0: now, life: 500 + Math.random() * 600, ph: Math.random() * 6.28 });
+	const u = h / 24;
+	for (let i = 0; i < n; i++) {
+		const px = x + (Math.random() - 0.5) * h * 0.25;
+		if (tier >= 2 && Math.random() < 0.3) { comboSpark(item, px, y, (Math.random() - 0.5) * 26 * u, -(16 + Math.random() * 22) * u, (1.1 + Math.random() * 0.9) * u, tier, now, true); continue; }
+		const a = -Math.PI / 2 + (Math.random() - 0.5) * (tier >= 3 ? 2.4 : 1.7), v = (35 + Math.random() * 70) * u * (tier >= 4 ? 1.4 : 1);
+		comboSpark(item, px, y, Math.cos(a) * v, Math.sin(a) * v, (0.6 + Math.random() * 1.1) * u, tier, now, false);
+	}
+}
+
+/** A ring of sparks thrown out all round (x, y), for a new mark. */
+function comboBurst(item, x, y, h, tier, now) {
+	const u = h / 24, n = 14 + 4 * tier;
+	for (let i = 0; i < n; i++) {
+		const a = (i / n) * Math.PI * 2 + Math.random() * 0.3, v = (90 + Math.random() * 90) * u;
+		comboSpark(item, x, y, Math.cos(a) * v, Math.sin(a) * v * 0.8, (0.8 + Math.random() * 1.2) * u, tier, now, false);
 	}
 }
 
@@ -2513,23 +3415,57 @@ function comboSparks(item, x, y, h, tier, n, now) {
 function comboHit(host, rect, now) {
 	const item = comboOf(host), win = host.cfg.comboWindowMs || 1400;
 	if (item.n && now - item.lastAt > win) comboBreak(item, rect, now);
+	if (!item.n) item.placed = false;   // a new run: the counter starts at the caret
 	const before = comboTier(item.n);
+	item.prevN = item.n;
 	item.n++;
-	item.lastAt = now; item.popAt = now;
-	const tier = comboTier(item.n);
-	if (tier > before) { item.word = COMBO_TIERS[tier].word; item.wordAt = now; item.flashAt = now; item.flashTier = tier; }
-	if (tier >= 1) comboSparks(item, rect.x + rect.w / 2, rect.y + rect.h * 0.3, Math.max(rect.h, 16), tier, 2 + tier, now);
+	item.lastAt = now; item.popAt = now; item.seed = Math.random() * 1000;
+	const tier = comboTier(item.n), x = rect.x + rect.w / 2, h = Math.max(rect.h, 16);
+	if (tier > before) {
+		item.word = COMBO_TIERS[tier].word; item.wordAt = now; item.flashAt = now; item.flashTier = tier; item.rankAt = now;
+		item.rings.push({ t0: now, tier, x, y: rect.y + rect.h / 2, h, delay: 0 });
+		if (tier >= 3) item.rings.push({ t0: now, tier, x, y: rect.y + rect.h / 2, h, delay: 110 });
+		comboBurst(item, x, rect.y + rect.h / 2, h, tier, now);
+	}
+	if (tier >= 1) comboSparks(item, x, rect.y + rect.h * 0.3, h, tier, 2 + tier, now);
 }
 
-/** The run ends: a count of ten or more falls away. */
+/** The run ends: a count of ten or more shatters where its counter was. */
 function comboBreak(item, rect, now) {
-	if (item.n >= 10) item.fallen.push({ n: item.n, x: rect.x + rect.w / 2, y: rect.y - 6, tier: comboTier(item.n), t0: now, life: 800 });
+	if (item.n >= 10) {
+		const shards = [];
+		for (let i = 0; i < COMBO_SHARDS; i++) shards.push({ vx: (Math.random() - 0.5) * 90 + (i - COMBO_SHARDS / 2) * 9, vy: -(25 + Math.random() * 55), rot: (Math.random() - 0.5) * 5 });
+		item.fallen.push({ n: item.n, x: item.placed ? item.ax : rect.x + rect.w / 2, y: item.placed ? item.ay : rect.y - 6, size: item.size, tier: comboTier(item.n), t0: now, life: 950, shards });
+	}
 	item.n = 0;
+}
+
+/** The counter's text with digits that roll: a character that differs from the count before it slides up out and the new one in from below. */
+function drawComboNumber(ctx, item, cx, y, size, now, power, dark, hsl, c) {
+	const str = `×${item.n}`, prevStr = item.prevN ? `×${item.prevN}` : '';
+	const total = ctx.measureText(str).width, x0 = cx - total / 2, roll = prevStr ? easeOutBack(clamp01((now - item.popAt) / COMBO_ROLL_MS)) : 1, slide = size * 0.6;
+	ctx.textAlign = 'left';
+	const put = (ch, x, yy, a) => {
+		if (a < 0.02) return;
+		ctx.globalAlpha = a * power;
+		ctx.strokeText(ch, x, yy);
+		ctx.fillStyle = hsl(c);
+		ctx.fillText(ch, x, yy);
+	};
+	for (let i = 0; i < str.length; i++) {
+		const x = x0 + ctx.measureText(str.slice(0, i)).width, j = i - (str.length - prevStr.length), old = j >= 0 ? prevStr[j] : '';
+		if (roll >= 1 || old === str[i]) { put(str[i], x, y, 1); continue; }
+		const e = clamp01(roll);
+		put(str[i], x, y + (1 - roll) * slide, e);
+		if (old) put(old, x, y - roll * slide, 1 - e);
+	}
+	ctx.textAlign = 'center';
+	return total;
 }
 
 function drawCombo(plugin, ctx, item, now, k, dt) {
 	const alive = (q) => now - q.t0 < q.life;
-	item.fallen = item.fallen.filter(alive); item.sparks = item.sparks.filter(alive);
+	item.fallen = item.fallen.filter(alive); item.sparks = item.sparks.filter(alive); item.rings = item.rings.filter((q) => now - q.t0 < COMBO_WAVE_MS + q.delay);
 	const rect = plugin.last, win = plugin.cfg.comboWindowMs || 1400, s = Math.min((dt || 16) / 1000, 0.05);
 	if (rect && item.n && now - item.lastAt > win) comboBreak(item, rect, now);
 	const tier = comboTier(item.n);
@@ -2539,38 +3475,74 @@ function drawCombo(plugin, ctx, item, now, k, dt) {
 	item.acc += s * COMBO_SPARKS_PER_S[tier];
 	if (rect && item.n && item.acc >= 1) { const nn = Math.floor(item.acc); item.acc -= nn; comboSparks(item, rect.x + rect.w / 2, rect.y + rect.h * 0.3, Math.max(rect.h, 16), tier, nn, now); }
 	if (!item.n) item.acc = 0;
-	if (!item.n && !item.fallen.length && !item.sparks.length && (now - item.flashAt) > 400) { item.done = true; return; }
+	if (!item.n && !item.fallen.length && !item.sparks.length && !item.rings.length && (now - item.flashAt) > 400) { item.done = true; return; }
 	const dark = plugin.dark, power = Math.min(1, 0.75 + 0.25 * k), L = dark ? 0 : -22;
 	const hsl = (c, a = 1, dl = 0) => `hsla(${c[0]}, ${c[1]}%, ${c[2] + L + dl}%, ${a})`;
 	if (!dark) ctx.globalCompositeOperation = 'source-over';
 	ctx.save();
 	ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
 
-	for (const q of item.sparks) {   // sparks: thrown up, slowing, flickering
-		const t = (now - q.t0) / 1000, f = (now - q.t0) / q.life, drag = Math.exp(-1.8 * t);
-		const x = q.x + (q.vx * (1 - drag)) / 1.8, y = q.y + (q.vy * (1 - drag)) / 1.8 - 10 * t * t;
+	for (const q of item.sparks) {   // sparks: thrown up, slowing, flickering - streaks along their flight, embers that drift
+		const t = (now - q.t0) / 1000, f = (now - q.t0) / q.life;
+		if (q.ember) {
+			const x = q.x + q.vx * t + Math.sin(q.ph + t * 5) * 4, y = q.y + q.vy * t - 6 * t * t, a = Math.sin(Math.PI * Math.min(1, f)) * (0.7 + 0.3 * Math.sin(q.ph + t * 17)) * power;
+			if (a < 0.03) continue;
+			const c = q.cool ? [210, 100, 76] : [f < 0.5 ? 38 : 12, 100, f < 0.5 ? 62 : 52];
+			ctx.globalAlpha = Math.min(1, a);
+			ctx.shadowColor = hsl(c, 0.9); ctx.shadowBlur = 9;
+			ctx.fillStyle = hsl(c);
+			ctx.beginPath(); ctx.arc(x, y, q.r * (1 - 0.5 * f), 0, Math.PI * 2); ctx.fill();
+			continue;
+		}
+		const drag = Math.exp(-1.8 * t), x = q.x + (q.vx * (1 - drag)) / 1.8, y = q.y + (q.vy * (1 - drag)) / 1.8 - 10 * t * t;
 		const a = Math.sin(Math.PI * Math.min(1, f * 1.15)) * (0.6 + 0.4 * Math.sin(q.ph + t * 22)) * power;
 		if (a < 0.03) continue;
+		const vx = q.vx * drag, vy = q.vy * drag - 20 * t, tail = Math.min(0.045, 0.012 + 0.0005 * Math.hypot(vx, vy)) * (1 - 0.5 * f);   // the tail is the last few hundredths of a second of its flight
 		const c = q.cool ? [205, 100, f < 0.4 ? 82 : 68] : [f < 0.4 ? 44 : 14, 100, f < 0.4 ? 66 : 56];   // blue sparks from 50, hot ones before
 		ctx.globalAlpha = Math.min(1, a);
 		ctx.shadowColor = hsl(c, 0.9); ctx.shadowBlur = 5;
-		ctx.fillStyle = hsl(c);
-		ctx.beginPath(); ctx.arc(x, y, q.r * (1 - 0.4 * f), 0, Math.PI * 2); ctx.fill();
+		ctx.strokeStyle = hsl(c); ctx.lineCap = 'round'; ctx.lineWidth = Math.max(0.8, q.r * (1.5 - 0.7 * f));
+		ctx.beginPath(); ctx.moveTo(x - vx * tail, y - vy * tail); ctx.lineTo(x, y); ctx.stroke();
 	}
 	ctx.shadowBlur = 0; ctx.globalAlpha = 1;
 
-	for (const q of item.fallen) {   // a broken run: the number drops and fades
-		const f = (now - q.t0) / q.life, c = comboHue(q.tier, now), t = f * f;
-		ctx.globalAlpha = (1 - f) * 0.8 * power;
-		ctx.font = '700 16px system-ui, sans-serif';
+	for (const q of item.fallen) {   // a broken run: the number comes apart in strips that tumble down and fade
+		const t = (now - q.t0) / 1000, f = (now - q.t0) / q.life, c = comboHue(q.tier, now), u = q.size / 20, txt = `×${q.n}`;
+		ctx.font = `800 ${q.size}px system-ui, sans-serif`;
+		const W = ctx.measureText(txt).width, sw = W / COMBO_SHARDS;
+		ctx.globalAlpha = Math.min(1, (1 - f) * 1.3) * 0.85 * power;
 		ctx.fillStyle = hsl([c[0], 25, 62], 1);
-		ctx.fillText(`×${q.n}`, q.x, q.y + t * 46);
+		for (let i = 0; i < COMBO_SHARDS; i++) {
+			const sh = q.shards[i], mx = -W / 2 + sw * (i + 0.5), g = 520 * u;
+			ctx.save();
+			ctx.translate(q.x + mx + sh.vx * t * u, q.y - q.size * 0.35 + sh.vy * t * u + 0.5 * g * t * t);
+			ctx.rotate(sh.rot * t);
+			ctx.beginPath(); ctx.rect(-sw / 2 - 0.5, -q.size * 0.7, sw + 1, q.size * 1.1); ctx.clip();
+			ctx.fillText(txt, -mx, q.size * 0.35);
+			ctx.restore();
+		}
 	}
 	ctx.globalAlpha = 1;
 
 	if (rect && item.n) {
-		const h = Math.max(rect.h, 16), u = h / 24, cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, base = rect.y + rect.h, c = comboHue(tier, now);
+		const h = Math.max(rect.h, 16), u = h / 24, cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, c = comboHue(tier, now);
 		const left = clamp01(1 - (now - item.lastAt) / win), fl = (now - item.flashAt) / 400;
+		ctx.save();
+		if (dark) ctx.globalCompositeOperation = 'lighter';
+		for (const q of item.rings) {   // a shockwave at a new mark: a thin bright front racing out, with a soft wake behind it that thins as it goes
+			const f = (now - q.t0 - q.delay) / COMBO_WAVE_MS;
+			if (f < 0 || f >= 1) continue;
+			const rc = comboHue(q.tier, now), e = 1 - Math.pow(1 - f, 2.8), R = q.h * (0.5 + 3.6 * e), band = q.h * (0.14 + 0.9 * (1 - f)), fade = Math.pow(1 - f, 1.4) * power * (q.delay ? 0.6 : 1);
+			const g = ctx.createRadialGradient(q.x, q.y, Math.max(0, R - band), q.x, q.y, R + band * 0.15);
+			g.addColorStop(0, hsl(rc, 0, 0)); g.addColorStop(0.75, hsl(rc, 0.28 * fade, 0)); g.addColorStop(0.97, hsl(rc, 0.75 * fade, 14)); g.addColorStop(1, hsl(rc, 0, 14));
+			ctx.fillStyle = g;
+			ctx.beginPath(); ctx.arc(q.x, q.y, R + band * 0.15, 0, Math.PI * 2); ctx.fill();
+			ctx.globalAlpha = fade; ctx.strokeStyle = hsl(rc, 1, 24); ctx.lineWidth = Math.max(0.5, (1 - f) * 2.2 * u);
+			ctx.beginPath(); ctx.arc(q.x, q.y, R, 0, Math.PI * 2); ctx.stroke();
+			ctx.globalAlpha = 1;
+		}
+		ctx.restore();
+		ctx.shadowBlur = 0; ctx.globalAlpha = 1;
 		if (fl >= 0 && fl < 1) {   // a flash at a mark
 			const r = h * (1.2 + 1.4 * fl), g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r), fc = comboHue(item.flashTier, now);
 			g.addColorStop(0, hsl(fc, 0.5 * (1 - fl) * power)); g.addColorStop(1, hsl(fc, 0));
@@ -2581,28 +3553,48 @@ function drawCombo(plugin, ctx, item, now, k, dt) {
 			glow.addColorStop(0, hsl(c, (0.16 + 0.07 * tier) * power)); glow.addColorStop(1, hsl(c, 0));
 			ctx.fillStyle = glow; ctx.fillRect(cx - gr, cy - gr, gr * 2, gr * 2);
 		}
-		const pop = 1 + 0.55 * Math.max(0, 1 - (now - item.popAt) / 220) * Math.sin(Math.min(1, (now - item.popAt) / 220) * Math.PI * 0.5 + 1.2);
-		const size = (15 + 3 * tier) * u * (0.9 + 0.1 * Math.min(k, 1.5)) * pop, y = rect.y - 6 * u;
+
+		// the counter: it follows the caret on a spring, snapping to it at the start of a run
+		const tx = cx, ty = rect.y - 6 * u;
+		if (!item.placed) { item.ax = tx; item.ay = ty; item.avx = item.avy = 0; item.placed = true; }
+		for (let left2 = s; left2 > 1e-6;) {
+			const st = Math.min(1 / 120, left2); left2 -= st;
+			item.avx += (-COMBO_FOLLOW * COMBO_FOLLOW * (item.ax - tx) - 2 * 0.85 * COMBO_FOLLOW * item.avx) * st; item.ax += item.avx * st;
+			item.avy += (-COMBO_FOLLOW * COMBO_FOLLOW * (item.ay - ty) - 2 * 0.85 * COMBO_FOLLOW * item.avy) * st; item.ay += item.avy * st;
+		}
+		const age = now - item.popAt, pop = 1 + 0.55 * Math.max(0, 1 - age / 220) * Math.sin(Math.min(1, age / 220) * Math.PI * 0.5 + 1.2);
+		const size = (15 + 3 * tier) * u * (0.9 + 0.1 * Math.min(k, 1.5)) * pop;
+		item.size = size / pop;
+		const amp = tier >= 2 ? 0.7 * (tier - 1) * u * Math.max(0, 1 - age / 140) : 0;   // from the second rank the number shakes at a hit
+		const x = item.ax + (hash(item.seed) * 2 - 1) * amp, y = item.ay + (hash(item.seed + 7.7) * 2 - 1) * amp;
 		ctx.font = `800 ${size}px system-ui, sans-serif`;
 		ctx.shadowColor = hsl(c, 0.9, 0); ctx.shadowBlur = 6 + 4 * tier;
 		ctx.lineJoin = 'round'; ctx.lineWidth = size * 0.16; ctx.strokeStyle = dark ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.7)';
-		ctx.globalAlpha = power;
-		ctx.strokeText(`×${item.n}`, cx, y);
-		ctx.fillStyle = hsl(c);
-		ctx.fillText(`×${item.n}`, cx, y);
-		ctx.shadowBlur = 0;
-		const bw = 26 * u, by = y + 3 * u;   // the bar: how long the run has left
+		const total = drawComboNumber(ctx, item, x, y, size, now, power, dark, hsl, c);
+		ctx.shadowBlur = 0; ctx.globalAlpha = power;
+		const bw = 26 * u, by = y + 3 * u, low = left < 0.3, blink = 0.5 + 0.5 * Math.sin(now * 0.035);   // the bar: how long the run has left
 		ctx.fillStyle = dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)';
-		ctx.fillRect(cx - bw / 2, by, bw, 2 * u);
-		ctx.fillStyle = hsl(c, 0.95);
-		ctx.fillRect(cx - bw / 2, by, bw * left, 2 * u);
+		ctx.fillRect(x - bw / 2, by, bw, 2 * u);
+		ctx.fillStyle = low ? `hsla(2, 100%, ${dark ? 62 : 45}%, ${0.55 + 0.45 * blink})` : hsl(c, 0.95);
+		ctx.fillRect(x - bw / 2, by, bw * left, 2 * u);
+		if (tier >= 1) {   // its rank, beside the counter: it lands with a pop when it is earned
+			const ra = now - item.rankAt, rs = size * 1.25 * (ra < 420 ? lerp(2.4, 1, easeOutBack(clamp01(ra / 420))) : 1);
+			ctx.font = `900 italic ${rs}px system-ui, sans-serif`;
+			ctx.shadowColor = hsl(c, 0.95, 0); ctx.shadowBlur = 8 + 4 * tier;
+			ctx.lineWidth = rs * 0.14; ctx.globalAlpha = (ra < 0 ? 1 : clamp01(ra / 80)) * power;
+			const rx = x + total / 2 + size * 0.62, ry = y + size * 0.1;
+			ctx.strokeText(COMBO_TIERS[tier].rank, rx, ry);
+			ctx.fillStyle = hsl(c, 1, 6);
+			ctx.fillText(COMBO_TIERS[tier].rank, rx, ry);
+			ctx.shadowBlur = 0;
+		}
 		const wf2 = (now - item.wordAt) / 1000;   // the word of the mark, for a second
 		if (item.word && wf2 < 1) {
 			const wp = easeOutBack(clamp01(wf2 / 0.2));
 			ctx.globalAlpha = (wf2 < 0.7 ? 1 : 1 - (wf2 - 0.7) / 0.3) * power;
 			ctx.font = `900 ${11 * u * wp}px system-ui, sans-serif`;
 			ctx.fillStyle = hsl(c, 1, 8);
-			ctx.fillText(item.word, cx, y - size - 2 * u - wf2 * 6 * u);
+			ctx.fillText(item.word, x, y - size - 2 * u - wf2 * 6 * u);
 		}
 	}
 	ctx.restore();
@@ -2614,6 +3606,10 @@ EFFECTS.combo = {
 	preset: { name: 'Combo', color: '#ffe14d', accent: '#ff7a1a' },
 	defaults: { comboWindowMs: 1400 },
 	onMove(plugin, prev, cur, info) { if (isWriting(info)) comboHit(plugin, cur, info.now); },
+	onShift(plugin, dx, dy) {   // the page scrolled: the counter goes with the text rather than chasing it
+		const item = plugin.items.find((it) => it.effect === 'combo' && !it.done);
+		if (item && item.placed) { item.ax += dx; item.ay += dy; }
+	},
 	draw(plugin, ctx, item, p, k, now, dt) { drawCombo(plugin, ctx, item, now, k, dt); },
 	preview(plugin, pv, caret, now) {
 		if (now < (pv.comboNext || 0)) return;
@@ -2624,11 +3620,176 @@ EFFECTS.combo = {
 	},
 };
 
+// ---- Effect: Sleepy caret --------------------------------------------------------------------------------------------
+// Stop writing for a while and the caret nods off: it sinks to a droop, dims and breathes slowly, and little z's float up
+// from it. Any key or move wakes it with a stretch (a bounce back to its full height) and the z's pop away.
+// Settings: sleepAfterMs (how long it waits before it dozes off; 15000 is normal).
+const SLEEP_FALL_MS = 900;       // the sinking into sleep
+const SLEEP_WAKE_MS = 420;       // the stretch on waking
+const SLEEP_DROOP = 0.62;        // the share of its height the sleeping caret keeps, at the bottom of a breath
+const SLEEP_BREATH_MS = 3600;    // one breath
+const SLEEP_Z_EVERY_MS = 1500;   // a new z this often
+const SLEEP_Z_LIFE_MS = 3200;
+
+/** The caret has done something: whatever it was, it is awake and the clock starts again. */
+function sleepNudge(plugin, now) {
+	const S = plugin.state('sleep');
+	clearTimeout(S.timer);
+	if (S.asleep) { S.asleep = false; S.wakeAt = now; plugin.kick(); }
+	S.timer = setTimeout(() => sleepDoze(plugin), Math.max(1000, Number(plugin.cfg.sleepAfterMs) || 15000));
+}
+
+/** The timer ran out: the caret falls asleep, unless something else has the caret or there is none to put to bed. */
+function sleepDoze(plugin) {
+	const S = plugin.state('sleep');
+	S.timer = 0;
+	if (!plugin.last || caretTaken(plugin) || document.hidden) { S.timer = setTimeout(() => sleepDoze(plugin), 5000); return; }   // look again in a while
+	S.asleep = true; S.sleepAt = performance.now(); S.wakeAt = 0; S.zs = []; S.zNext = S.sleepAt + 700;
+	plugin.ensureItem('sleep');
+	plugin.kick();
+}
+
+function drawSleep(plugin, ctx, item, now, dt) {
+	const S = plugin.state('sleep'), rect = caretBox(plugin);
+	if (!rect || caretTaken(plugin)) { S.asleep = false; plugin.hideCaret('sleep', false); item.done = true; return; }
+	const waking = !S.asleep, wake = waking ? (now - (S.wakeAt || now)) / SLEEP_WAKE_MS : 0;
+	if (waking && (wake >= 1 || !S.wakeAt)) {   // awake again: the real caret is back, and the z's are gone
+		plugin.hideCaret('sleep', false);
+		if (!(S.zs || []).length) { item.done = true; return; }
+	}
+	const col = plugin.col(), dark = plugin.dark, w = Math.max(rect.w, 2), h = rect.h, u = h / 24;
+	let scale = 1, alpha = 1;
+	if (S.asleep) {
+		const fall = easeInOutSine(clamp01((now - S.sleepAt) / SLEEP_FALL_MS)), breath = 0.5 + 0.5 * Math.sin((now - S.sleepAt) / SLEEP_BREATH_MS * Math.PI * 2);
+		scale = lerp(1, SLEEP_DROOP + (1 - SLEEP_DROOP) * 0.45 * breath, fall);   // it settles, then rises and sinks with each breath
+		alpha = lerp(1, 0.5 + 0.35 * breath, fall);
+	} else if (wake < 1) {
+		scale = lerp(SLEEP_DROOP, 1, easeOutBack(clamp01(wake)));   // up again, a little past full height and back
+		alpha = lerp(0.5, 1, clamp01(wake * 2));
+	}
+	if (S.asleep || wake < 1) {
+		plugin.hideCaret('sleep', true);
+		item.hidesCaret = true;
+		const bh = h * scale, block = plugin.cfg.style === 'block';
+		ctx.save();
+		ctx.globalAlpha = clamp01(alpha);
+		ctx.beginPath();
+		if (block) { const r = Math.min(2, w / 3); ctx.roundRect ? ctx.roundRect(rect.x, rect.y + h - bh, w, bh, r) : ctx.rect(rect.x, rect.y + h - bh, w, bh); } else ctx.rect(rect.x, rect.y + h - bh, w, bh);
+		paintCaretBody(ctx, col, block ? 0.42 : 1, block ? 1 : 0);
+		ctx.restore();
+	}
+	// the z's: one now and then from above the caret, each bigger than the last, drifting up and a little right
+	const zs = S.zs || (S.zs = []);
+	if (S.asleep && now >= S.zNext) { S.zNext = now + SLEEP_Z_EVERY_MS; zs.push({ t0: now, n: (S.zCount = (S.zCount || 0) + 1) % 3, ph: Math.random() * 6.28 }); }
+	S.zs = zs.filter((z) => now - z.t0 < SLEEP_Z_LIFE_MS && (S.asleep || now - (S.wakeAt || now) < 220));
+	if (S.zs.length) {
+		ctx.save();
+		ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+		for (const z of S.zs) {
+			const f = (now - z.t0) / SLEEP_Z_LIFE_MS, grow = 0.7 + 0.5 * z.n * 0.5 + 0.35 * f, size = 16 * u * grow;
+			const x = rect.x + w + (6 + 20 * f) * u + Math.sin(f * 7 + z.ph) * 3 * u, y = rect.y + h * 0.2 - 30 * u * f;
+			const popOut = S.asleep ? 1 : 1 - clamp01((now - S.wakeAt) / 220);
+			ctx.globalAlpha = Math.sin(Math.PI * Math.min(1, f * 1.1)) * 0.9 * popOut;
+			ctx.font = `800 italic ${size}px system-ui, sans-serif`;
+			ctx.lineWidth = size * 0.18; ctx.strokeStyle = dark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.75)';
+			ctx.shadowColor = rgba(col, 0.7); ctx.shadowBlur = 5;
+			ctx.save();
+			ctx.translate(x, y); ctx.rotate(Math.sin(f * 5 + z.ph) * 0.18);
+			ctx.strokeText('z', 0, 0);
+			ctx.fillStyle = dark ? lighten(col, 0.35) : col;
+			ctx.fillText('z', 0, 0);
+			ctx.restore();
+		}
+		ctx.restore();
+	}
+	plugin.kick();   // it breathes, the z's rise
+}
+
+EFFECTS.sleep = {
+	id: 'sleep', label: 'Sleepy caret', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
+	defaults: { sleepAfterMs: 15000 },
+	onMove(plugin, prev, cur, info) { sleepNudge(plugin, info.now); },
+	onKey(plugin, e, now) { sleepNudge(plugin, now); },
+	onSample(plugin, cur, info) {
+		const S = plugin.state('sleep');
+		if (!cur) { if (S.asleep) sleepNudge(plugin, info.now); return; }
+		if (!S.timer && !S.asleep) sleepNudge(plugin, info.now);   // first sight of the caret since the effect came on
+	},
+	onPulse(plugin, rect, now) { sleepNudge(plugin, now); },
+	onDrop(plugin) { const S = plugin.fxState.sleep; if (S) clearTimeout(S.timer); },
+	draw(plugin, ctx, item, p, k, now, dt) { drawSleep(plugin, ctx, item, now, dt); },
+};
+
+// ---- Effect: Confetti ------------------------------------------------------------------------------------------------
+// A task ticked off bursts into confetti from its checkbox: paper strips and dots thrown up, tumbling as they fall, in the
+// caret's colors and a few more; a ring opens where the box is. Only a tick you make (a click on the box or a key) counts - a
+// task that is already done, or one a sync ticks on another device, stays quiet.
+// Settings: confettiCount (pieces in a burst; 46 is normal).
+const CONFETTI_MAX = 220;
+const CONFETTI_PALETTE = ['#ff4d6d', '#ffb629', '#4dd6a0', '#4da3ff', '#b57bff', '#ffe14d'];
+
+/** Throws a burst from (x, y); `h` the height of the box it comes out of. */
+function confettiBurst(plugin, x, y, h, now) {
+	const item = plugin.ensureItem('confetti');
+	if (!item.pieces) { item.pieces = []; item.rings = []; }
+	const u = Math.max(0.7, h / 18), n = clamp(Math.round(Number(plugin.cfg.confettiCount) || 46), 8, 120), colors = [plugin.col(), plugin.acc(), ...CONFETTI_PALETTE];
+	item.rings.push({ x, y, t0: now, u });
+	for (let i = 0; i < n && item.pieces.length < CONFETTI_MAX; i++) {
+		const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.5, v = (170 + Math.random() * 380) * u;
+		item.pieces.push({
+			x: x + (Math.random() - 0.5) * 6 * u, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+			w: (5 + Math.random() * 5) * u, h: (2.4 + Math.random() * 2.4) * u, dot: Math.random() < 0.25,
+			rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * 16, flip: Math.random() * 6.28, flipSpeed: 6 + Math.random() * 9,
+			color: colors[Math.floor(Math.random() * colors.length)], t0: now, life: 1300 + Math.random() * 1100, sway: Math.random() * 6.28,
+		});
+	}
+	plugin.kick();
+}
+
+function drawConfetti(plugin, ctx, item, now, dt) {
+	if (!item.pieces) { item.done = true; return; }
+	const s = Math.min((dt || 16) / 1000, 0.05);
+	item.pieces = item.pieces.filter((q) => now - q.t0 < q.life);
+	item.rings = item.rings.filter((r) => now - r.t0 < 480);
+	if (!item.pieces.length && !item.rings.length) { item.done = true; return; }
+	ctx.save();
+	for (const r of item.rings) {   // the ring where the box is
+		const f = (now - r.t0) / 480, e = 1 - Math.pow(1 - f, 3);
+		ctx.globalAlpha = (1 - f) * 0.8; ctx.lineWidth = Math.max(0.6, (1 - f) * 3 * r.u);
+		ctx.strokeStyle = plugin.col(); ctx.shadowColor = plugin.col(); ctx.shadowBlur = 8;
+		ctx.beginPath(); ctx.arc(r.x, r.y, (6 + 26 * e) * r.u, 0, Math.PI * 2); ctx.stroke();
+	}
+	ctx.shadowBlur = 0;
+	for (const q of item.pieces) {
+		const drag = Math.exp(-2.1 * s);   // air: the burst slows at once and then the paper drifts down
+		q.vx *= drag; q.vy = q.vy * drag + 880 * s * (0.55 + 0.45 * Math.min(1, (now - q.t0) / 400));
+		q.x += q.vx * s + Math.sin(q.sway + (now - q.t0) * 0.006) * 0.35; q.y += q.vy * s;
+		q.rot += q.spin * s; q.flip += q.flipSpeed * s;
+		const f = (now - q.t0) / q.life, a = f < 0.7 ? 1 : 1 - (f - 0.7) / 0.3;
+		ctx.globalAlpha = a;
+		ctx.fillStyle = q.color;
+		ctx.save();
+		ctx.translate(q.x, q.y); ctx.rotate(q.rot);
+		if (q.dot) { ctx.beginPath(); ctx.arc(0, 0, q.h * 0.9, 0, Math.PI * 2); ctx.fill(); }
+		else { ctx.scale(1, Math.max(0.12, Math.abs(Math.cos(q.flip)))); ctx.fillRect(-q.w / 2, -q.h / 2, q.w, q.h); }   // the strip tumbles: seen edge-on now and then
+		ctx.restore();
+	}
+	ctx.restore();
+	plugin.kick();
+}
+
+EFFECTS.confetti = {
+	id: 'confetti', label: 'Confetti', mode: 'always', defaultOn: false, keepsState: true, blend: 'source-over',
+	defaults: { confettiCount: 46 },
+	onTaskDone(plugin, box, now) { confettiBurst(plugin, box.x + box.w / 2, box.y + box.h / 2, box.h, now); },
+	draw(plugin, ctx, item, p, k, now, dt) { drawConfetti(plugin, ctx, item, now, dt); },
+};
+
 // ---- Defaults: core keys + every effect's keys (toggle key per 'always' effect, plus its own defaults) ----
 const DEFAULTS = {
 	color: '#ffb929',       // main caret / glow color (dark theme)
-	accent: '#ff3b1f',      // trail edge + lightning glow color (dark theme)
-	style: 'line',          // 'line' | 'block'
+	accent: '#ff3b1f',      // accent / lightning glow color (dark theme)
+	style: 'block',         // always block cursor
 	fx: null,               // signature effect id set by the preset (a 'signature' effect id), or null
 	intensity: 1,           // 0.3 (subtle) .. 2 (strong)
 };
@@ -2677,7 +3838,7 @@ class Plugin extends AppPlugin {
 		listen(document, 'keydown', (e) => {
 			if (!this.caretEl) return; // typing in the palette, a rename field or another plugin: not ours
 			const key = e.key || '', typing = (key.length === 1 && !e.ctrlKey && !e.metaKey) || key === 'Backspace' || key === 'Delete' || key === 'Enter';
-			if (typing) { this.lastTypeKey = performance.now(); setTimeout(() => this.sample(true), 0); }
+			if (typing) { this.lastKeyName = key; this.lastTypeKey = performance.now(); setTimeout(() => this.sample(true), 0); }
 			if (document.querySelector(MODAL_SEL)) return;
 			const now = performance.now();
 			for (const fx of this.activeEffects()) this.callHook(fx, 'onKey', e, now);
@@ -2690,13 +3851,14 @@ class Plugin extends AppPlugin {
 
 		this.installCaretObserver();
 		this.installThemeObserver();
+		this.installTaskObserver();
 
 		this.ui.registerCustomPanelType(PAGE_TYPE, (panel) => this.renderPage(panel));
 		this.ui.addCommandPaletteCommand({ label: 'Caret FX: open settings', icon: 'ti-palette', onSelected: () => this.openPage() });
-		this.ui.addCommandPaletteCommand({ label: 'Caret FX: next preset', icon: 'ti-color-swatch', onSelected: () => this.nextPreset() });
+		this.ui.addCommandPaletteCommand({ label: 'Caret FX: next preset', icon: 'ti-palette', onSelected: () => this.nextPreset() });
 		for (const e of Object.values(EFFECTS)) {
 			if (e.mode !== 'always' || e.toggleable === false || PAGE_SWITCHES.some(([key]) => key === e.id)) continue;
-			this.ui.addCommandPaletteCommand({ label: `Caret FX: toggle ${e.label.toLowerCase()}`, icon: 'ti-toggle-right', onSelected: () => this.update({ [e.id]: !this.cfg[e.id] }) });
+			this.ui.addCommandPaletteCommand({ label: `Caret FX: toggle ${e.label.toLowerCase()}`, icon: 'ti-adjustments', onSelected: () => this.update({ [e.id]: !this.cfg[e.id] }) });
 		}
 
 		// Picks up edits made in the plugin's configuration JSON.
@@ -2760,6 +3922,36 @@ class Plugin extends AppPlugin {
 		tree.observe(document.body, { childList: true, subtree: true });
 		document.querySelectorAll(CARET_SEL).forEach(attach);
 		this.cleanup.push(() => { tree.disconnect(); observers.forEach(([o]) => o.disconnect()); observers.length = 0; });
+	}
+
+	// A task ticked off: its checkbox (.listitem-task) gains .state-done. Only a tick the user made counts - a click or a key
+	// a moment before - so a row that is drawn already done, or recycled by the list, stays quiet.
+	installTaskObserver() {
+		let gesture = 0, fired = 0, boxClick = 0;
+		const mark = (e) => { gesture = performance.now(); if (e.type === 'pointerdown' && e.target.closest && e.target.closest('.listitem-task')) boxClick = gesture; };
+		document.addEventListener('pointerdown', mark, { capture: true, passive: true });
+		document.addEventListener('keydown', mark, { capture: true, passive: true });
+		const fire = (el) => {
+			const now = performance.now(), b = el.getBoundingClientRect();
+			if (now - fired < 400 || !(b.width > 0) || !(b.height > 0)) return;
+			fired = now;
+			for (const e of this.activeEffects()) this.callHook(e, 'onTaskDone', { x: b.left, y: b.top, w: b.width, h: b.height }, now);
+			this.kick();
+		};
+		const done = (el) => el.classList && el.classList.contains('listitem-task') && el.classList.contains('state-done');
+		const mo = new MutationObserver((muts) => {
+			if (performance.now() - gesture > 1200) return;
+			for (const m of muts) {
+				if (m.type === 'attributes') { if (done(m.target) && !/\bstate-done\b/.test(m.oldValue || '')) fire(m.target); continue; }
+				if (performance.now() - boxClick > 1200) continue;   // a box that is drawn anew: only after a click on a box
+				for (const n of m.addedNodes) {
+					if (!(n instanceof Element)) continue;
+					if (done(n)) fire(n); else { const el = n.querySelector && n.querySelector('.listitem-task.state-done'); if (el) fire(el); }
+				}
+			}
+		});
+		mo.observe(document.body, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, childList: true, subtree: true });
+		this.cleanup.push(() => { mo.disconnect(); document.removeEventListener('pointerdown', mark, true); document.removeEventListener('keydown', mark, true); });
 	}
 
 	installThemeObserver() {
@@ -2831,6 +4023,7 @@ class Plugin extends AppPlugin {
 	// What an effect that keeps state leaves behind when it stops: its items, its state, its hold on the caret.
 	dropEffect(id) {
 		if (id === 'combo' && this.tint) { this.tint = null; this.applyCaretStyle(); }
+		this.callHook(EFFECTS[id] || {}, 'onDrop');
 		this.items = this.items.filter((it) => it.effect !== id);
 		delete this.fxState[id];
 		this.hideCaret(id, false);
@@ -2864,11 +4057,14 @@ class Plugin extends AppPlugin {
 		this.caretStyle.textContent = block
 			? `div.listview-caret-self, div.cfx-pcaret { opacity: 0 !important; animation: none !important; transition: none !important; }
 .app-chrome-panels .panel .listitem, .app-chrome-panels .panel .listitem [contenteditable="true"] { caret-color: transparent !important; }`
-			: `body, div.listview-caret-self, div.cfx-pcaret { --ed-caret-self-fg: ${col} !important; }`;
+			: `body, div.listview-caret-self, div.cfx-pcaret { --ed-caret-self-fg: ${col} !important; }
+${EFFECTS[this.cfg.fx]?.caretCss?.(this) || ''}`;   // a special preset may draw the line caret its own way
 		if (block) {
 			if (!this.block) { this.block = document.createElement('div'); this.block.className = 'cfx-block'; this.block.style.display = 'none'; document.body.appendChild(this.block); }
-			this.block.style.background = rgba(col, 0.42);
-			this.block.style.boxShadow = `inset 0 0 0 1.5px ${col}, 0 0 8px ${rgba(col, 0.45)}`;
+			const topCol = lighten(col, 0.45);
+			this.block.style.background = `linear-gradient(180deg, ${rgba(topCol, 0.62)} 0%, ${rgba(col, 0.40)} 40%, ${rgba(col, 0.42)} 65%, ${rgba(col, 0.52)} 100%)`;
+			this.block.style.boxShadow = `inset 0 0 0 1.25px ${rgba(col, 0.95)}, 0 0 3.5px ${rgba(col, 0.09)}, 0 0 6px ${rgba(col, 0.06)}, 0 0 9px ${rgba(col, 0.035)}`;
+			this.block.style.setProperty('--gloss', `rgba(255,255,255,${this.dark ? 0.55 : 0.8})`);
 		} else if (this.block) {
 			this.block.remove();
 			this.block = null;
@@ -2881,7 +4077,8 @@ class Plugin extends AppPlugin {
 		const clip = this.clipRect();
 		const visible = rect && (!clip || (rect.y + rect.h > clip.y && rect.y < clip.y + clip.h && rect.x + rect.w > clip.x && rect.x < clip.x + clip.w));
 		if (!visible) { this.block.style.display = 'none'; return; }
-		Object.assign(this.block.style, { display: 'block', left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.w}px`, height: `${rect.h}px` });
+		const r = Math.min(rect.w, rect.h) * 0.25;
+		Object.assign(this.block.style, { display: 'block', left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.w}px`, height: `${rect.h}px`, borderRadius: `${r}px` });
 		if (moved) { this.block.style.animation = 'none'; void this.block.offsetWidth; this.block.style.animation = ''; } // solid while moving, blinks when idle
 	}
 
@@ -2892,7 +4089,9 @@ class Plugin extends AppPlugin {
 			const custom = this.getConfiguration()?.custom || {};
 			this.cfg = { ...DEFAULTS, ...custom, ...loadChoices() };
 		} catch (e) { this.cfg = { ...DEFAULTS, ...loadChoices() }; }
+		if (this.cfg.fx === 'tether') { this.cfg.fx = null; this.cfg.tether = true; }   // Bracket tether used to be a preset; it is a switch now
 		// Effects that cannot be toggled (no command) must not stay off because of an old saved value.
+		this.cfg.style = 'block';
 		for (const e of Object.values(EFFECTS)) if (e.mode === 'always' && e.toggleable === false) this.cfg[e.id] = true;
 		if (this.canvas) this.applyCaretStyle();
 		this.syncEffects();
@@ -3178,6 +4377,13 @@ class Plugin extends AppPlugin {
 		if (sb && isVisiblyRendered(sb)) { const b = sb.getBoundingClientRect(); if (b.height > 0) bottom = Math.min(bottom, b.top); }
 		const panel = (this.caretEl && this.caretEl.closest('.panel')) || document.querySelector(FOCUSED_PANEL_SEL);
 		const scroller = panel && (panel.querySelector('.panel-scroller-y') || panel);
+		if (panel) {   // content scrolls under the panel's own title bar; its box can be empty when its contents are laid over the page, so what is in it is measured too
+			const pt = panel.getBoundingClientRect().top;
+			for (const el of panel.querySelectorAll('.panel-bar, .panel-bar *')) {
+				const b = el.getBoundingClientRect();
+				if (b.height > 0 && b.width > 0 && b.top < pt + 90 && b.bottom < pt + 140) top = Math.max(top, b.bottom);
+			}
+		}
 		if (scroller) {
 			const b = scroller.getBoundingClientRect();
 			top = Math.max(top, b.top); bottom = Math.min(bottom, b.bottom);
@@ -3267,7 +4473,7 @@ class Plugin extends AppPlugin {
 	// Draws every live item through its effect's draw(); the blend mode comes from the effect. Also used by a preview host.
 	renderItems(now) {
 		const ctx = this.ctx, k = this.cfg.intensity;
-		const dt = Math.min(48, this.lastT ? now - this.lastT : 16);
+		const dt = Math.min(50, this.lastT ? now - this.lastT : 16);
 		this.lastT = now;
 		this.items = this.items.filter((it) => !it.done && now - it.t0 < it.dur);
 		// Draw in registry order (not insertion order): a long-lived particle item must not sink under newer items.

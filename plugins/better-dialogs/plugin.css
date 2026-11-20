@@ -1,0 +1,202 @@
+/* BetterDialogs - modal dialogs, confirmations and settings as dark tinted cards. Thymer sizes every dialog from
+   its size class; only colors, radii, shadows and the entrance change here. */
+
+body.bdg-on {
+	--bdg-accent: var(--color-primary-500, #60a5fa);
+	--bdg-card1: #14161b;
+	--bdg-card2: #0d0e12;
+	--bdg-fg: #c4c4cc;
+	--bdg-strong: #f4f4f5;
+	--bdg-line: rgba(255, 255, 255, 0.08);
+	--bdg-soft: rgba(255, 255, 255, 0.04);
+	--bdg-field: rgba(255, 255, 255, 0.035);
+	--bdg-backdrop: rgba(5, 6, 9, 0.55);
+	--bdg-danger: #f43f5e;
+}
+body.bdg-on.bdg-light {
+	--bdg-card1: #ffffff;
+	--bdg-card2: #fbfbfc;
+	--bdg-fg: #3f3f46;
+	--bdg-strong: #18181b;
+	--bdg-line: rgba(0, 0, 0, 0.08);
+	--bdg-soft: rgba(0, 0, 0, 0.035);
+	--bdg-field: rgba(0, 0, 0, 0.025);
+	--bdg-backdrop: rgba(24, 24, 32, 0.28);
+	--bdg-danger: #e11d48;
+}
+
+/* ---- Backdrop and the card --------------------------------------------------------------- */
+
+body.bdg-on .modal-background:not(.modal-opaque) {
+	background:
+		radial-gradient(60% 50% at 50% 40%, color-mix(in srgb, var(--bdg-accent) 7%, transparent), transparent 70%),
+		var(--bdg-backdrop);
+	-webkit-backdrop-filter: blur(8px) saturate(1.1);
+	backdrop-filter: blur(8px) saturate(1.1);
+}
+
+body.bdg-on .modal-dialog.modal-dialog-has-border:not(.modal-popout) {
+	border: 1px solid var(--bdg-line);
+	border-radius: 18px;
+	background:
+		radial-gradient(110% 45% at 0% 0%, color-mix(in srgb, var(--bdg-accent) 8%, transparent), transparent 60%),
+		linear-gradient(180deg, var(--bdg-card1), var(--bdg-card2));
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.05),
+		0 0 0 1px rgba(0, 0, 0, 0.45),
+		0 40px 90px -30px rgba(0, 0, 0, 0.85),
+		0 12px 32px -14px rgba(0, 0, 0, 0.55);
+	color: var(--bdg-fg);
+}
+body.bdg-on.bdg-light .modal-dialog.modal-dialog-has-border:not(.modal-popout) {
+	box-shadow:
+		inset 0 1px 0 #ffffff,
+		0 40px 90px -36px rgba(15, 23, 42, 0.4),
+		0 12px 32px -14px rgba(15, 23, 42, 0.18);
+}
+
+/* A softer spring in: up a little, from slightly smaller */
+body.bdg-on .modal-dialog.animate-open {
+	transform: translateY(10px) scale(0.97);
+	transition: visibility 0s, opacity 0.2s ease, transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+}
+body.bdg-on .modal-dialog.animate-open.active {
+	transform: none;
+}
+
+body.bdg-on .modal-dialog h1.modal-h1 {
+	color: var(--bdg-strong);
+	font-weight: 650;
+	letter-spacing: -0.01em;
+}
+body.bdg-on .modal-dialog .text-details {
+	color: var(--bdg-fg);
+	line-height: 1.55;
+}
+
+/* ---- Bottom bar and buttons ----------------------------------------------------------------- */
+
+body.bdg-on .modal-dialog .modal-bottom-bar {
+	position: relative;
+	border-top: 0;
+	background: var(--bdg-soft);
+	border-radius: 0 0 17px 17px;
+}
+body.bdg-on .modal-dialog .modal-bottom-bar::before {
+	content: "";
+	position: absolute;
+	left: 16px;
+	right: 16px;
+	top: 0;
+	height: 1px;
+	background: linear-gradient(90deg, transparent, var(--bdg-line) 15%, var(--bdg-line) 85%, transparent);
+}
+body.bdg-on .modal-dialog .modal-bottom-bar-buttons {
+	gap: 8px;
+}
+
+body.bdg-on .modal-dialog :is(.button-primary, .button, .button-minimal).button-large {
+	border-radius: 10px;
+}
+body.bdg-on .modal-dialog .button-primary:not(.button-danger) {
+	border-color: color-mix(in srgb, var(--bdg-accent) 70%, #ffffff 10%);
+	background: linear-gradient(180deg, color-mix(in srgb, var(--bdg-accent) 100%, #ffffff 10%), color-mix(in srgb, var(--bdg-accent) 100%, #000000 14%));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 6px 18px -8px color-mix(in srgb, var(--bdg-accent) 80%, transparent);
+	transition: filter 0.15s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+body.bdg-on .modal-dialog .button-primary:not(.button-danger):hover {
+	filter: brightness(1.08);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 8px 24px -8px color-mix(in srgb, var(--bdg-accent) 95%, transparent);
+}
+body.bdg-on .modal-dialog .button-primary:active {
+	transform: scale(0.98);
+}
+
+/* Dangerous actions (permanent delete etc.): a red glow instead of Thymer's dark red block */
+body.bdg-on .button-danger {
+	border-color: color-mix(in srgb, var(--bdg-danger) 80%, #ffffff 10%);
+	background: linear-gradient(180deg, color-mix(in srgb, var(--bdg-danger) 100%, #ffffff 8%), color-mix(in srgb, var(--bdg-danger) 100%, #000000 22%));
+	color: #ffffff;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 20px -8px color-mix(in srgb, var(--bdg-danger) 85%, transparent);
+}
+body.bdg-on .button-danger-hover:hover {
+	border-color: var(--bdg-danger);
+	background: linear-gradient(180deg, color-mix(in srgb, var(--bdg-danger) 100%, #ffffff 16%), var(--bdg-danger));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 8px 26px -6px var(--bdg-danger);
+}
+
+/* ---- Fields ----------------------------------------------------------------------------------- */
+
+body.bdg-on .modal-dialog :is(input.form-input, select.form-input, textarea.form-input) {
+	border-radius: 10px;
+	border: 1px solid var(--bdg-line);
+	background: var(--bdg-field);
+	transition: border-color 0.15s ease, box-shadow 0.2s ease;
+}
+body.bdg-on .modal-dialog :is(input.form-input, select.form-input, textarea.form-input):focus {
+	border-color: color-mix(in srgb, var(--bdg-accent) 65%, transparent);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--bdg-accent) 16%, transparent);
+	outline: none;
+}
+body.bdg-on .modal-dialog input-switch {
+	--switch-active-bg: var(--bdg-accent);
+}
+
+/* ---- Tabs -------------------------------------------------------------------------------------- */
+
+body.bdg-on .modal-dialog .modal-tabs {
+	border-bottom-color: var(--bdg-line);
+}
+body.bdg-on .modal-dialog .modal-tab.is-selected {
+	border-bottom-color: var(--bdg-accent);
+	color: var(--bdg-strong);
+	text-shadow: 0 0 14px color-mix(in srgb, var(--bdg-accent) 45%, transparent);
+}
+
+/* ---- Settings ----------------------------------------------------------------------------------- */
+
+body.bdg-on .settings-dialog-nav {
+	border-right: 1px solid var(--bdg-line);
+}
+body.bdg-on .settings-dialog-search-field input.form-input {
+	border-radius: 10px;
+}
+body.bdg-on .settings-nav-item {
+	border-radius: 9px;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+body.bdg-on .settings-nav-item:hover:not(.is-selected) {
+	background: var(--bdg-soft);
+}
+body.bdg-on .settings-nav-item.is-selected {
+	background:
+		linear-gradient(90deg, color-mix(in srgb, var(--bdg-accent) 16%, transparent), transparent 90%),
+		var(--bdg-soft);
+	color: var(--bdg-strong);
+	box-shadow: inset 0 0 0 1px var(--bdg-line);
+}
+body.bdg-on .settings-nav-item.is-selected::before {
+	content: "";
+	position: absolute;
+	left: -4px;
+	top: 8px;
+	bottom: 8px;
+	width: 3px;
+	border-radius: 3px;
+	background: var(--bdg-accent);
+	box-shadow: 0 0 8px var(--bdg-accent), 0 0 16px color-mix(in srgb, var(--bdg-accent) 50%, transparent);
+}
+body.bdg-on .settings-nav-item.is-selected .settings-nav-icon {
+	color: var(--bdg-accent);
+}
+body.bdg-on .settings-dialog-close,
+body.bdg-on .settings-dialog-back {
+	border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	body.bdg-on .modal-dialog.animate-open {
+		transform: none;
+		transition: opacity 0.15s linear;
+	}
+}

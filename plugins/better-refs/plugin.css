@@ -1,0 +1,198 @@
+/* BetterRefs - referenced lines with a cyan edge, the backlink count as a chip, and the References section and
+   backlinks popup as dark tinted cards. Only colors, borders and shadows change on editor rows: no padding or
+   height, so Thymer's line layout stays as it is. */
+
+body.brf-on {
+	--brf-c: #22d3ee;
+	--brf-fg: #a5f3fc;
+	--brf-card: rgba(255, 255, 255, 0.025);
+	--brf-line: rgba(255, 255, 255, 0.07);
+	--brf-pop1: #121419;
+	--brf-pop2: #0c0d11;
+}
+body.brf-on.brf-light {
+	--brf-c: #0891b2;
+	--brf-fg: #0e7490;
+	--brf-card: rgba(0, 0, 0, 0.015);
+	--brf-line: rgba(0, 0, 0, 0.08);
+	--brf-pop1: #ffffff;
+	--brf-pop2: #fbfbfc;
+}
+
+@keyframes brf-pop-in {
+	from { opacity: 0; transform: translateY(6px) scale(0.98); }
+	to { opacity: 1; transform: none; }
+}
+
+/* ---- Referenced lines ----------------------------------------------------------------- */
+
+/* Plain in the text: a page can be a whole list of references, and a box or bar on each one is noise. The ↗
+   button at the end already says it is a reference; the line only tints while hovered. */
+body.brf-on .listitem-ref > .line-div {
+	background-color: transparent;
+	box-shadow: none;
+	text-decoration-color: transparent;
+	transition: background-color 0.2s ease, text-decoration-color 0.2s ease;
+}
+body.brf-on .listitem-ref > .line-div:hover {
+	background-color: color-mix(in srgb, var(--brf-c) 7%, transparent);
+	text-decoration-color: color-mix(in srgb, var(--brf-c) 40%, transparent);
+}
+/* Lines whose source was deleted: muted and struck through, not red */
+body.brf-on .listitem-ref-to-deleted > .line-div > span {
+	color: var(--text-muted, #8b8b94);
+	text-decoration-color: color-mix(in srgb, var(--text-muted, #8b8b94) 70%, transparent);
+	opacity: 0.6;
+}
+/* Inside the References list and search results the lines are plain text too. */
+body.brf-on listview-editor:is(.listview-references, .listview-search-results) .listitem-ref > .line-div {
+	border-radius: var(--ed-radius-normal, 4px);
+}
+
+/* The small button at the end of a referenced line: tinted, no frame */
+body.brf-on .lineitem-lineref {
+	background-color: color-mix(in srgb, var(--brf-c) 12%, transparent);
+	color: var(--brf-fg);
+}
+body.brf-on .lineitem-lineref:hover {
+	background-color: color-mix(in srgb, var(--brf-c) 22%, transparent);
+	color: var(--brf-fg);
+}
+
+/* ---- The backlink count on a line -------------------------------------------------------- */
+
+body.brf-on .lineitem-backlink-pill {
+	background: color-mix(in srgb, var(--brf-c) 10%, transparent);
+	color: var(--brf-fg);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brf-c) 22%, transparent);
+	border-radius: 999px;
+	font-variant-numeric: tabular-nums;
+	transition: background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+body.brf-on .lineitem-backlink-pill::before {
+	color: var(--brf-c);
+}
+body.brf-on .lineitem-backlink-pill:hover {
+	background: color-mix(in srgb, var(--brf-c) 18%, transparent);
+	color: var(--brf-fg);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brf-c) 40%, transparent),
+		0 0 10px -2px color-mix(in srgb, var(--brf-c) 50%, transparent);
+}
+
+/* ---- The References section under a page -------------------------------------------------- */
+
+body.brf-on .backrefs-footer .references-toggle {
+	padding: 3px 10px;
+	border-radius: 999px;
+}
+body.brf-on .backrefs-expanded .references-toggle {
+	border: 0;
+	background: color-mix(in srgb, var(--brf-c) 14%, transparent);
+	color: var(--brf-fg);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brf-c) 32%, transparent),
+		0 0 14px -4px color-mix(in srgb, var(--brf-c) 50%, transparent);
+}
+body.brf-on .references-header-actions .button-minimal {
+	border-radius: 8px;
+}
+body.brf-on .references-spine {
+	background: linear-gradient(180deg, color-mix(in srgb, var(--brf-c) 40%, transparent), transparent) !important;
+	opacity: 0.6;
+}
+
+/* Source page headings: the title, its collection, and the count as a chip */
+body.brf-on listview-editor.listview-references .backref-source-heading .lineitem-ref-icon {
+	color: var(--brf-c);
+}
+body.brf-on listview-editor.listview-references .backref-source-heading > .heading-h6 .lineitem-ref:hover {
+	color: var(--brf-fg);
+}
+body.brf-on listview-editor.listview-references .backref-group-count {
+	align-self: center;
+	margin-left: auto;
+	padding: 0 7px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--brf-c) 10%, transparent);
+	color: var(--brf-fg);
+	font-variant-numeric: tabular-nums;
+	line-height: 1.6;
+}
+body.brf-on listview-editor.listview-references .backref-source-heading:focus-visible {
+	outline: 0;
+	box-shadow: 0 0 0 1px var(--brf-c), 0 0 12px -2px color-mix(in srgb, var(--brf-c) 55%, transparent);
+}
+
+/* Context cards: a card tinted from the left; selected glows */
+body.brf-on listview-editor.listview-references .backref-context-card > .block-container-div {
+	border: 1px solid var(--brf-line);
+	border-radius: 12px;
+	background:
+		linear-gradient(90deg, color-mix(in srgb, var(--brf-c) 6%, transparent), transparent 50%),
+		var(--brf-card);
+	box-shadow: none;
+	transition: border-color 0.15s ease, box-shadow 0.2s ease;
+}
+body.brf-on listview-editor.listview-references .backref-context-card:hover > .block-container-div {
+	border-color: color-mix(in srgb, var(--brf-c) 28%, var(--brf-line));
+}
+body.brf-on listview-editor.listview-references .backref-context-card:is(:focus, .is-selected) > .block-container-div {
+	border-color: color-mix(in srgb, var(--brf-c) 70%, transparent);
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--brf-c) 40%, transparent),
+		0 0 18px -6px color-mix(in srgb, var(--brf-c) 60%, transparent);
+}
+body.brf-on listview-editor.listview-references .references-card-controls {
+	border-radius: 8px;
+	box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.45), inset 0 0 0 1px var(--brf-line);
+}
+body.brf-on listview-editor.listview-references .backref-unlinked-line .lineitem-bold {
+	background: color-mix(in srgb, var(--brf-c) 16%, transparent);
+	color: var(--brf-fg);
+}
+body.brf-on .references-unlinked-toggle {
+	border-radius: 8px;
+}
+
+/* ---- The backlinks popup (click on a count) ------------------------------------------------- */
+
+body.brf-on .markdown-mirror-popover.backrefs-card-popup {
+	padding: 12px;
+	border-radius: 14px;
+	border: 1px solid var(--brf-line);
+	background:
+		radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--brf-c) 9%, transparent), transparent 60%),
+		linear-gradient(180deg, var(--brf-pop1), var(--brf-pop2));
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.05),
+		0 0 0 1px rgba(0, 0, 0, 0.4),
+		0 26px 60px -22px rgba(0, 0, 0, 0.8),
+		0 8px 24px -12px rgba(0, 0, 0, 0.5);
+	animation: brf-pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+body.brf-on.brf-light .markdown-mirror-popover.backrefs-card-popup {
+	box-shadow:
+		inset 0 1px 0 #ffffff,
+		0 26px 60px -26px rgba(15, 23, 42, 0.35),
+		0 8px 24px -12px rgba(15, 23, 42, 0.16);
+}
+body.brf-on .backrefs-card-popup .id--references-popup-title {
+	padding: 0 2px 8px;
+	border-bottom: 1px solid var(--brf-line);
+	color: var(--brf-fg);
+	font-weight: 600;
+	letter-spacing: 0.02em;
+}
+body.brf-on .backrefs-card-popup > .references-editor {
+	margin-top: 10px;
+	/* the fold chevrons hang 22px left of their heading; this keeps them inside the card (which scrolls, so it clips) */
+	padding-left: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	body.brf-on .markdown-mirror-popover.backrefs-card-popup {
+		animation: none;
+	}
+	body.brf-on .listitem-ref > .line-div,
+	body.brf-on .lineitem-backlink-pill {
+		transition: none;
+	}
+}

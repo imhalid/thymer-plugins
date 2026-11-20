@@ -1,0 +1,9 @@
+{
+  "ver": 1,
+  "name": "HUD Sounds",
+  "icon": "ti-headphones",
+  "description": "Short synthesized sounds for what happens in Thymer (a task done, a menu opened, a row picked, a page opened), from Spaceship IDE's sound board.",
+  "custom": {
+    "volume": 0.7
+  }
+}

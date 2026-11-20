@@ -1,0 +1,380 @@
+/* BetterCode - code blocks as dark tinted cards with line numbers in a left gutter, the language as an always
+   visible chip, and a copy button (one body-level button placed by plugin.js). Lines keep their height; the
+   gutter is the block's own left padding and the numbers are each row's ::after. */
+
+body.bcd-on {
+	--bcd-c: #34d399;
+	--bcd-card1: #111318;
+	--bcd-card2: #0c0d11;
+	--bcd-line: rgba(255, 255, 255, 0.07);
+	--bcd-gutter: rgba(255, 255, 255, 0.022);
+	--bcd-num: #4b4f5a;
+	--bcd-num-hover: #9ca3af;
+	--bcd-fg: #d4d4d8;
+}
+body.bcd-on.bcd-light {
+	--bcd-c: #059669;
+	--bcd-card1: #fbfbfc;
+	--bcd-card2: #f6f7f9;
+	--bcd-line: rgba(0, 0, 0, 0.08);
+	--bcd-gutter: rgba(0, 0, 0, 0.025);
+	--bcd-num: #b4b8c2;
+	--bcd-num-hover: #52525b;
+	--bcd-fg: #27272a;
+}
+
+/* ---- The block --------------------------------------------------------------------------- */
+
+body.bcd-on .container-border.block-codelang {
+	padding-left: 44px;
+	border: 1px solid var(--bcd-line);
+	border-radius: 14px;
+	background:
+		linear-gradient(90deg, var(--bcd-gutter) 0 34px, transparent 34px),
+		radial-gradient(90% 60% at 100% 0%, color-mix(in srgb, var(--bcd-c) 6%, transparent), transparent 60%),
+		linear-gradient(180deg, var(--bcd-card1), var(--bcd-card2));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 28px -18px rgba(0, 0, 0, 0.7);
+	color: var(--bcd-fg);
+	counter-reset: bcd-line;
+}
+body.bcd-on.bcd-light .container-border.block-codelang {
+	box-shadow: inset 0 1px 0 #ffffff, 0 8px 22px -16px rgba(15, 23, 42, 0.25);
+}
+/* The gutter's edge */
+body.bcd-on .container-border.block-codelang::before {
+	content: "";
+	position: absolute;
+	left: 34px;
+	top: 10px;
+	bottom: 10px;
+	width: 1px;
+	background: var(--bcd-line);
+	pointer-events: none;
+}
+
+/* ---- Line numbers ------------------------------------------------------------------------------ */
+
+body.bcd-on .container-border.block-codelang > .block-content > .listitem {
+	counter-increment: bcd-line;
+}
+body.bcd-on .container-border.block-codelang > .block-content > .listitem::after {
+	content: counter(bcd-line);
+	position: absolute;
+	left: -32px;
+	top: 0;
+	width: 22px;
+	text-align: right;
+	color: var(--bcd-num);
+	font-family: var(--ed-monospace-font, ui-monospace, monospace);
+	font-size: 0.78em;
+	line-height: var(--ed-line-height, 1.6em);
+	font-variant-numeric: tabular-nums;
+	pointer-events: none;
+	user-select: none;
+	transition: color 0.12s ease;
+}
+body.bcd-on .container-border.block-codelang > .block-content > .listitem:is(:hover, .listitem-with-caret)::after {
+	color: var(--bcd-num-hover);
+}
+
+/* ---- Language chip ------------------------------------------------------------------------------ */
+
+/* Inside the block's top right corner (Thymer floats it over the border, half out), always visible, as a small
+   pill; the copy button sits to its left at the same height. Thymer's drag-grip dots are dropped from it (the
+   chip still opens the block's menu when clicked). */
+body.bcd-on .container-border.block-codelang > .block-nstype-button {
+	top: 8px;
+	right: 8px;
+	z-index: 2;
+	visibility: visible;
+	opacity: 1;
+	height: 22px;
+	padding: 0 9px;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	border: 1px solid color-mix(in srgb, var(--bcd-c) 28%, transparent);
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--bcd-card1) 82%, var(--bcd-c) 18%);
+	color: var(--bcd-c);
+	font-size: 11.5px;
+	font-weight: 600;
+	line-height: 1;
+	letter-spacing: 0.03em;
+	text-transform: lowercase;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+body.bcd-on .container-border.block-codelang > .block-nstype-button::before {
+	content: none;
+}
+body.bcd-on .container-border.block-codelang > .block-nstype-button:hover {
+	opacity: 1 !important;
+	border-color: color-mix(in srgb, var(--bcd-c) 50%, transparent);
+	background: color-mix(in srgb, var(--bcd-card1) 70%, var(--bcd-c) 30%);
+	color: var(--bcd-c);
+}
+/* Thymer hides an outer block's chip while an inner block is hovered; code blocks keep theirs. */
+body.bcd-on .container-border.block-codelang:has(.container-border:hover) > .block-nstype-button {
+	visibility: visible;
+	opacity: 1;
+}
+/* The first line leaves room for the chip and the copy button. */
+body.bcd-on .container-border.block-codelang > .block-content > .listitem:first-child > .line-div {
+	padding-right: 130px;
+}
+
+/* ---- Copy button ------------------------------------------------------------------------------- */
+
+.bcd-copy {
+	position: fixed;
+	left: 0;
+	top: 0;
+	z-index: 50;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	height: 22px;
+	padding: 0 9px;
+	box-sizing: border-box;
+	border: 1px solid var(--bcd-line);
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--bcd-card1) 88%, transparent);
+	-webkit-backdrop-filter: blur(6px);
+	backdrop-filter: blur(6px);
+	color: var(--bcd-num-hover);
+	font-family: var(--font-sans, Inter, system-ui, sans-serif);
+	font-size: 11.5px;
+	font-weight: 600;
+	cursor: pointer;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
+}
+.bcd-copy.is-on:not(.is-off) {
+	opacity: 1;
+	pointer-events: auto;
+}
+.bcd-copy:hover {
+	border-color: color-mix(in srgb, var(--bcd-c) 45%, transparent);
+	color: var(--bcd-fg);
+	box-shadow: 0 0 14px -4px color-mix(in srgb, var(--bcd-c) 60%, transparent);
+}
+.bcd-copy.is-done {
+	border-color: color-mix(in srgb, var(--bcd-c) 60%, transparent);
+	color: var(--bcd-c);
+}
+.bcd-copy.is-done .ti::before {
+	content: "\f26d"; /* ti-check */
+}
+.bcd-copy .ti {
+	font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bcd-copy {
+		transition: none;
+	}
+}
+
+/* ---- The empty panel (no page open) ------------------------------------------------------ */
+/* A quiet start screen: across the whole panel (its scroller, not Thymer's narrower content box) a fine grid
+   fading out round the middle under two soft blue and violet lights that drift slowly; the logo smaller, a greeting with today's date (plugin.js adds it), the three shortcuts side by side
+   as small cards, and the recent pages in one card with their icons in chips. All of it is CSS on Thymer's own
+   elements; the grid and the lights are pseudo-elements under the content. */
+
+html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel) {
+	--ep-accent: var(--color-primary-500, #38bdf8);
+	--ep-ink: 255, 255, 255;
+	--ep-card: rgba(var(--ep-ink), 0.028);
+	--ep-card-hover: rgba(var(--ep-ink), 0.055);
+	--ep-line: rgba(var(--ep-ink), 0.08);
+	--ep-line-hover: rgba(var(--ep-ink), 0.16);
+	--ep-grid: rgba(var(--ep-ink), 0.035);
+	isolation: isolate;
+}
+html:not([data-device=mobile]) body.bcd-on.bcd-light .panel-scroller-y:has(> .panel-body .empty-panel) {
+	--ep-ink: 0, 0, 0;
+	--ep-card: rgba(255, 255, 255, 0.6);
+	--ep-card-hover: rgba(255, 255, 255, 0.95);
+	--ep-line: rgba(0, 0, 0, 0.08);
+	--ep-line-hover: rgba(0, 0, 0, 0.16);
+	--ep-grid: rgba(0, 0, 0, 0.045);
+}
+/* The ground: a fine grid that fades out round the middle, under two soft lights of the accent that drift slowly. */
+html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel)::before,
+html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel)::after {
+	content: "";
+	position: absolute;
+	pointer-events: none;
+	z-index: -1;
+}
+html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel)::before {
+	inset: 0;
+	background:
+		linear-gradient(var(--ep-grid) 1px, transparent 1px) 50% 0 / 40px 40px,
+		linear-gradient(90deg, var(--ep-grid) 1px, transparent 1px) 50% 0 / 40px 40px;
+	-webkit-mask-image: radial-gradient(ellipse 50% 45% at 50% 40%, #000 10%, transparent 75%);
+	mask-image: radial-gradient(ellipse 50% 45% at 50% 40%, #000 10%, transparent 75%);
+}
+html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel)::after {
+	/* inside the panel's edges: this lies in the scrolling element, so anything past them (a negative inset, a
+	   transform) makes the start screen scroll. The lights drift by moving the oversized background instead. */
+	inset: 0;
+	/* two wide lights, blue and violet, fading all the way to the edge (a hard stop draws a ring) */
+	background:
+		radial-gradient(42% 34% at 42% 30%, rgba(120, 160, 255, 0.075), rgba(120, 160, 255, 0.03) 45%, transparent 100%),
+		radial-gradient(36% 30% at 62% 42%, rgba(167, 139, 250, 0.06), rgba(167, 139, 250, 0.02) 45%, transparent 100%);
+	background-size: 125% 125%;
+	background-position: 30% 40%;
+	animation: bcd-ep-drift 22s ease-in-out infinite alternate;
+}
+html:not([data-device=mobile]) body.bcd-on.bcd-light .panel-scroller-y:has(> .panel-body .empty-panel)::after {
+	background:
+		radial-gradient(42% 34% at 42% 30%, rgba(59, 130, 246, 0.07), rgba(59, 130, 246, 0.025) 45%, transparent 100%),
+		radial-gradient(36% 30% at 62% 42%, rgba(139, 92, 246, 0.055), rgba(139, 92, 246, 0.02) 45%, transparent 100%);
+}
+@keyframes bcd-ep-drift {
+	from { background-position: 30% 40%; }
+	to { background-position: 70% 60%; }
+}
+
+/* The logo, smaller and quieter, then a greeting with the date (added by plugin.js). */
+html:not([data-device=mobile]) body.bcd-on .empty-panel > .id--logo {
+	transform: scale(0.66);
+	opacity: 0.8;
+	margin: -10px 0 0;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--navigation {
+	width: min(440px, 100%);
+	padding-top: 6px;
+}
+.bcd-ep-hello {
+	margin: 0 0 18px;
+	text-align: center;
+}
+.bcd-ep-hello small {
+	display: block;
+	font-size: 10.5px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+.bcd-ep-hello b {
+	display: block;
+	margin-top: 6px;
+	font-size: 22px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	color: var(--text-default, inherit);
+}
+
+/* The three shortcuts side by side as small cards: the name on top, its keys under it. */
+html:not([data-device=mobile]) body.bcd-on .empty-panel .id--options {
+	display: grid !important;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 8px !important;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .id--options > .text-details {
+	display: flex;
+	flex-direction: column-reverse;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 11px 12px 10px;
+	border: 1px solid var(--ep-line);
+	border-radius: 11px;
+	background: var(--ep-card);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+	font-size: 12.5px;
+	line-height: 1.2;
+	transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .id--options > .text-details:hover {
+	border-color: var(--ep-line-hover);
+	background: var(--ep-card-hover);
+	transform: translateY(-1px);
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .id--options .statusbar--kbd {
+	font-size: 10.5px;
+	padding: 1px 6px;
+	border: 1px solid var(--ep-line);
+	border-bottom-width: 2px;
+	border-radius: 5px;
+	background: rgba(var(--ep-ink), 0.04);
+	color: var(--text-muted, inherit);
+	box-shadow: none;
+}
+
+/* The recent pages in one card: a small heading, rows with their icon in a chip, an arrow on the row under the pointer. */
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recents {
+	margin-top: 14px;
+	padding: 8px;
+	gap: 1px;
+	border: 1px solid var(--ep-line);
+	border-radius: 13px;
+	background: var(--ep-card);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-heading {
+	padding: 4px 8px 6px;
+	font-size: 10.5px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page {
+	position: relative;
+	gap: 10px;
+	padding: 5px 30px 5px 8px;
+	border-radius: 8px;
+	transition: background-color 0.12s ease;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page:hover {
+	background: var(--ep-card-hover);
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page > .ti {
+	width: 24px;
+	flex: 0 0 24px;
+	height: 24px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 7px;
+	background: rgba(var(--ep-ink), 0.05);
+	font-size: 14px;
+	opacity: 0.8;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page:hover > .ti {
+	color: var(--ep-accent);
+	background: color-mix(in srgb, var(--ep-accent) 14%, transparent);
+	opacity: 1;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page::after {
+	content: "\2192";
+	position: absolute;
+	right: 10px;
+	top: 50%;
+	transform: translate(-4px, -50%);
+	opacity: 0;
+	color: var(--text-muted, inherit);
+	transition: opacity 0.12s ease, transform 0.15s ease;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel .empty-panel--recent-page:hover::after {
+	opacity: 1;
+	transform: translate(0, -50%);
+}
+
+html:not([data-device=mobile]) body.bcd-on .empty-panel > :is(.id--logo, .empty-panel--navigation) {
+	animation: bcd-ep-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+html:not([data-device=mobile]) body.bcd-on .empty-panel > .empty-panel--navigation {
+	animation-delay: 0.06s;
+}
+@keyframes bcd-ep-in {
+	from { opacity: 0; transform: translateY(6px); }
+	to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+	html:not([data-device=mobile]) body.bcd-on .panel-scroller-y:has(> .panel-body .empty-panel)::after,
+	html:not([data-device=mobile]) body.bcd-on .empty-panel > :is(.id--logo, .empty-panel--navigation) {
+		animation: none;
+	}
+}

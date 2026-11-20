@@ -1,0 +1,61 @@
+/* Watercolor Banner: the landscape drawn in a page's banner strip when it has no banner */
+
+/* the strip takes a banner's height while it shows a picture */
+html:not([data-mobile-type="phone"]) .panel-heading.banner-is-empty.wcb-on { --panel-banner-height: 210px; }
+html:not([data-mobile-type="phone"]) .panel-heading.banner-is-empty.has-crumb-path.wcb-on { --panel-banner-height: 235px; }
+
+.wcb-wrap {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	overflow: hidden;
+	border-radius: inherit;
+	pointer-events: none;
+	/* the paper: shows before the first frame, and is read back as the colour the picture dissolves into */
+	background-color: var(--panel-bg-color);
+}
+.wcb-canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+/* Auto Banner draws into the same strip: where this one has a picture, Auto Banner's stays hidden */
+.panel-heading.wcb-on .ab-wrap { display: none; }
+
+/* the footer: a notebook page lying behind the bottom of the page's scrolling content, edge to edge. It is absolute, so
+   it adds no scroll; the body is at least as tall as the panel so that on a short page it sits at the panel's foot, and
+   isolated so that the footer can go behind the text (z-index -1) without going behind the panel's background. */
+.panel-scroller-y > .panel-body.wcb-has-foot {
+	position: relative;
+	isolation: isolate;
+	min-height: 100%;
+	box-sizing: border-box;     /* (its padding inside that height, or a short page would scroll) */
+}
+.wcb-foot {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 300px;
+	z-index: -1;
+	overflow: hidden;
+	pointer-events: none;
+	background-color: var(--panel-bg-color);
+}
+html[data-mobile-type="phone"] .wcb-foot { height: 200px; }
+
+/* the start sheet: geometry studies across an empty panel, behind its cards; transparent where nothing is drawn, so the
+   start screen's own background shows through */
+.panel-scroller-y > .panel-body.wcb-has-start {
+	/* (no min-height: Thymer already makes the start screen's body the panel's height, and one more made it scroll) */
+	position: relative;
+	isolation: isolate;
+}
+.wcb-start {
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	overflow: hidden;
+	pointer-events: none;
+}

@@ -1,0 +1,22 @@
+{
+  "ver": 1,
+  "name": "Smart Dates",
+  "icon": "ti-calendar-bolt",
+  "off": false,
+  "item_name": "Note",
+  "description": "Date words typed in a line (yarın sabah, 2 gün önce, saat 5, next monday, three days after) become date tags once the caret leaves the line",
+  "show_sidebar_items": true,
+  "show_cmdpal_items": true,
+  "views": [],
+  "fields": [],
+  "page_field_ids": [],
+  "sidebar_record_sort_field_id": "updated_at",
+  "sidebar_record_sort_dir": "desc",
+  "managed": {
+    "fields": false,
+    "views": false,
+    "sidebar": false
+  },
+  "custom": {},
+  "home": false
+}

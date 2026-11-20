@@ -1,0 +1,29 @@
+{
+  "ver": 1,
+  "name": "DontSpy",
+  "icon": "ti-lock",
+  "off": false,
+  "item_name": "Note",
+  "description": "A lock in the panel's title bar that hides what is on the page from onlookers, except around the caret",
+  "show_sidebar_items": true,
+  "show_cmdpal_items": true,
+  "views": [],
+  "fields": [],
+  "page_field_ids": [],
+  "sidebar_record_sort_field_id": "updated_at",
+  "sidebar_record_sort_dir": "desc",
+  "managed": {
+    "fields": false,
+    "views": false,
+    "sidebar": false
+  },
+  "custom": {
+    "style": "bars",
+    "color": null,
+    "scope": "word",
+    "typing": "last",
+    "pause": 0,
+    "startLocked": false
+  },
+  "home": false
+}

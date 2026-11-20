@@ -1,0 +1,285 @@
+/* BetterPalette - the command palette as a dark tinted card, with a glowing selection and a Recent list.
+   Desktop only (on mobile Thymer's sheet stays). The accent follows the theme's primary color.
+   Thymer's result rows are virtualized at a fixed line height: nothing here changes a row's height. */
+
+@keyframes bpal-row-in {
+	from { opacity: 0; transform: translateY(-3px); }
+	to { opacity: 1; transform: none; }
+}
+
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog {
+	--bpal-c: var(--color-primary-500, #38bdf8);
+	--bpal-card: #121419;
+	--bpal-card2: #0c0d11;
+	--bpal-fg: #e4e4e7;
+	--bpal-strong: #fafafa;
+	--bpal-muted: #8b8b94;
+	--bpal-faint: #63636b;
+	--bpal-line: rgba(255, 255, 255, 0.07);
+	--bpal-hover: rgba(255, 255, 255, 0.045);
+	--bpal-chip: rgba(255, 255, 255, 0.05);
+	--bpal-chip-line: rgba(255, 255, 255, 0.08);
+	top: max(72px, 13vh);
+	width: 600px;
+	max-height: none;
+	border-radius: 16px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	color: var(--bpal-fg);
+	background:
+		radial-gradient(120% 60% at 50% -12%, color-mix(in srgb, var(--bpal-c) 11%, transparent), transparent 62%),
+		linear-gradient(180deg, var(--bpal-card), var(--bpal-card2));
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.05),
+		0 0 0 1px rgba(0, 0, 0, 0.45),
+		0 32px 80px -24px rgba(0, 0, 0, 0.8),
+		0 12px 32px -12px rgba(0, 0, 0, 0.5);
+	overflow: hidden;
+	font-family: var(--font-sans, Inter, system-ui, -apple-system, sans-serif);
+}
+
+/* Input */
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .cmdpal--input-container {
+	position: relative;
+	margin: 0;
+	padding: 10px 14px 8px !important;
+	border-bottom: 0;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .cmdpal--input-container::after {
+	content: "";
+	position: absolute;
+	left: 14px;
+	right: 14px;
+	bottom: 0;
+	height: 1px;
+	background: linear-gradient(90deg, transparent, var(--bpal-line) 18%, var(--bpal-line) 82%, transparent);
+	pointer-events: none;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .cmdpal--input {
+	padding: 10px 6px;
+	border: 0;
+	background: transparent;
+	color: var(--bpal-strong);
+	caret-color: var(--bpal-c);
+	font-family: inherit;
+	font-size: 16px;
+	letter-spacing: 0.003em;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .cmdpal--input::placeholder {
+	color: var(--bpal-faint);
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .cmdpal--searchtype:not(:empty) {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 24px;
+	height: 24px;
+	margin-right: 4px;
+	padding: 0 6px !important;
+	border-radius: 7px;
+	background: color-mix(in srgb, var(--bpal-c) 14%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bpal-c) 30%, transparent), inset 0 0 10px -4px var(--bpal-c);
+	color: color-mix(in srgb, var(--bpal-c) 60%, #ffffff);
+	font-family: var(--font-mono, ui-monospace, monospace);
+	font-size: 13px;
+	font-weight: 600;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .cmdpal--ac-container {
+	padding: 6px 0 8px !important;
+}
+
+/* Rows (Thymer's, and the Recent list's) */
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .vscroll-node .autocomplete--option {
+	margin-left: 8px;
+	width: calc(100% - 16px);
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog :is(.autocomplete--option, .bpal-recent-row) {
+	border-radius: 9px;
+	color: var(--bpal-fg);
+	gap: 10px;
+	transition: background-color 0.12s ease, color 0.12s ease;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog :is(.autocomplete--option, .bpal-recent-row):hover {
+	background: var(--bpal-hover);
+	color: var(--bpal-strong);
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog :is(.autocomplete--option-selected, .autocomplete--option-selected:hover, .bpal-recent-row.is-selected) {
+	/* Lit from the left edge, like a glowing app icon: a dark fill and four inner shadows (deep, light,
+	   a white rim, and a faint one on the far edge), from a Figma recipe turned sideways and scaled to a row. */
+	background: linear-gradient(90deg, color-mix(in srgb, var(--bpal-c) 7%, #09101f), #0a0909 75%);
+	color: var(--bpal-strong);
+	box-shadow:
+		inset 5px 0 5px -2px rgba(255, 255, 255, 0.4),
+		inset 12px 0 10px -3px color-mix(in srgb, color-mix(in srgb, var(--bpal-c) 55%, #ffffff) 50%, transparent),
+		inset 26px 0 20px -10px color-mix(in srgb, var(--bpal-c) 75%, #001040),
+		inset -2px 0 2px -1px color-mix(in srgb, var(--bpal-c) 15%, transparent),
+		inset 0 0 0 1px color-mix(in srgb, var(--bpal-c) 16%, transparent);
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog.bpal-recent-focus .cmdpal--ac-container :is(.autocomplete--option-selected, .autocomplete--option-selected:hover) {
+	background: transparent;
+	box-shadow: none;
+	color: var(--bpal-fg);
+}
+
+/* Icons */
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog :is(.autocomplete--option-icon, .bpal-recent-icon) > .ti {
+	display: inline-flex;
+	justify-content: center;
+	width: 18px;
+	font-size: 16px;
+	color: var(--bpal-muted);
+	transition: color 0.12s ease, text-shadow 0.12s ease;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog :is(.autocomplete--option-selected, .bpal-recent-row.is-selected) :is(.autocomplete--option-icon, .bpal-recent-icon) > .ti {
+	color: color-mix(in srgb, var(--bpal-c) 70%, #ffffff);
+	text-shadow: 0 0 10px color-mix(in srgb, var(--bpal-c) 65%, transparent);
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog.bpal-recent-focus .cmdpal--ac-container .autocomplete--option-selected .autocomplete--option-icon > .ti {
+	color: var(--bpal-muted);
+	text-shadow: none;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog :is(.autocomplete--option-icon-command, .autocomplete--option-icon-content) {
+	border-radius: 6px;
+	background: var(--bpal-chip);
+	box-shadow: inset 0 0 0 1px var(--bpal-chip-line);
+}
+
+/* Matched letters, shortcuts, category arrows */
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .autocomplete--hilite {
+	color: color-mix(in srgb, var(--bpal-c) 65%, #ffffff);
+	font-weight: 600;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .autocomplete--option-right {
+	color: var(--bpal-faint);
+	gap: 6px;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog :is(span.autocomplete--kbd, .bpal-recent-kbd) {
+	padding: 2px 6px;
+	border-radius: 6px;
+	background: var(--bpal-chip);
+	box-shadow: inset 0 0 0 1px var(--bpal-chip-line);
+	color: var(--bpal-muted);
+	font-family: var(--font-mono, ui-monospace, monospace);
+	font-size: 11px;
+	line-height: 14px;
+	opacity: 1;
+}
+
+/* Dividers and headings */
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .autocomplete--divider {
+	border-top-color: var(--bpal-line);
+	opacity: 1;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .autocomplete--divider-spaced {
+	background: linear-gradient(var(--bpal-line), var(--bpal-line)) center / 100% 1px no-repeat;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog :is(.autocomplete-divider-heading, .bpal-recent-head) {
+	border-bottom: 0;
+	color: var(--bpal-faint);
+	font-size: 10.5px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .autocomplete--empty {
+	color: var(--bpal-faint);
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .cmdpal--status {
+	border-top: 1px solid var(--bpal-line);
+	color: var(--bpal-muted);
+}
+
+/* A recently used command among search results */
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .bpal-recent .autocomplete--option-label::after {
+	content: "Recent";
+	margin-left: 8px;
+	padding: 1px 6px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--bpal-c) 12%, transparent);
+	color: color-mix(in srgb, var(--bpal-c) 65%, #ffffff);
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	vertical-align: 1px;
+}
+
+/* The Recent list (empty input) */
+.bpal-recent-list {
+	display: none;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog.bpal-has-recent .bpal-recent-list {
+	display: block;
+	padding: 8px 0 2px;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .bpal-recent-list::after {
+	content: "";
+	display: block;
+	height: 1px;
+	margin: 6px 14px 0;
+	background: linear-gradient(90deg, transparent, var(--bpal-line) 18%, var(--bpal-line) 82%, transparent);
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .bpal-recent-head {
+	padding: 4px 18px 6px;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .bpal-recent-row {
+	display: flex;
+	align-items: center;
+	height: 26px; /* Thymer's rows: 26px in a 30px line */
+	margin: 0 8px 4px;
+	padding: 0 10px;
+	font-size: var(--text-size-small, 13px);
+	cursor: pointer;
+	user-select: none;
+	animation: bpal-row-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+	animation-delay: calc(var(--bpal-i, 0) * 28ms);
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .bpal-recent-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog.bpal-running :is(.cmdpal--ac-container, .bpal-recent-list) {
+	visibility: hidden;
+}
+
+/* Light themes */
+html:not([data-device=mobile]) body.bpal-on.bpal-light .cmdpal--dialog {
+	--bpal-card: #ffffff;
+	--bpal-card2: #fbfbfc;
+	--bpal-fg: #3f3f46;
+	--bpal-strong: #18181b;
+	--bpal-muted: #71717a;
+	--bpal-faint: #a1a1aa;
+	--bpal-line: rgba(0, 0, 0, 0.07);
+	--bpal-hover: rgba(0, 0, 0, 0.04);
+	--bpal-chip: rgba(0, 0, 0, 0.04);
+	--bpal-chip-line: rgba(0, 0, 0, 0.07);
+	border-color: rgba(0, 0, 0, 0.08);
+	box-shadow:
+		inset 0 1px 0 #ffffff,
+		0 32px 80px -28px rgba(15, 23, 42, 0.35),
+		0 10px 28px -12px rgba(15, 23, 42, 0.18);
+}
+html:not([data-device=mobile]) body.bpal-on.bpal-light .cmdpal--dialog :is(.autocomplete--option-selected, .autocomplete--option-selected:hover, .bpal-recent-row.is-selected) {
+	background: linear-gradient(90deg, color-mix(in srgb, var(--bpal-c) 13%, transparent), color-mix(in srgb, var(--bpal-c) 4%, transparent) 72%);
+	box-shadow:
+		inset 2px 0 0 var(--bpal-c),
+		inset 14px 0 16px -16px var(--bpal-c),
+		inset 0 0 0 1px color-mix(in srgb, var(--bpal-c) 16%, transparent);
+}
+html:not([data-device=mobile]) body.bpal-on.bpal-light .cmdpal--dialog :is(.autocomplete--hilite, .cmdpal--searchtype),
+html:not([data-device=mobile]) body.bpal-on.bpal-light .cmdpal--dialog :is(.autocomplete--option-selected, .bpal-recent-row.is-selected) :is(.autocomplete--option-icon, .bpal-recent-icon) > .ti {
+	color: color-mix(in srgb, var(--bpal-c) 75%, #000000);
+	text-shadow: none;
+}
+html:not([data-device=mobile]) body.bpal-on.bpal-light .cmdpal--dialog .bpal-recent .autocomplete--option-label::after {
+	color: color-mix(in srgb, var(--bpal-c) 75%, #000000);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html:not([data-device=mobile]) body.bpal-on .cmdpal--dialog .bpal-recent-row {
+		animation: none;
+	}
+}

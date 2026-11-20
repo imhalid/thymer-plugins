@@ -1,0 +1,104 @@
+/* BetterSidebar. Thymer toggles the sidebar by writing --sidebar-width on .panels-grid-sidebar (the grid's
+   first column) and the same width inline on .sidebar, but animates only .sidebar, so the page jumps.
+   Here the column and the sidebar move together on one curve, and closed they go to nothing. Only a toggle
+   moves: plugin.js sets body.ssb-anim for its length, so the width Thymer writes when it opens (or when the
+   window or a drag resizes the sidebar) applies at once and nothing slides in on start. A transition takes
+   the timing of the state it goes to, so the collapsed rules carry the closing curve. Phones keep Thymer's
+   drawer. Durations here and in plugin.js go together. */
+
+html:not([data-device=mobile]) .panels-grid-sidebar:not(.ssb-ghost),
+html:not([data-device=mobile]) .panels-grid-sidebar:not(.ssb-ghost) > .sidebar {
+	transition: none !important;
+}
+html:not([data-device=mobile]) body.ssb-anim .panels-grid-sidebar:not(.ssb-ghost) {
+	transition: grid-template-columns .5s cubic-bezier(.22, 1, .36, 1) !important;
+}
+html:not([data-device=mobile]) body.ssb-anim .panels-grid-sidebar:not(.ssb-ghost) > .sidebar {
+	transition: width .5s cubic-bezier(.22, 1, .36, 1) !important;
+}
+html:not([data-device=mobile]) body.ssb-anim .panels-grid-sidebar:not(.ssb-ghost):has(> .sidebar.sidebar-collapsed) {
+	transition: grid-template-columns .42s cubic-bezier(.32, .72, 0, 1) !important;
+}
+html:not([data-device=mobile]) body.ssb-anim .panels-grid-sidebar:not(.ssb-ghost) > .sidebar.sidebar-collapsed {
+	transition: width .42s cubic-bezier(.32, .72, 0, 1) !important;
+}
+
+/* A toggle starts from the width the sidebar had (plugin.js): Thymer may lay the page out with the new width
+   before the transition is switched on, so the old one is put back for a moment and the move starts from it. */
+html:not([data-device=mobile]) body.ssb-from .panels-grid-sidebar:not(.ssb-ghost):has(> .sidebar) {
+	--sidebar-width: var(--ssb-from) !important;
+}
+html:not([data-device=mobile]) body.ssb-from .panels-grid-sidebar:not(.ssb-ghost) > .sidebar {
+	width: var(--ssb-from) !important;
+}
+
+/* The chevron turns on the opening curve. */
+html:not([data-device=mobile]) .sidebar--toggler span {
+	transition: transform .5s cubic-bezier(.22, 1, .36, 1);
+}
+
+/* Closed, the sidebar takes no room at all: the column and the box go to 0 and Thymer's icon strip stays
+   hidden. The toggle, pinned just past the sidebar's right edge, is left at the page's left edge. */
+html:not([data-device=mobile]) .panels-grid-sidebar:not(.ssb-ghost):has(> .sidebar.sidebar-collapsed) {
+	--sidebar-width: 0px !important;
+}
+html:not([data-device=mobile]) .panels-grid-sidebar:not(.ssb-ghost) > .sidebar.sidebar-collapsed {
+	width: 0 !important;
+	min-width: 0 !important;
+	padding: 0 !important;
+}
+html:not([data-device=mobile]) .panels-grid-sidebar:not(.ssb-ghost) > .sidebar.sidebar-collapsed > :not(.sidebar--toggler) {
+	visibility: hidden;
+}
+/* Mascot's knight card goes with the sidebar (Mascot hides it too, but only once it has laid itself out). */
+html:not([data-device=mobile]) body:not(.ssb-anim):has(.panels-grid-sidebar:not(.ssb-ghost) > .sidebar.sidebar-collapsed) > .ach-card {
+	display: none !important;
+}
+/* The toggle hangs past the edge (Thymer's straddles it, which would put it off screen at 0). */
+html:not([data-device=mobile]) .panels-grid-sidebar:not(.ssb-ghost) > .sidebar > .sidebar--toggler {
+	right: -34px !important;
+	z-index: 60;
+}
+
+/* Opening (plugin.js): the rows at their final width, shifted left so their right edge rides the sidebar's. */
+.panels-grid-sidebar > .sidebar.ssb-sliding > :not(.sidebar--toggler) {
+	flex-shrink: 0;
+	min-width: var(--ssb-w);
+	max-width: var(--ssb-w);
+	/* a margin, not a transform: a transform would make Mascot's fixed workspace row place itself from this box */
+	margin-left: var(--ssb-shift, 0px);
+}
+
+/* The ghost: a copy of the sidebar's rows from before the toggle, fixed over the sidebar at its full width
+   and slid left with the edge as it closes. It is a .panels-grid-sidebar so the rules written for the real one dress it too. */
+.panels-grid-sidebar.ssb-ghost {
+	position: fixed;
+	display: block !important;
+	overflow: hidden;
+	z-index: 8;
+	pointer-events: none;
+	background: transparent !important;
+	contain: layout paint;
+	will-change: transform;
+}
+.panels-grid-sidebar.ssb-ghost::before,
+.panels-grid-sidebar.ssb-ghost::after {
+	content: none !important;
+}
+.panels-grid-sidebar.ssb-ghost > .sidebar {
+	background: transparent !important;
+	transition: none !important;
+	animation: none !important;
+}
+.panels-grid-sidebar.ssb-ghost > .sidebar * {
+	animation: none !important;
+	transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html .panels-grid-sidebar,
+	html .panels-grid-sidebar > .sidebar,
+	html .panels-grid-sidebar > .sidebar > * {
+		transition: none !important;
+	}
+}

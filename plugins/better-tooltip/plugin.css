@@ -1,0 +1,70 @@
+/* BetterTooltip - small dark tinted pills with keyboard chips.
+   Thymer positions tooltips with transforms (direction classes + .visible), so transforms are left
+   alone; only their timing changes. Thymer's arrows (.with-arrow) are drawn from --tooltip-bg-color
+   and --tooltip-border-color, so those are set too, though its overflow: hidden clips them. */
+
+body.btt-on .tooltip-element {
+	--tooltip-bg-color: #17191e;
+	--tooltip-border-color: #2a2d34;
+	--tooltip-fg-color: #e4e4e7;
+	--btt-kbd-bg: rgba(255, 255, 255, 0.07);
+	--btt-kbd-line: rgba(255, 255, 255, 0.1);
+	--btt-kbd-fg: #a1a1aa;
+	border-radius: 8px;
+	border-color: var(--tooltip-border-color);
+	background: var(--tooltip-bg-color);
+	color: var(--tooltip-fg-color);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.05),
+		0 0 0 1px rgba(0, 0, 0, 0.3),
+		0 10px 24px -10px rgba(0, 0, 0, 0.65);
+	font-family: var(--font-sans, Inter, system-ui, sans-serif);
+	letter-spacing: 0.01em;
+	transition:
+		opacity 0.14s ease-out,
+		transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+body.btt-on .tooltip-element .kbd {
+	padding: 1px 5px;
+	border-radius: 4px;
+	background: var(--btt-kbd-bg);
+	box-shadow: inset 0 0 0 1px var(--btt-kbd-line);
+	color: var(--btt-kbd-fg);
+	font-family: var(--font-mono, ui-monospace, monospace);
+	font-size: 10.5px;
+	line-height: 14px;
+}
+body.btt-on .tooltip-element .ti {
+	color: var(--btt-kbd-fg);
+}
+/* Thymer puts some shortcut icons right on the chip (<span class="ti ti-hand-click kbd">): icon-sized there */
+body.btt-on .tooltip-element .kbd.ti {
+	padding: 1px 4px;
+	font-size: 12px;
+	line-height: 14px;
+	vertical-align: -2px;
+}
+body.btt-on .tooltip-element.tooltip-tall {
+	opacity: 1 !important;
+	border-radius: 10px;
+}
+
+/* Light themes */
+body.btt-on.btt-light .tooltip-element {
+	--tooltip-bg-color: #ffffff;
+	--tooltip-border-color: #e4e4e7;
+	--tooltip-fg-color: #27272a;
+	--btt-kbd-bg: rgba(0, 0, 0, 0.04);
+	--btt-kbd-line: rgba(0, 0, 0, 0.08);
+	--btt-kbd-fg: #71717a;
+	box-shadow:
+		inset 0 1px 0 #ffffff,
+		0 10px 24px -12px rgba(15, 23, 42, 0.28),
+		0 2px 6px -2px rgba(15, 23, 42, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	body.btt-on .tooltip-element {
+		transition: none;
+	}
+}

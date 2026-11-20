@@ -1,0 +1,120 @@
+/* BetterSearch - the search panel as dark tinted cards with a violet accent, and the query's words marked in
+   the results (::highlight, painted from plugin.js). Result rows keep Thymer's sizes; only colors, borders and
+   shadows change on them. */
+
+body.bse-on {
+	--bse-c: #a78bfa;
+	--bse-fg: #ddd6fe;
+	--bse-mark-bg: rgba(251, 191, 36, 0.26);
+	--bse-mark-fg: #fde68a;
+	--bse-card: rgba(255, 255, 255, 0.025);
+	--bse-line: rgba(255, 255, 255, 0.07);
+	--bse-muted: #8b8b94;
+}
+body.bse-on.bse-light {
+	--bse-c: #7c3aed;
+	--bse-fg: #5b21b6;
+	--bse-mark-bg: rgba(245, 158, 11, 0.24);
+	--bse-mark-fg: #78350f;
+	--bse-card: rgba(0, 0, 0, 0.015);
+	--bse-line: rgba(0, 0, 0, 0.08);
+	--bse-muted: #71717a;
+}
+
+/* The query's words in the results */
+::highlight(bse-match) {
+	background-color: var(--bse-mark-bg);
+	color: var(--bse-mark-fg);
+}
+
+/* ---- The query field -------------------------------------------------------------------- */
+
+body.bse-on .search-panel .query-input--wrapper {
+	border-radius: 12px;
+	background:
+		radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--bse-c) 8%, transparent), transparent 60%),
+		var(--bse-card);
+	box-shadow: inset 0 0 0 1px var(--bse-line), 0 6px 18px -12px rgba(0, 0, 0, 0.55);
+	transition: box-shadow 0.2s ease;
+}
+body.bse-on .search-panel .query-input--wrapper:focus-within {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bse-c) 60%, transparent),
+		0 0 0 3px color-mix(in srgb, var(--bse-c) 16%, transparent),
+		0 0 22px -8px color-mix(in srgb, var(--bse-c) 65%, transparent);
+}
+/* The field keeps its border width (the coloured query text is laid over it to the pixel), only hidden. */
+body.bse-on .search-panel .query-input--field {
+	border-color: transparent !important;
+	box-shadow: none !important;
+	border-radius: 12px;
+}
+
+/* ---- Result count ---------------------------------------------------------------------- */
+
+body.bse-on .search-panel-results-count {
+	gap: 6px;
+	color: var(--bse-muted);
+}
+body.bse-on .search-panel-results-count [data-var] {
+	padding: 0 7px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--bse-c) 12%, transparent);
+	color: var(--bse-fg);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
+/* ---- Recent and pinned searches --------------------------------------------------------------- */
+
+body.bse-on :is(.id--search-history, .id--pinned-searches) > .text-muted {
+	font-size: var(--text-size-xsmall);
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+body.bse-on .search-history-item {
+	align-items: center;
+	margin: 2px 0;
+	padding: 6px 10px;
+	border-radius: 10px;
+	border: 1px solid transparent;
+	transition: background 0.15s ease, border-color 0.15s ease;
+}
+body.bse-on .search-history-item:hover {
+	border-color: var(--bse-line);
+	background: color-mix(in srgb, var(--bse-c) 7%, transparent);
+}
+body.bse-on .search-history-icon-swap {
+	color: var(--bse-c);
+}
+body.bse-on .search-history-item-text {
+	font-family: var(--font-mono, ui-monospace, monospace);
+	font-size: var(--text-size-small);
+}
+
+/* ---- Results ------------------------------------------------------------------------------- */
+
+/* Group headings: the record's title on a tinted strip with a violet edge */
+body.bse-on .search-panel listview-editor.listview-search-results {
+	--ed-search-heading-bg: transparent;
+	--ed-search-active-bg: color-mix(in srgb, var(--bse-c) 12%, transparent);
+}
+body.bse-on .search-panel listview-editor.listview-search-results .listitem-search-heading > .heading-h6 {
+	border-radius: 0 10px 10px 0;
+	background: linear-gradient(90deg, color-mix(in srgb, var(--bse-c) 10%, transparent), transparent 70%) !important;
+	box-shadow: inset 2px 0 0 color-mix(in srgb, var(--bse-c) 65%, transparent);
+}
+body.bse-on .search-panel listview-editor.listview-search-results .listitem-search-heading .lineitem-ref-icon {
+	color: var(--bse-c);
+}
+body.bse-on .search-panel listview-editor.listview-search-results .listitem-ref > .line-div {
+	transition: background-color 0.15s ease;
+}
+body.bse-on .search-panel listview-editor.listview-search-results .listitem-ref:hover > .line-div {
+	background-color: color-mix(in srgb, var(--bse-c) 6%, transparent) !important;
+}
+/* The selected result */
+body.bse-on .search-panel listview-editor.listview-search-results .listitem-with-caret {
+	border-radius: 0 8px 8px 0;
+	box-shadow: inset 2px 0 0 var(--bse-c), 0 0 16px -8px color-mix(in srgb, var(--bse-c) 70%, transparent);
+}

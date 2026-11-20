@@ -134,7 +134,7 @@ class Plugin extends CollectionPlugin {
 		this.lastRecords = [];     // what the view showed last, drawn at once when it opens again
 		this.views.register(VIEW, (ctx) => this.createView(ctx));
 		this.dialog = null;        // the open Add bookmark dialog
-		this.ui.addCommandPaletteCommand({ label: 'Bookmarks: add bookmark', icon: 'ti-bookmark-plus', onSelected: () => this.openAddDialog(this.category) });
+		this.ui.addCommandPaletteCommand({ label: 'Bookmarks: add bookmark', icon: 'ti-bookmark', onSelected: () => this.openAddDialog(this.category) });
 	}
 
 	onUnload() {

@@ -1,0 +1,13 @@
+/* Smart Dates - a dotted underline under the date phrases of the line being typed in (painted from plugin.js with
+   ::highlight; nothing in the line changes). They become Thymer date tags once the caret leaves the line. */
+
+::highlight(sd-date) {
+	background-color: rgba(167, 139, 250, 0.12);
+	text-decoration: underline dotted rgba(167, 139, 250, 0.9);
+	text-decoration-thickness: 1.5px;
+	text-underline-offset: 3px;
+}
+body.sd-light ::highlight(sd-date) {
+	background-color: rgba(124, 58, 237, 0.08);
+	text-decoration-color: rgba(124, 58, 237, 0.75);
+}

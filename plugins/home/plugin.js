@@ -33,7 +33,7 @@ const MAX_INSTANCES = 4096;
 const SHAPES = [
 	{ id: 'nebula', name: 'Nebula', icon: 'ti-cloud' },
 	{ id: 'neural', name: 'Neural', icon: 'ti-brain' },
-	{ id: 'atlas', name: 'Star atlas', icon: 'ti-map-2' },
+	{ id: 'atlas', name: 'Star atlas', icon: 'ti-map' },
 ];
 // The biomes: hot (the brightest parts), mid and cold (the faint outer parts), and the colour of the links between days.
 const BIOMES = [
@@ -349,7 +349,7 @@ class Plugin extends AppPlugin {
 		try { this.look = { ...this.look, ...JSON.parse(localStorage.getItem(LOOK_KEY) || '{}') }; } catch (e) { /* the default */ }
 		this.ui.registerCustomPanelType(PANEL_TYPE, (panel) => this.render(panel));
 		this.ui.addCommandPaletteCommand({ label: 'Home: open', icon: 'ti-home', onSelected: () => this.open() });
-		this.ui.addCommandPaletteCommand({ label: 'Home: next sky shape', icon: 'ti-planet', onSelected: () => this.setLook({ shape: SHAPES[(SHAPES.findIndex((s) => s.id === this.look.shape) + 1) % SHAPES.length].id }) });
+		this.ui.addCommandPaletteCommand({ label: 'Home: next sky shape', icon: 'ti-world', onSelected: () => this.setLook({ shape: SHAPES[(SHAPES.findIndex((s) => s.id === this.look.shape) + 1) % SHAPES.length].id }) });
 		this.ui.addCommandPaletteCommand({ label: 'Home: next biome', icon: 'ti-palette', onSelected: () => this.setLook({ biome: BIOMES[(BIOMES.findIndex((b) => b.id === this.look.biome) + 1) % BIOMES.length].id }) });
 
 		// Lines written while Home is open brighten today's star.
@@ -466,7 +466,9 @@ class Plugin extends AppPlugin {
 		v.ro = new ResizeObserver(() => { if (this.views.has(v)) { this.fit(v); this.layoutStars(v); } });
 		v.ro.observe(el);
 		const host = v.host = el.closest('.panel');
-		if (host) { v.ro.observe(host); host.setAttribute('data-home-panel', ''); }   // its title bar is not needed here (see plugin.css)
+		if (host) {   // its title bar is not needed here (see plugin.css)
+			v.ro.observe(host); host.setAttribute('data-home-panel', '');
+		}
 		const hour = new Date().getHours(), name = firstName(this.data.getActiveUsers?.()[0]?.getDisplayName?.());
 		root.querySelector('.home-hello h1').textContent = `${hour < 5 ? 'Good night' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'}${name ? ', ' + name : ''}`;
 		root.querySelector('.home-hello p').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -547,7 +549,7 @@ class Plugin extends AppPlugin {
 
 	closeView(v) {
 		cancelAnimationFrame(v.raf);
-		if (v.host && ![...this.views].some((o) => o !== v && o.host === v.host)) v.host.removeAttribute('data-home-panel');   // the panel shows something else: its bar comes back
+		if (v.host && ![...this.views].some((o) => o !== v && o.host === v.host)) { v.host.removeAttribute('data-home-panel'); }   // the panel shows something else: its bar comes back
 		v.ro?.disconnect();
 		v.closePicker?.();
 		v.sky?.destroy();
@@ -650,7 +652,7 @@ class Plugin extends AppPlugin {
 		const days = this.days(), today = dayStart(new Date());
 		const score = (d) => days[dayKey(d)] || 0;
 		const active = Object.keys(days).filter((k) => days[k] > 0).length;
-		v.root.querySelector('.home-hello p').textContent = `${today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} · ${fmt(active)} ${active === 1 ? 'day' : 'days'} among the stars`;
+		v.root.querySelector('.home-hello p').textContent = `${today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} · ${fmt(active)} ${active === 1 ? 'day' : 'days'} ${v.skin === 'blueprint' ? 'on the sheet' : v.skin ? 'on the page' : 'among the stars'}`;
 		const bars = v.root.querySelector('.home-bars'), last = [...Array(30)].map((_, i) => daysAgo(29 - i)), most = Math.max(1, ...last.map(score));
 		bars.textContent = '';
 		let total = 0;
@@ -697,7 +699,8 @@ class Plugin extends AppPlugin {
 	 * linked (in the atlas, only within their week; in the neural field, not at all: its filaments are the links).
 	 */
 	layoutStars(v) {
-		v.w = v.canvas.clientWidth; v.h = v.canvas.clientHeight;
+		const sky = v.root.querySelector('.home-sky');   // the canvas's size too, where there is one
+		v.w = sky.clientWidth; v.h = sky.clientHeight;
 		v.shape = this.shape();
 		const days = this.days(), shape = v.shape;
 		const keys = Object.keys(days).filter((k) => days[k] > 0).sort();
@@ -753,6 +756,7 @@ class Plugin extends AppPlugin {
 			if (b.i - a.i === 1 && shape !== 'neural' && (shape !== 'atlas' || a.week === b.week)) v.links.push([a, b]);   // the field is the network's links
 		}
 	}
+
 
 	/** Writes this frame's stars, links and ring, as the camera sees them, into the sky's buffer; returns how many. */
 	instances(v, cam, t) {
@@ -818,7 +822,8 @@ class Plugin extends AppPlugin {
 		if (!best) { tip.classList.remove('on'); return; }
 		const s = best.star;
 		tip.textContent = `${keyDate(s.key).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} · ${fmt(s.score)} change${s.score === 1 ? '' : 's'}`;
-		tip.style.left = `${Math.min(r.width - 10, Math.max(10, best.x))}px`; tip.style.top = `${best.y - 14}px`;
 		tip.classList.add('on');
+		const half = tip.offsetWidth / 2 + 8;   // the tip is centred on the star, and kept inside the sky
+		tip.style.left = `${Math.min(r.width - half, Math.max(half, best.x))}px`; tip.style.top = `${best.y - 14}px`;
 	}
 }
